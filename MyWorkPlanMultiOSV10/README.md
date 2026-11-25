@@ -46,9 +46,9 @@ Windows · macOS · Linux · 웹에서 쓰는 프로젝트 계획·일정 관리
 - **프로젝트 업데이트** — 상태 날짜까지 일정대로 완료, 남은 작업 다시 일정
 - **상태 날짜**, 늦은 작업, 시작·완료·기간·작업량·비용 차이, **추적 간트**와 **진행선**
 
-### 보기 (12가지)
+### 보기 (13가지)
 
-간트 차트 · 추적 간트 · 작업 시트 · 작업 사용 · 네트워크 다이어그램 · 일정표 · 시간 표시 막대 · 자원 시트 · 자원 사용 · 자원 그래프 · 팀 플래너 · 보고서
+간트 차트 · 추적 간트 · 작업 시트 · 작업 사용 · 네트워크 다이어그램 · 일정표 · 시간 표시 막대 · **칸반 보드**(시작 전·진행 중·완료, 카드를 끌어 완료율 변경) · 자원 시트 · 자원 사용 · 자원 그래프 · 팀 플래너 · 보고서
 
 - 표(열 묶음) 9가지, 열 선택·숨기기·너비 조절, 필터 16가지와 **강조 표시**, 그룹 10가지, 정렬 9가지, 검색
 - 찾기 · 바꾸기 · 이동(작업 ID·날짜) · 날짜 범위 필터
@@ -56,7 +56,7 @@ Windows · macOS · Linux · 웹에서 쓰는 프로젝트 계획·일정 관리
 
 ### 보고서
 
-프로젝트 개요 · 비용 개요 · 작업량 개요 · 번다운 · 주 공정 작업 · 늦은 작업 · 다가오는 작업 · 마일스톤 보고서 · 자원 개요. SVG 차트, **보고서 복사**로 다른 프로그램에 붙여넣기.
+프로젝트 개요 · 비용 개요 · 작업량 개요 · **번다운 차트**(이상선·기준 계획·현재 일정·실제, 남은 작업량과 남은 작업 수, 인쇄 가능) · 주 공정 작업 · 늦은 작업 · 다가오는 작업 · 마일스톤 보고서 · 자원 개요. SVG 차트, **보고서 복사**로 다른 프로그램에 붙여넣기.
 
 ### 파일과 연동
 
@@ -69,13 +69,13 @@ Windows · macOS · Linux · 웹에서 쓰는 프로젝트 계획·일정 관리
 
 ### 인쇄
 
-전체 프로젝트 · 현재 보기 · 사용자 지정(ID 범위·날짜 범위·선택한 작업), 용지·방향·여백·배율·내용(표+차트/표만/차트만)·범례·머리글·바닥글, 미리 보기에서 쪽 넘기기, 바로 인쇄. 인쇄물은 테마와 상관없이 흰 바탕.
+설정을 탭 없이 한 줄로: **프린터 선택**·매수, 내용(표+차트/표만/차트만/**번다운 차트**)·범례, 전체 프로젝트 · 현재 보기 · 사용자 지정(ID 범위·날짜 범위·선택한 작업), 용지·방향·여백·배율, 머리글·바닥글. 미리 보기에서 쪽 넘기기, **인쇄** 버튼은 고른 프린터로 바로 인쇄(Windows, WebView2 무대화 인쇄; 그 밖에는 시스템 인쇄 창). 인쇄물은 테마와 상관없이 흰 바탕.
 
 ### 화면과 사용 편의
 
-- **테마** — 다크 20 · 라이트 20 · 사용자 정의(12가지 색 편집, 글자 대비 경고) · 시스템 설정. 툴바의 테마 버튼은 누를 때마다 **무작위 테마**, 옆의 ▾는 다크 | 라이트 **두 줄 목록**
+- **테마** — 다크 20 · 라이트 20 · 사용자 정의(12가지 색 편집, 글자 대비 경고) · 시스템 설정. 툴바의 테마 버튼은 누를 때마다 **무작위 테마**, 옆의 ▾는 버튼 아래 **드롭다운**(다크 | 라이트 두 줄, 사용자 설정 테마, **사용자 테마 설정…**)
 - **한국어/영어** — 툴바의 **국기 버튼**(한국어일 때 영국 국기, 영어일 때 태극기), 백엔드 메시지까지 전환
-- **시작 페이지** — 움직이는 배경 위에 반투명 **카드 보드**(MyUMLMaker와 같은 3열 보드: 손잡이로 옮기기, 모서리로 크기 조절, 자동 정렬, 카드 불투명도, 배치 저장). 카드: 머리(사용 설명서 · 튜토리얼 문서 · 튜토리얼 영상 · 도움말 ▾ · 튜토리얼 시작), **바로 가기 10개**(열기 · 가져오기 · **인쇄** · 튜토리얼 · 단축키 · 언어 · 설정 · 시작 화면 설정 · 정보 · 끝내기), 최근 항목, 새로 만들기(템플릿 8), 예제 프로젝트 40, **움직이는 배경 21가지**(오로라 · 물결 · 입자 · 별자리 · 거품 · 흐르는 격자 · 간트 막대 · 별빛 · 비 · 눈 · 반딧불 · 파문 · 코드 비 · 육각 격자 · 궤도 · 라바 램프 · 은하 나선 · 색종이 · 마일스톤 · 리본 · 불꽃놀이, 무작위 바꾸기, 속도)
+- **시작 페이지** — 움직이는 배경 위에 반투명 **카드 보드**(MyUMLMaker와 같은 3열 보드: 손잡이로 옮기기, 모서리로 크기 조절(프로그램 정보 카드는 맨 위 고정), 자동 정렬, 카드 불투명도, 배치 저장). 카드: 머리(사용 설명서 · 튜토리얼 문서 · 튜토리얼 영상 · 도움말 ▾ · 튜토리얼 시작), **바로 가기 10개**(열기 · 가져오기 · **인쇄** · 튜토리얼 · 단축키 · 언어 · 설정 · 시작 화면 설정 · 정보 · 끝내기), 최근 항목, 새로 만들기(템플릿 8), 예제 프로젝트 40, **움직이는 배경 14가지**(타임라인 · 간트 막대 · 칸반 보드 · 의존 관계망 · 번다운 차트 · 일정 달력 · 주 공정 · 마일스톤 · 진행률 · 자원 부하 · 스프린트 · 계획 설계도 · 기준 계획 대비 · 팀 레인)
 - **튜토리얼** — 예제 프로젝트로 모든 기능을 장별로 보여 줌(자동 재생, 장 고르기, 끝나면 설정 원래대로)
 - **설정** — 일반 · 테마 · 글꼴(시스템 글꼴 전체·크기·굵기·기울임) · 배경(움직이는 배경/이미지, 배경 불투명도, 맞춤) · 일정 · 간트 차트 · 최근 기록 · 단축키. 모든 설정은 저장되어 다음 실행에 다시 쓰임
 - **패널** — 왼쪽 도구 모음과 오른쪽 속성 패널(선택한 작업·자원·연결·프로젝트를 바로 편집), 접으면 아이콘 레일, 구분자로 너비 조절
@@ -174,9 +174,9 @@ SHKWON (knix008@naver.com)
 - **Scheduling engine** — forward and backward pass, total and free slack, critical path, 8 constraint types, deadlines, schedule from the start or the finish date, calendars with working weeks and exceptions.
 - **Resources and costs** — work, material and cost resources, assignments, task types and effort driven, fixed costs, overallocation, resource leveling, Team Planner.
 - **Tracking** — 11 baselines, % complete, update tasks, update project, status date, variances, Tracking Gantt and progress line.
-- **12 views** (Gantt Chart, Tracking Gantt, Task Sheet, Task Usage, Network Diagram, Calendar, Timeline, Resource Sheet, Resource Usage, Resource Graph, Team Planner, Reports), 9 tables, filters, highlighting, groups, sorting, find/replace/go to; **9 reports**.
-- **Files** — `.mwp` / `.mwpt`, MS Project XML import/export, CSV import/export, PNG export, recent files and folders, drag and drop, unsaved-change prompts; **printing** with a live preview.
-- **UI** — 20 dark + 20 light + custom themes (random theme button and a two-column dropdown), Korean/English with a flag button, start page with moving backgrounds, a tutorial, persisted settings, collapsible panels, a status bar, separate popup windows, error popups with copyable details, single-instance lock.
+- **13 views** (Gantt Chart, Tracking Gantt, Task Sheet, Task Usage, Network Diagram, Calendar, Timeline, Kanban Board, Resource Sheet, Resource Usage, Resource Graph, Team Planner, Reports), 9 tables, filters, highlighting, groups, sorting, find/replace/go to; **9 reports**.
+- **Files** — `.mwp` / `.mwpt`, MS Project XML import/export, CSV import/export, PNG export, recent files and folders, drag and drop, unsaved-change prompts; **printing** with a live preview, a printer choice and direct printing (Windows), and a printable **burndown chart**.
+- **UI** — 20 dark + 20 light + custom themes (random theme button and a theme dropdown with the custom theme and its settings), Korean/English with a flag button, start page with 14 planning-themed moving backgrounds, a tutorial, persisted settings, collapsible panels, a status bar, separate popup windows, error popups with copyable details, single-instance lock.
 
 ```bash
 npm install

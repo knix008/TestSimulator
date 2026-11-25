@@ -5,6 +5,7 @@
 import { TASK_FIELD_MAP, fieldText } from '../domain/fields.js';
 import { formatDay, toMin } from '../domain/time.js';
 import { Timescale } from '../views/timescale.js';
+import { renderBurndownPages } from './burndown.js';
 
 export const PAPERS = {
   A4: { width: 210, height: 297 },
@@ -16,7 +17,7 @@ export const PAPERS = {
 };
 export const MARGINS = { narrow: 6, normal: 12, wide: 20 };
 export const RANGES = ['all', 'view', 'custom'];
-export const CONTENTS = ['both', 'table', 'chart'];
+export const CONTENTS = ['both', 'table', 'chart', 'burndown'];
 const MM = 96 / 25.4;
 const PRINT_WIDTHS = { name: 230, wbs: 46, duration: 64, start: 82, finish: 82, predecessors: 70, resourceNames: 130, percentComplete: 50, cost: 82, work: 64 };
 
@@ -59,6 +60,8 @@ export function selectRows(project, sched, options, { visible = null, selected =
  */
 export function renderPrintSvg(project, sched, options) {
   const o = { ...defaultPrintOptions(), ...options };
+  // The burndown chart is a page of its own (not rows of tasks).
+  if (o.content === 'burndown' && !o.single) return renderBurndownPages(project, sched, o, { PAPERS, MARGINS });
   const t = o.t ?? ((key) => key);
   const ctx = { project, sched, language: o.language ?? 'ko', dateFormat: o.dateFormat ?? 'iso', showTime: false, t, toMin };
   const tasks = selectRows(project, sched, o, { visible: o.visible, selected: o.selected });
@@ -215,5 +218,7 @@ export function renderPrintSvg(project, sched, options) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${pageW}" height="${pageH}" viewBox="0 0 ${pageW} ${pageH}" font-family="Segoe UI, Malgun Gothic, Apple SD Gothic Neo, Noto Sans KR, sans-serif">${o.transparent ? '' : `<rect width="${pageW}" height="${pageH}" fill="#fff"/>`}${out.join('')}</svg>`;
     pages.push({ svg, width: pageW, height: pageH });
   }
-  return { pages, svg: pages[0].svg, width: pages[0].width, height: pages[0].height, count: pages.length, rows: tasks.length };
+  const paper = PAPERS[o.paper] ?? PAPERS.A4;
+  const landscape = o.orientation === 'landscape';
+  return { pages, svg: pages[0].svg, width: pages[0].width, height: pages[0].height, count: pages.length, rows: tasks.length, paper: { width: landscape ? paper.height : paper.width, height: landscape ? paper.width : paper.height } };
 }

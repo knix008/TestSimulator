@@ -66,6 +66,14 @@ export class GanttView {
       this.drawWindow();
       this.drawHeadThrottled();
     }, { passive: true });
+    // The chart got wider (a panel folded, the window grew, the splitter moved): stretch the timescale to the new edge.
+    this.resizeWatch = new ResizeObserver(() => {
+      if (!this.scale || this.chartBody.clientWidth <= (this.laidWidth ?? 0)) return;
+      this.layout();
+      this.drawChart();
+      this.drawHeadAndBg();
+    });
+    this.resizeWatch.observe(this.chartBody);
     this.bind();
   }
 
@@ -122,7 +130,12 @@ export class GanttView {
     const rows = this.grid.list;
     const span = spanOf(rows, sched);
     const settings = this.app.settings();
-    this.scale = new Timescale({ fromDay: span.fromDay, toDay: span.toDay, pxPerDay: settings.timescale, weekStart: this.app.project().options.weekStart ?? 1, language: getLanguage() });
+    // The timescale reaches at least the right edge of the chart: zoomed out (or wider, with a
+    // panel folded) the rows, gridlines and header still run to the edge instead of stopping short.
+    const visibleDays = Math.ceil(((this.chartBody.clientWidth || 0) + 200) / settings.timescale);
+    const toDay = Math.max(span.toDay, span.fromDay + visibleDays);
+    this.scale = new Timescale({ fromDay: span.fromDay, toDay, pxPerDay: settings.timescale, weekStart: this.app.project().options.weekStart ?? 1, language: getLanguage() });
+    this.laidWidth = this.chartBody.clientWidth;
     const h = this.rowHeight;
     this.canvas.style.width = `${this.scale.width}px`;
     this.canvas.style.height = `${(rows.length + 1) * h + 4}px`;
@@ -533,6 +546,7 @@ export class GanttView {
   }
 
   destroy() {
+    this.resizeWatch?.disconnect();
     this.host.innerHTML = '';
     this.host.className = 'view-host';
   }

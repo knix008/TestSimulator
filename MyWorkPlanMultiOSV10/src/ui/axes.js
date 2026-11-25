@@ -64,10 +64,12 @@ export function labelIndexes(count, width, minGap = 64) {
 }
 
 /** Value-axis kinds the charts use: how to scale a raw value and how to write a tick. */
-export function axisKind(kind, { currency = 'KRW', language = 'ko' } = {}) {
+export function axisKind(kind, { currency = 'KRW', language = 'ko', minutesPerDay = 480 } = {}) {
   switch (kind) {
     case 'hours': // raw values are minutes
       return { unit: 60, label: (v) => `${plainNumber(v, language)}${language === 'en' ? 'h' : '시간'}` };
+    case 'days': // raw values are working minutes; minutesPerDay from the plan's options
+      return { unit: minutesPerDay, label: (v) => `${plainNumber(v, language)}${language === 'en' ? 'd' : '일'}` };
     case 'money':
       return { unit: 1, label: (v) => compactMoney(v, currency, language) };
     case 'percent':

@@ -75,7 +75,7 @@ test('normalizeSettings repairs choices, booleans and text', () => {
   const base = S.defaultSettings('ko');
   const bad = S.normalizeSettings({
     theme: 'no-such-theme', fontWeight: 450, fontStyle: 'oblique', backgroundKind: 'video', animation: 'no-such-animation', backgroundFit: 'zoom',
-    dateFormat: 'roman', defaultView: 'kanban', barText: 'emoji', defaultTaskMode: 'robot', fontFamily: 12, backgroundImage: 7, lastDirectory: '',
+    dateFormat: 'roman', defaultView: 'pertChart', barText: 'emoji', defaultTaskMode: 'robot', fontFamily: 12, backgroundImage: 7, lastDirectory: '',
     showCritical: 'yes', confirmDelete: 1, tutorialDone: null, showToday: undefined,
   }, 'ko');
   assert.deepEqual(
@@ -84,13 +84,13 @@ test('normalizeSettings repairs choices, booleans and text', () => {
   );
   assert.deepEqual([bad.showCritical, bad.confirmDelete, bad.tutorialDone, bad.showToday], [base.showCritical, base.confirmDelete, base.tutorialDone, base.showToday]);
   const good = S.normalizeSettings({
-    theme: THEME_IDS.at(-1), fontWeight: '700', fontStyle: 'italic', backgroundKind: 'none', animation: 'starfield', backgroundFit: 'tile',
+    theme: THEME_IDS.at(-1), fontWeight: '700', fontStyle: 'italic', backgroundKind: 'none', animation: 'burndown', backgroundFit: 'tile',
     dateFormat: 'eu', defaultView: 'reports', barText: 'percent', defaultTaskMode: 'manual', fontFamily: 'Arial', backgroundImage: 'data:x', lastDirectory: 'C:\\Plans',
     showCritical: false, tutorialDone: true,
   }, 'ko');
   assert.deepEqual(
     [good.theme, good.fontWeight, good.fontStyle, good.backgroundKind, good.animation, good.backgroundFit, good.dateFormat, good.defaultView, good.barText, good.defaultTaskMode, good.fontFamily, good.backgroundImage, good.lastDirectory, good.showCritical, good.tutorialDone],
-    [THEME_IDS.at(-1), 700, 'italic', 'none', 'starfield', 'tile', 'eu', 'reports', 'percent', 'manual', 'Arial', 'data:x', 'C:\\Plans', false, true],
+    [THEME_IDS.at(-1), 700, 'italic', 'none', 'burndown', 'tile', 'eu', 'reports', 'percent', 'manual', 'Arial', 'data:x', 'C:\\Plans', false, true],
   );
   assert.equal(typeof S.normalizeSettings({ customTheme: 'x' }).customTheme, 'object', 'the custom theme is repaired too');
 });

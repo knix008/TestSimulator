@@ -115,6 +115,22 @@ test('setPercentComplete on a summary sets every task inside it', () => {
   assert.equal(schedule(project).info(t.S.id).percentComplete, 40, 'weighted by duration: 2 of 5 days');
 });
 
+test('distributePercent fills a summary in schedule order (right panel % complete of a summary / the project)', () => {
+  const { project, t, sched } = plan();
+  assert.equal(Tr.distributePercent(project, sched, [t.S.id], 20), 2);
+  assert.deepEqual([t.A.percentComplete, t.B.percentComplete], [50, 0], '1 of 5 days: half of A (2 d), B not started');
+  assert.equal(schedule(project).info(t.S.id).percentComplete, 20);
+  assert.equal(t.B.actualStart, null);
+  Tr.distributePercent(project, sched, [t.S.id], 60);
+  assert.deepEqual([t.A.percentComplete, t.B.percentComplete], [100, 33], 'A done, a third of B');
+  assert.equal(t.A.actualFinish, '2026-10-20T17:00');
+  assert.equal(schedule(project).info(t.S.id).percentComplete, 60);
+  Tr.distributePercent(project, sched, [t.S.id], 100);
+  assert.deepEqual([t.A.percentComplete, t.B.percentComplete], [100, 100]);
+  Tr.distributePercent(project, sched, [t.S.id], 0);
+  assert.deepEqual([t.A.percentComplete, t.A.actualStart, t.B.percentComplete], [0, null, 0]);
+});
+
 test('updateProgress: actual and remaining durations, percentages, actual dates', () => {
   const { project, t, sched } = plan();
   assert.equal(Tr.updateProgress(project, sched, t.S.id, { percentComplete: 50 }), false, 'not on a summary');

@@ -20,14 +20,14 @@ export const PANEL_MIN = { left: 236, right: 300 };
 export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 /** Choices for the start page's automatic background change (seconds; 0 = off). */
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
+/** Moving backgrounds: pictures of project planning (ui/background.js, ui/background-plan.js). */
 export const ANIMATIONS = [
-  'aurora', 'waves', 'particles', 'constellation', 'bubbles', 'gridflow', 'gantt', 'starfield', 'rain', 'snow',
-  'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'milestones', 'ribbons',
-  'fireworks',
+  'timeline', 'gantt', 'kanban', 'network', 'burndown', 'calendar', 'critical', 'milestones', 'progress', 'resources', 'sprint', 'blueprint',
+  'baseline', 'swimlanes',
 ];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];
-export const VIEWS = ['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'];
+export const VIEWS = ['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'kanban', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'];
 export const BAR_TEXT = ['name', 'resources', 'percent', 'none'];
 /** Where "Save to database" stores plans (desktop app; Settings › Database). */
 export const DB_KINDS = ['none', 'sqlite', 'mariadb', 'mysql', 'postgres'];
@@ -46,7 +46,7 @@ export function defaultSettings(language = 'ko') {
     zoom: 100,
     timescale: 16,
     backgroundKind: 'animated',
-    animation: 'aurora',
+    animation: 'timeline',
     animationSpeed: 100,
     animationRandom: true,
     animationInterval: 30,

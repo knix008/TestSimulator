@@ -562,6 +562,14 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 .line-chart .line.planned { stroke: color-mix(in srgb, var(--text) 45%, transparent); stroke-dasharray: 6 4; }
 .line-chart .line.scheduled { stroke: var(--accent); }
 .line-chart .line.actual { stroke: var(--success); }
+.line-chart .line.ideal { stroke: color-mix(in srgb, var(--text) 40%, transparent); stroke-dasharray: 7 5; stroke-width: 1.6; }
+.line-chart .line.base { stroke: #b07cc6; stroke-dasharray: 2 4; stroke-width: 1.8; }
+.line-chart .status-mark { stroke: var(--danger); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.line-chart .status-text { font-size: 10px; fill: var(--danger); }
+.chart-legend i.ideal { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--text) 40%, transparent) 0 5px, transparent 5px 8px); }
+.chart-legend i.base { background: repeating-linear-gradient(90deg, #b07cc6 0 2px, transparent 2px 5px); }
+.burndown-kpis .kpi.bad b { color: var(--danger); }
+.burndown-kpis .kpi.good b { color: var(--success); }
 .line-chart .axis { stroke: var(--border); }
 .line-chart .axis-text { font-size: 10px; fill: var(--muted); }
 .line-chart .axis-text.middle { text-anchor: middle; }
@@ -749,6 +757,10 @@ html.is-popup, html.is-popup body { background: var(--surface); overflow: hidden
 .preview-chip { padding: 3px 10px; border-radius: 6px; font-size: 0.86em; }
 .popup-theme .popup-body { padding: 8px 12px; }
 .theme-picker { display: flex; flex-direction: column; gap: 6px; height: 100%; }
+/* The theme dropdown: a menu-like panel under the toolbar button (no title bar, no Close). */
+html.popup-kind-theme, html.popup-kind-theme body { background: var(--surface); }
+.theme-dropdown { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; gap: 6px; width: 560px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; }
+.picker-foot { display: flex; gap: 6px; padding-top: 6px; border-top: 1px solid var(--hairline, var(--border)); }
 .picker-top { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .picker-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; flex: 1; min-height: 0; }
 .picker-column h3 { display: flex; align-items: center; gap: 6px; margin: 2px 0 4px; font-size: 0.8em; color: var(--muted); text-transform: uppercase; }
@@ -870,11 +882,20 @@ kbd { min-width: 128px; font-family: Consolas, Menlo, monospace; font-size: 0.82
 
 /* print preview */
 .popup-print .popup-body { padding: 0; }
-.print-view { display: grid; grid-template-columns: 380px minmax(0, 1fr); height: 100%; }
-.print-options { padding: 8px 14px; border-right: 1px solid var(--border); overflow: hidden; background: var(--panel); }
+.print-view { display: grid; grid-template-columns: 440px minmax(0, 1fr); height: 100%; }
+.print-options { padding: 8px 14px 14px; border-right: 1px solid var(--border); overflow-x: hidden; overflow-y: auto; background: var(--panel); }
+/* One column: printer, contents, range, page setup, header and footer, each under its own heading. */
+.print-column { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* One column of every setting: compact rows so it fits the window without scrolling. */
+.print-column .row, .print-column .radio-row { min-height: 28px; }
+.print-column .row .stepper, .print-column .row select, .print-column .row input[type="text"] { height: 26px; }
+.print-section > h3 { display: flex; align-items: center; gap: 6px; margin: 2px 0 2px; padding-bottom: 2px; border-bottom: 1px solid var(--border); font-size: 0.92em; color: var(--muted); }
+.print-section > h3 .icon { width: 15px; height: 15px; }
+/* Every filled field (select, text) ends at the same right edge. */
+.print-options .row-control select { max-width: none; width: 100%; }
 .print-options .row { min-height: 34px; }
 .print-options .row-label { min-width: 110px; }
-.print-options select { max-width: 150px; }
+.print-options select { max-width: none; }
 .print-options .stepper .stepper-value { width: 54px; }
 .radio-row { justify-content: flex-start; cursor: pointer; }
 .radio-row span { display: inline-flex; align-items: center; gap: 6px; }
@@ -883,6 +904,8 @@ kbd { min-width: 128px; font-family: Consolas, Menlo, monospace; font-size: 0.82
 .preview-stage svg { display: block; }
 .preview-empty { display: flex; height: 100%; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
 .page-number { min-width: 110px; text-align: center; font-variant-numeric: tabular-nums; }
+.print-summary { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; white-space: nowrap; }
+.print-summary .icon { width: 14px; height: 14px; }
 .print-sheet { display: none; }
 
 @media print {
@@ -893,11 +916,14 @@ kbd { min-width: 128px; font-family: Consolas, Menlo, monospace; font-size: 0.82
   .print-sheet { display: block !important; }
   .print-sheet .print-page { break-after: page; page-break-after: always; }
   .print-sheet .print-page:last-child { break-after: auto; page-break-after: auto; }
-  .print-sheet svg { width: 100%; height: auto; }
+  .print-sheet .print-page { overflow: hidden; }
+  /* Not inline: the line box's descent under an inline picture pushed every sheet onto a second, empty page. */
+  .print-sheet svg { display: block; width: 100%; height: 100%; }
 }
 
 /* menus */
-html.popup-kind-menu, html.popup-kind-menu body { background: var(--surface); }
+/* The menu window is see-through: every list (the menu, an open group beside it) is a panel of its own size. */
+html.popup-kind-menu, html.popup-kind-menu body { background: transparent !important; }
 .popup-menu {
   position: absolute; left: 0; top: 0; width: max-content; display: flex; flex-direction: column; min-width: 200px; padding: 4px; white-space: nowrap;
   background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
@@ -911,6 +937,14 @@ html.popup-kind-menu, html.popup-kind-menu body { background: var(--surface); }
 .menu-key { justify-self: end; padding-left: 28px; font-size: 0.82em; opacity: 0.7; }
 .menu-check .icon { width: 15px; height: 15px; }
 .menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
+/* A group opens beside its parent list in the same window: both lists stay in view. */
+.menu-cascade { position: absolute; left: 0; top: 0; display: flex; align-items: flex-start; gap: 2px; width: max-content; }
+.menu-cascade { padding: 0 10px 12px 0; }
+.menu-cascade > .popup-menu { position: static; flex: none; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22); }
+/* Web build: the menu frame is see-through too (no frame background or shadow; the lists have their own). */
+.web-popup.web-popup-menu { background: transparent; box-shadow: none; border-radius: 0; overflow: visible; }
+.web-popup.web-popup-menu iframe { background: transparent; }
+.menu-item.sub-open { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .mode-icon { display: inline-grid; place-items: center; color: var(--accent); }
 .mode-icon.manual { color: var(--warning); }
 
@@ -1122,7 +1156,11 @@ html.is-web body { overflow-x: auto; }
 .start-hero .button.big.doc-button .icon { color: var(--accent); }
 /* ───────── start page: a moving background behind a board of translucent, movable cards */
 .start-inner { --start-card-alpha: 80%; padding: 14px 22px 16px; gap: 10px; }
-.start-tools { display: flex; justify-content: flex-end; gap: 8px; }
+.start-tools { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+/* One row, one height, one baseline: the start-up checkbox looks and sits like the two buttons beside it. */
+.start-tools > .start-btn { box-sizing: border-box; height: 30px; margin: 0; font-size: 0.9rem; line-height: 1; }
+.start-tools > .start-btn.check-row { justify-content: center; }
+.start-tools > .start-btn input[type="checkbox"] { margin: 0; width: 15px; height: 15px; flex: none; }
 .start-btn { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; background: color-mix(in srgb, var(--surface) var(--start-card-alpha), transparent); color: var(--text); cursor: pointer; white-space: nowrap; min-width: 0; }
 .start-btn > span { overflow: hidden; text-overflow: ellipsis; }
 .start-btn > .icon { width: 15px; height: 15px; }
@@ -1307,6 +1345,10 @@ html.is-web body { overflow-x: auto; }
 .menubar-version { font-size: 0.78em; font-weight: 600; color: var(--accent); }
 .menubar-drag { align-self: stretch; min-width: 24px; }
 .window-controls { display: flex; align-self: stretch; flex: none; margin-left: 4px; }
+/* Panel fold / unfold buttons on the menu bar, left of the window buttons. */
+.menubar-panels { display: inline-flex; align-items: center; gap: 2px; flex: none; padding: 0 6px; border-right: 1px solid var(--hairline, var(--border)); }
+.menubar-panels .tool-button { width: 28px; height: 24px; }
+.menubar-panels .tool-button .icon { width: 16px; height: 16px; }
 .window-button { display: grid; place-items: center; width: 46px; border: 0; border-radius: 0; background: none; color: var(--text); cursor: default; }
 .window-button .icon[data-tone] { width: 14px; height: 14px; color: var(--text) !important; }
 .window-button:hover { background: var(--hover); }
@@ -1335,6 +1377,15 @@ html.is-web body { overflow-x: auto; }
 .props .prop-control > .stepper .stepper-value { flex: 1 1 auto; width: auto; text-align: center; }
 .props .prop-control > .stepper .stepper-button { width: 28px; }
 .props .prop-control > input, .props .prop-control > select { height: 28px; box-sizing: border-box; }
+/* Every row is one field high, labels in one column and values in another: plain values sit where the text of an input starts. */
+.props .prop-row { min-height: 28px; margin: 4px 0; }
+.props .prop-row:not(.tall) .prop-label { height: 28px; }
+.props .prop-row.tall .prop-label { height: 28px; }
+.props .prop-control > .prop-value { flex: 1 1 auto; min-width: 0; height: 28px; line-height: 26px; padding: 0 7px; border: 1px solid transparent; box-sizing: border-box; }
+.props .prop-control > textarea { box-sizing: border-box; }
+/* The % complete bar under its stepper, as wide as the stepper. */
+.props .prop-row.prop-progress-row { min-height: 0; margin: -1px 0 6px; }
+.props .prop-progress-row .mini-progress { flex: 1 1 auto; min-width: 0; height: 6px; }
 /* The start page fills the window whatever the panels are set to (after the narrow-rail rules above). */
 #app.on-start #workspace, #app.on-start.no-left #workspace, #app.on-start.no-right #workspace, #app.on-start.no-left.no-right #workspace { grid-template-columns: minmax(0, 1fr); }
 
@@ -1394,3 +1445,43 @@ html.is-viewer #app, html.is-viewer #app:not(:empty) { display: block; min-width
 /* A document window shown as a frame over the app while the tutorial runs. */
 .web-popup.web-popup-doc { inset: 5% 6% 7% 6%; width: auto !important; height: auto !important; z-index: 1000; visibility: visible; }
 .web-popup.web-popup-doc iframe { width: 100%; height: 100%; border: 0; }
+
+/* ───────────────────────── kanban board */
+.kanban-view { flex: 1; display: flex; min-width: 0; min-height: 0; background: color-mix(in srgb, var(--chart) 88%, transparent); }
+.kb-board { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 12px; padding: 12px; min-width: 0; min-height: 0; overflow-x: auto; }
+.kb-column { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 82%, transparent); transition: box-shadow 0.12s, border-color 0.12s; }
+.kb-column.kb-over { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.kb-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); font-weight: 700; }
+.kb-head .icon { width: 16px; height: 16px; }
+.kb-count { margin-left: auto; min-width: 24px; padding: 1px 8px; border-radius: 10px; background: var(--surface2); color: var(--muted); font-size: 0.85em; text-align: center; font-variant-numeric: tabular-nums; }
+.kb-todo .kb-head { box-shadow: inset 0 3px 0 color-mix(in srgb, var(--text) 35%, transparent); border-radius: 10px 10px 0 0; }
+.kb-doing .kb-head { box-shadow: inset 0 3px 0 var(--accent); border-radius: 10px 10px 0 0; }
+.kb-done .kb-head { box-shadow: inset 0 3px 0 var(--success); border-radius: 10px 10px 0 0; }
+.kb-list { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.kb-empty { padding: 18px 8px; text-align: center; color: var(--muted); font-size: 0.85em; border: 1px dashed var(--border); border-radius: 8px; }
+.kb-card { position: relative; display: flex; flex-direction: column; gap: 5px; padding: 8px 10px 8px 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: grab; user-select: none; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.kb-card::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 4px; border-radius: 0 3px 3px 0; background: var(--kb-color, var(--accent)); }
+.kb-done .kb-card::before { background: var(--kb-color, var(--success)); }
+.kb-todo .kb-card::before { background: var(--kb-color, color-mix(in srgb, var(--text) 35%, transparent)); }
+.kb-card:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+.kb-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.kb-card.kb-dragging { opacity: 0.35; }
+.kb-ghost { position: fixed; z-index: 9999; pointer-events: none; transform: rotate(2deg); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); cursor: grabbing; }
+.kb-top { display: flex; align-items: center; gap: 6px; font-size: 0.78em; color: var(--muted); }
+.kb-phase { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.kb-phase span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kb-id { margin-left: auto; font-variant-numeric: tabular-nums; }
+.kb-name { display: flex; align-items: center; gap: 5px; font-weight: 600; line-height: 1.3; }
+.kb-name > span:first-of-type { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.kb-done .kb-name > span:first-of-type { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.kb-mark { display: inline-flex; }
+.kb-mark.critical .icon, .kb-mark.late .icon { color: var(--danger); }
+.kb-dates { display: flex; align-items: center; gap: 5px; font-size: 0.8em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.kb-duration { margin-left: auto; }
+.kb-progress { display: flex; align-items: center; gap: 8px; font-size: 0.8em; }
+.kb-progress .mini-progress { height: 6px; }
+.kb-progress b { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+.kb-done .kb-progress .mini-progress i { background: var(--success); }
+.kb-people { display: flex; gap: 4px; flex-wrap: wrap; }
+.kb-person { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 5px; border-radius: 11px; background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--text); font-size: 0.72em; font-weight: 700; }
+.kb-person.more { background: var(--surface2); color: var(--muted); }

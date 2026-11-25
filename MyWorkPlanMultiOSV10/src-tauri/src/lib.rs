@@ -3,6 +3,7 @@ pub mod files;
 pub mod fonts;
 pub mod i18n;
 pub mod instance;
+pub mod printing;
 pub mod window_state;
 
 use serde::Serialize;
@@ -313,6 +314,11 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
     if kind == "menu" || kind == "progress" || kind == "theme" {
         builder = builder.always_on_top(true);
     }
+    // A menu with an open group shows two lists of their own sizes side by side: the window is
+    // see-through (no window shadow) and each list draws its own panel, border and shadow.
+    if kind == "menu" {
+        builder = builder.transparent(true).shadow(false);
+    }
     if let Some(main) = app.get_webview_window("main") {
         builder = builder.parent(&main).map_err(|error| error.to_string())?;
     }
@@ -459,6 +465,24 @@ fn close_popup(app: AppHandle, kind: String) {
 #[tauri::command]
 fn print_window(window: WebviewWindow) -> Result<(), String> {
     window.print().map_err(|error| tr!("인쇄를 시작할 수 없습니다: {error}", "Could not start printing: {error}"))
+}
+
+/// The printers of this computer (none: the print window uses the system dialog).
+#[tauri::command]
+fn list_printers() -> printing::PrinterList {
+    printing::printers()
+}
+
+/// Prints the calling window's print view straight to a printer, with no dialog.
+#[tauri::command]
+async fn print_direct(window: WebviewWindow, job: printing::PrintJob) -> Result<(), String> {
+    printing::print(&window, job).await
+}
+
+/// The same pages as a PDF file (the tests check what would be printed, on no paper).
+#[tauri::command]
+async fn print_pages_to_pdf(window: WebviewWindow, job: printing::PrintJob, path: String) -> Result<(), String> {
+    printing::print_to_pdf(&window, job, path).await
 }
 
 #[derive(Clone, Serialize)]
@@ -669,6 +693,9 @@ pub fn run() {
             hide_popup,
             close_popup,
             print_window,
+            list_printers,
+            print_direct,
+            print_pages_to_pdf,
             quit_app,
             raise_test_panic,
             db_test,

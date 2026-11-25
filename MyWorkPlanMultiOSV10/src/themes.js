@@ -178,7 +178,7 @@ export function customTheme(raw) {
     hover: mix(c.surface, c.accent, c.dark ? 0.18 : 0.1),
     shadow: c.dark ? 'rgba(0,0,0,0.45)' : 'rgba(16,24,40,0.12)',
   };
-  return { id: CUSTOM, name: { ko: '사용자 정의', en: 'Custom' }, dark: c.dark, colors, swatch: [colors.bg, colors.surface, colors.accent] };
+  return { id: CUSTOM, name: { ko: '사용자 설정 테마', en: 'Custom theme' }, dark: c.dark, colors, swatch: [colors.bg, colors.surface, colors.accent] };
 }
 
 // ───────────────────────── lookup & applying
@@ -192,7 +192,7 @@ export function resolveTheme(id, prefersDark = false, custom = null) {
 /** Display name of a theme id in the given language. */
 export function themeName(id, language = 'ko') {
   if (id === SYSTEM) return language === 'en' ? 'System setting' : '시스템 설정';
-  if (id === CUSTOM) return language === 'en' ? 'Custom' : '사용자 정의';
+  if (id === CUSTOM) return language === 'en' ? 'Custom theme' : '사용자 설정 테마';
   const theme = THEMES.find((item) => item.id === id);
   return theme ? theme.name[language === 'en' ? 'en' : 'ko'] : id;
 }

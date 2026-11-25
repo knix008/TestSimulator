@@ -128,8 +128,10 @@ export const cases = [
       };
     })()`);
     assert.deepEqual(info.cards, ['hero', 'actions', 'recent', 'templates', 'samples', 'background']);
-    assert.equal(info.handles, 6);
-    assert.equal(info.corners, 6);
+    // The program information card is fixed: no move handle and no resize corner (the other five have both).
+    assert.equal(info.handles, 5);
+    assert.equal(info.corners, 5);
+    assert.equal(await app.main.eval(`document.querySelectorAll('#start-page .start-card-hero [data-card-handle], #start-page .start-card-hero [data-card-resize]').length`), 0);
     assert.equal(info.theme, 0, 'no theme picker on the start page');
     assert.deepEqual(info.actions, ['open', 'import', 'print', 'tutorial', 'shortcuts', 'language', 'settings', 'start-settings', 'about', 'exit']);
     assert.equal(info.tools, 3, 'show-at-start toggle, start settings, auto arrange');
@@ -317,7 +319,7 @@ export const cases = [
   { group: '툴바', name: '보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음, 메뉴바에 계획 이름 없음', async run(app) {
     await freshSample(app);
     assert.equal(await app.main.eval(`document.querySelector('#menubar .menubar-title')`), null, 'the menubar shows no plan title');
-    const views = ['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'];
+    const views = ['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'kanban', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'];
     const layout = () => app.main.eval(`JSON.stringify([...document.querySelectorAll('#toolbar .tool-button')].map((b) => Math.round(b.getBoundingClientRect().left)))`);
     const first = await layout();
     for (const view of views) {
@@ -482,7 +484,7 @@ export const cases = [
     assert.match(await app.main.eval(`document.querySelector('[data-menu="file"]').textContent`), /File/);
     await W(app, `a.updateSettings({ theme: 'light', language: 'ko', timescale: 16 })`);
   } },
-  ...['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'].map((view) => ({ group: '보기', name: `${view}`, async run(app) {
+  ...['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'kanban', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'].map((view) => ({ group: '보기', name: `${view}`, async run(app) {
     if (view === 'gantt') await freshSample(app);
     await W(app, `a.switchView('${view}')`);
     await sleep(400);
@@ -547,10 +549,10 @@ export const cases = [
     assert.ok(seen >= 6, `${seen} charts checked`);
     await W(app, `(a.switchView('gantt'), 1)`);
   } },
-  { group: '기능 점검', name: '보기 12가지가 모두 오류 없이 그려짐 (예제 계획)', async run(app) {
+  { group: '기능 점검', name: '보기 13가지(칸반 보드 포함)가 모두 오류 없이 그려짐 (예제 계획)', async run(app) {
     await freshSample(app);
     await app.main.eval(TRACK_ERRORS);
-    const views = await W(app, `w.state.settings && ${JSON.stringify(['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'])}`);
+    const views = await W(app, `w.state.settings && ${JSON.stringify(['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'kanban', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'])}`);
     for (const view of views) {
       await W(app, `(a.switchView(${JSON.stringify(view)}), 1)`);
       await sleep(250);
@@ -644,6 +646,114 @@ export const cases = [
     await W(app, `(w.run('undo'), 1)`);
     assert.equal(await W(app, `api.project().resources.find((r) => r.id === ${JSON.stringify(id)}).wage`), null, 'undo takes the wage back');
   } },
+  { group: '칸반 보드', name: '칸반 보드: 시작 전·진행 중·완료 세 열, 카드를 끌어 다른 열에 놓으면 완료율이 바뀜', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.switchView('kanban'), 1)`);
+    await sleep(400);
+    const columns = await app.main.eval(`[...document.querySelectorAll('#view-host .kb-column')].map((c) => ({ id: c.dataset.column, cards: c.querySelectorAll('.kb-card').length, count: Number(c.querySelector('.kb-count').textContent) }))`);
+    assert.deepEqual(columns.map((c) => c.id), ['todo', 'doing', 'done']);
+    assert.ok(columns.every((c) => c.cards === c.count), JSON.stringify(columns));
+    const leaves = await W(app, `api.project().tasks.filter((t) => !api.sched().info(t.id).summary && t.active !== false).length`);
+    assert.equal(columns.reduce((n, c) => n + c.cards, 0), leaves, 'every leaf task is a card');
+    // Drag a "not started" card onto the Done column (real pointer events).
+    const id = await app.main.eval(`document.querySelector('.kb-todo .kb-card').dataset.task`);
+    const from = await app.main.center(`.kb-card[data-task="${id}"]`);
+    const to = await app.main.center('.kb-done .kb-list');
+    await app.main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', clickCount: 1 });
+    for (let i = 1; i <= 8; i++) await app.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x + ((to.x - from.x) * i) / 8, y: from.y + ((to.y - from.y) * i) / 8, button: 'left', buttons: 1 });
+    await app.main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', clickCount: 1 });
+    await sleep(400);
+    assert.equal(await W(app, `api.project().tasks.find((t) => t.id === ${JSON.stringify(id)}).percentComplete`), 100, 'dropped on Done: 100%');
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('.kb-done .kb-card[data-task="${id}"]'))`), 'the card moved to Done');
+    await W(app, `(w.run('undo'), a.switchView('gantt'), 1)`);
+  } },
+  { group: '보고서', name: '번다운 차트 보고서: 핵심 수치·남은 작업량·남은 작업 수, 인쇄 창에 번다운 차트가 골라져 열림', async run(app) {
+    await freshSample(app);
+    await W(app, `(api.doc().view.report = 'burndown', a.switchView('reports'), 1)`);
+    await sleep(400);
+    const info = await app.main.eval(`({ title: document.querySelector('.report-title h2').textContent, kpis: document.querySelectorAll('.burndown-kpis .kpi').length, charts: [...document.querySelectorAll('.burndown-card')].map((c) => c.dataset.burndown), lines: document.querySelectorAll('.burndown-card polyline').length, status: document.querySelectorAll('.burndown-card .status-mark').length })`);
+    assert.equal(info.title, '번다운 차트');
+    assert.equal(info.kpis, 6);
+    assert.deepEqual(info.charts, ['work', 'tasks']);
+    assert.ok(info.lines >= 5, `ideal, scheduled, actual lines: ${info.lines}`);
+    await app.main.click('[data-report-action="print"]');
+    await app.waitFrame('print', `document.querySelector('[data-print="content"]')`);
+    const print = await app.frame('print', `({ content: document.querySelector('[data-print="content"]').value, tabs: document.querySelectorAll('.tabs').length, sections: [...document.querySelectorAll('.print-section h3')].map((h) => h.textContent.trim()), columns: document.querySelectorAll('.print-column').length, burndown: document.querySelector('.preview-stage svg')?.outerHTML.includes('번다운 차트') })`);
+    assert.equal(print.content, 'burndown', 'opened from the burndown report: that chart is chosen');
+    assert.equal(print.tabs, 0, 'no tabs');
+    assert.equal(print.columns, 1, 'one column of settings');
+    assert.deepEqual(print.sections, ['프린터', '내용', '인쇄 범위', '페이지 설정', '머리글·바닥글']);
+    assert.ok(print.burndown, 'the preview is the burndown chart');
+    // Print: at once (here the test hook receives the pages and the job).
+    await app.main.eval(`(window.__printed = null, 1)`);
+    await app.frame('print', `(window.__myworkplanPrintHook = (layout, job) => { window.parent.__printed = { pages: layout.count, width: job.widthMm, height: job.heightMm, copies: job.copies }; }, 1)`);
+    await app.frame('print', `(document.querySelector('[data-action="print"]').click(), 1)`);
+    await sleep(500);
+    assert.deepEqual(await app.main.eval('window.__printed'), { pages: 1, width: 297, height: 210, copies: 1 });
+    await closeFrames(app);
+    await W(app, `(a.switchView('gantt'), 1)`);
+  } },
+  { group: '메뉴', name: '하위 메뉴는 메뉴 옆에 함께 열림 (메뉴가 사라지지 않음, 각자 크기)', async run(app) {
+    await freshSample(app);
+    await app.main.click('[data-menu="view"]');
+    await app.waitFrame('menu', `document.querySelector('[data-id="submenu:views"]')`);
+    await app.frame('menu', `(document.querySelector('[data-id="submenu:views"]').dispatchEvent(new PointerEvent('pointerover', { bubbles: true })), 1)`);
+    await sleep(400);
+    const lists = await app.frame('menu', `[...document.querySelectorAll('.popup-menu')].map((m) => { const r = m.getBoundingClientRect(); return { sub: m.classList.contains('sub'), left: r.left, right: r.right, height: Math.round(r.height), items: m.querySelectorAll('.menu-item').length }; })`);
+    assert.equal(lists.length, 2, 'the menu and its group');
+    assert.ok(lists[1].left >= lists[0].right, 'side by side');
+    assert.equal(lists[1].items, 13);
+    assert.notEqual(lists[0].height, lists[1].height, 'each keeps its own height');
+    await app.frame('menu', `(document.querySelector('.popup-menu.sub [data-id="view:kanban"]').click(), 1)`);
+    await sleep(400);
+    assert.equal(await W(app, 'w.state.viewId'), 'kanban');
+    await W(app, `(a.switchView('gantt'), 1)`);
+  } },
+  { group: '팝업', name: '설정 창: 모든 탭이 보이고 < > 단추가 없음 (한국어·영어)', async run(app) {
+    for (const language of ['ko', 'en']) {
+      await closeFrames(app);
+      await W(app, `(a.updateSettings({ language: ${JSON.stringify(language)} }), w.run('settings'), 1)`);
+      await app.waitFrame('settings', `document.querySelector('.tabs-strip')`);
+      const tabs = await app.frame('settings', `(() => { const s = document.querySelector('.tabs-strip'); return { arrows: document.querySelectorAll('.tabs-scroll').length, hidden: s.scrollWidth - s.clientWidth }; })()`);
+      assert.deepEqual(tabs, { arrows: 0, hidden: 0 }, language);
+    }
+    await closeFrames(app);
+    await W(app, `(a.updateSettings({ language: 'ko' }), 1)`);
+  } },
+  { group: '속성 패널', name: '완료율: 프로젝트·요약·작업·여러 작업 모두 [−] 값 [+] 로 편집, 값 가운데, 줄 높이·값 열 정렬', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.switchView('gantt'), a.clearSelection?.(), 1)`);
+    await sleep(300);
+    const stepper = (key) => app.main.eval(`(() => { const s = document.querySelector('#right-panel [data-stepper="${key}"]'); if (!s) return null; const input = s.querySelector('.stepper-value'); return { value: input.value, align: getComputedStyle(input).textAlign, buttons: s.querySelectorAll('.stepper-button').length }; })()`);
+    const click = (key, dir) => app.main.eval(`(document.querySelector('#right-panel [data-stepper="${key}"] [data-step-dir="${dir}"]').click(), 1)`);
+    const project = await stepper('project:percent');
+    assert.ok(project, 'the project panel has a % complete stepper');
+    assert.equal(project.buttons, 2);
+    assert.equal(project.align, 'center', 'the value is centred');
+    const before = await W(app, `api.sched().percentComplete`);
+    await click('project:percent', 1);
+    await sleep(300);
+    assert.ok(await W(app, `api.sched().percentComplete`) > before, 'the + button raises the project % complete');
+    await W(app, `(w.run('undo'), 1)`);
+    const summary = await W(app, `api.project().tasks.find((t) => api.sched().info(t.id).summary && api.sched().info(t.id).percentComplete > 0 && api.sched().info(t.id).percentComplete < 100)?.id`);
+    await W(app, `(a.selectTask(${JSON.stringify(summary)}), 1)`);
+    await sleep(300);
+    const sumBefore = await W(app, `api.sched().info(${JSON.stringify(summary)}).percentComplete`);
+    assert.ok(await stepper('task:percent'), 'a summary task has a % complete stepper');
+    await click('task:percent', -1);
+    await sleep(300);
+    assert.ok(await W(app, `api.sched().info(${JSON.stringify(summary)}).percentComplete`) < sumBefore, 'the − button lowers the summary');
+    await W(app, `(w.run('undo'), 1)`);
+    const leaves = await W(app, `api.project().tasks.filter((t) => !api.sched().info(t.id).summary).slice(0, 3).map((t) => t.id)`);
+    await W(app, `(a.selectTask(${JSON.stringify(leaves[0])}), a.selectTask(${JSON.stringify(leaves[2])}, { ctrlKey: true }), 1)`);
+    await sleep(300);
+    assert.ok(await stepper('tasks:percent'), 'several tasks: one stepper for all');
+    // Rows one field high; plain values start where the text of an input starts.
+    const layout = await app.main.eval(`(() => { const rows = [...document.querySelectorAll('#right-panel .prop-row:not(.prop-progress-row):not(.tall)')]; const xs = rows.map((r) => Math.round(r.querySelector('.prop-control').getBoundingClientRect().left)); return { heights: rows.map((r) => Math.round(r.getBoundingClientRect().height)), xs }; })()`);
+    assert.ok(layout.heights.every((h) => h >= 28), `row heights: ${layout.heights}`);
+    assert.equal(new Set(layout.xs).size, 1, `value column: ${layout.xs}`);
+    await W(app, `(a.clearSelection?.(), 1)`);
+  } },
   { group: '인건비', name: '자원 시트 인건비 표: 임금 기준·임금 칸 편집, 비율 열, 프로젝트 정보 › 통계의 인건비', async run(app) {
     await freshSample(app);
     await W(app, `(a.switchView('resourceSheet'), a.setViewOptions({ resourceTable: 'labor' }), 1)`);
@@ -691,8 +801,10 @@ export const cases = [
     await freshSample(app);
     await W(app, `(a.updateSettings({ showBottomPanel: true, bottomPanelCollapsed: false, bottomPanelTab: 'problems' }), 1)`);
     await sleep(300);
-    const toolbar = await app.main.eval(`[...document.querySelectorAll('#toolbar [data-command]')].map((b) => b.dataset.command).filter((c) => /Panel$/.test(c))`);
-    assert.deepEqual(toolbar, ['leftPanel', 'bottomPanel', 'rightPanel'], 'the bottom panel button sits between the side panel buttons');
+    // The panel buttons sit on the menu bar (left of the window buttons on the desktop), not on the toolbar.
+    const toolbar = await app.main.eval(`({ bar: [...document.querySelectorAll('#menubar .menubar-panels [data-command]')].map((b) => b.dataset.command), onToolbar: document.querySelectorAll('#toolbar [data-command$="Panel"]').length, last: document.querySelector('#menubar').lastElementChild?.className })`);
+    assert.deepEqual(toolbar.bar, ['leftPanel', 'bottomPanel', 'rightPanel'], 'the bottom panel button sits between the side panel buttons');
+    assert.equal(toolbar.onToolbar, 0, 'not on the toolbar any more');
     const info = await app.main.eval(`(() => {
       const p = document.querySelector('#bottom-panel');
       return { shown: !p.hidden, title: p.querySelector('.bp-title')?.textContent.trim(), titleIcon: Boolean(p.querySelector('.bp-title svg.icon')),
@@ -723,10 +835,10 @@ export const cases = [
       assert.ok(await app.main.eval(`document.querySelectorAll('#bottom-panel .bp-row').length > 0`), `${tab} has rows`);
     }
     // Off and on from the toolbar.
-    await app.main.click('#toolbar [data-command="bottomPanel"]');
+    await app.main.click('#menubar [data-command="bottomPanel"]');
     await sleep(200);
     assert.equal(await app.main.eval(`document.querySelector('#bottom-panel').hidden`), true, 'off');
-    await app.main.click('#toolbar [data-command="bottomPanel"]');
+    await app.main.click('#menubar [data-command="bottomPanel"]');
     await sleep(200);
     assert.equal(await app.main.eval(`document.querySelector('#bottom-panel').hidden`), false, 'on');
     // Not on the start page.

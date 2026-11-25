@@ -61,7 +61,7 @@ export class WebApp {
   }
 
   async waitFrame(kind, expression = 'true', timeout = 15000) {
-    return this.main.waitFor(`(() => { const f = document.querySelector('.web-popup-${kind} iframe'); if (!f || !f.contentWindow?.__myworkplanPopup || getComputedStyle(f.parentElement).visibility === 'hidden') return false; return ((window, document) => Boolean(document.querySelector('.popup, .popup-menu') && (${expression})))(f.contentWindow, f.contentDocument); })()`, { timeout });
+    return this.main.waitFor(`(() => { const f = document.querySelector('.web-popup-${kind} iframe'); if (!f || !f.contentWindow?.__myworkplanPopup || getComputedStyle(f.parentElement).visibility === 'hidden') return false; return ((window, document) => Boolean(document.querySelector('.popup, .popup-menu, .theme-dropdown') && (${expression})))(f.contentWindow, f.contentDocument); })()`, { timeout });
   }
 
   async reload() {

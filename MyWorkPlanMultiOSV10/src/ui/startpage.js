@@ -19,13 +19,16 @@ const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20
 /** "Every 30 s" / "Every 2 min" / "Off" for the automatic background change. */
 export const intervalLabel = (seconds) => (!seconds ? t('start.never') : seconds < 60 ? t('start.everySeconds', { n: seconds }) : t('start.everyMinutes', { n: seconds / 60 }));
 
-/** One card: its handle and title (none on a bare card), its body and its resize corner. */
-function card(id, glyph, title, body, { extra = '', bare = false, classes = '' } = {}) {
-  const handle = `<button type="button" class="card-handle" data-card-handle="${id}" title="${escapeHtml(t('start.moveCard'))}" aria-label="${escapeHtml(t('start.moveCard'))}">${icon('moveHandle')}</button>`;
-  return `<section class="start-card start-card-${id} ${id} ${classes} ${bare ? 'bare' : ''}" data-card="${id}" ${title ? `aria-label="${escapeHtml(title)}"` : ''}>
-    ${bare ? `<span class="card-handle-float">${handle}</span>` : `<h2>${handle}${icon(glyph)}<span class="start-card-title">${escapeHtml(title)}</span><span class="grow"></span>${extra}</h2>`}
+/**
+ * One card: its handle and title (none on a bare card), its body and its resize corner.
+ * A fixed card (the program's information) has neither handle nor corner: it cannot be moved or resized.
+ */
+function card(id, glyph, title, body, { extra = '', bare = false, classes = '', fixed = false } = {}) {
+  const handle = fixed ? '' : `<button type="button" class="card-handle" data-card-handle="${id}" title="${escapeHtml(t('start.moveCard'))}" aria-label="${escapeHtml(t('start.moveCard'))}">${icon('moveHandle')}</button>`;
+  return `<section class="start-card start-card-${id} ${id} ${classes} ${bare ? 'bare' : ''} ${fixed ? 'fixed-card' : ''}" data-card="${id}" ${title ? `aria-label="${escapeHtml(title)}"` : ''}>
+    ${bare ? (handle ? `<span class="card-handle-float">${handle}</span>` : '') : `<h2>${handle}${icon(glyph)}<span class="start-card-title">${escapeHtml(title)}</span><span class="grow"></span>${extra}</h2>`}
     <div class="card-body">${body}</div>
-    <span class="card-resize" data-card-resize="${id}" title="${escapeHtml(t('start.resizeCard'))}">${GRIP}</span>
+    ${fixed ? '' : `<span class="card-resize" data-card-resize="${id}" title="${escapeHtml(t('start.resizeCard'))}">${GRIP}</span>`}
   </section>`;
 }
 
@@ -111,7 +114,7 @@ export function startPageHtml(app) {
     </div>`;
   const templates = `<div class="template-grid">${TEMPLATES.map((tpl) => tile('template', tpl.icon, tpl.name[L], tpl.description[L], { value: tpl.id, cls: 'start-tile template-tile' })).join('')}</div>`;
   const cards = [
-    card('hero', '', '', hero, { bare: true, classes: 'start-hero' }),
+    card('hero', '', '', hero, { bare: true, classes: 'start-hero', fixed: true }),
     card('actions', 'launcher', t('start.actions'), actionsBody(L)),
     settings.startShowRecent === false && settings.startShowFolders === false ? '' : card('recent', 'recent', t('start.recentCard'), recentBody(app, settings)),
     card('templates', 'fileNew', t('start.new'), templates, { extra: `<span class="start-card-note">${TEMPLATES.length}</span>` }),

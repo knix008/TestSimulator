@@ -154,13 +154,9 @@ const select = (attrName, key, options, current, label) => `<select ${attrName}=
 
 // Tabs scroll inside their strip; "<" ">" at the right end move it (no scroll bar).
 const tabsHtml = (list, current, actionName = 'tab') => `<nav class="tabs" role="tablist"><div class="tabs-strip">${list.map(([id, glyph, label]) => `
-  <button class="tab ${current === id ? 'active' : ''}" role="tab" aria-selected="${current === id}" data-action="${actionName}" data-value="${id}" title="${escapeHtml(label)}">${icon(glyph)}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
-  <span class="tabs-nav">
-    <button class="tabs-scroll" data-action="tabs-scroll" data-value="-1" title="${escapeHtml(t('tabs.left'))}" aria-label="${escapeHtml(t('tabs.left'))}">${icon('chevronLeft')}</button>
-    <button class="tabs-scroll" data-action="tabs-scroll" data-value="1" title="${escapeHtml(t('tabs.right'))}" aria-label="${escapeHtml(t('tabs.right'))}">${icon('chevronRight')}</button>
-  </span></nav>`;
+  <button class="tab ${current === id ? 'active' : ''}" role="tab" aria-selected="${current === id}" data-action="${actionName}" data-value="${id}" title="${escapeHtml(label)}">${icon(glyph)}<span>${escapeHtml(label)}</span></button>`).join('')}</div></nav>`;
 
-/** Keeps the popup's tab strip where it was across redraws, shows the active tab, and enables "<" ">" only when there is more to see. */
+/** Keeps the popup's tab strip where it was across redraws and shows the active tab. Every popup is wide enough for all its tabs (no "<" ">"). */
 function updateTabsNav({ reveal = true } = {}) {
   const strip = root.querySelector('.tabs-strip');
   if (!strip) return;
@@ -171,9 +167,6 @@ function updateTabsNav({ reveal = true } = {}) {
     else if (active.offsetLeft + active.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = active.offsetLeft + active.offsetWidth - strip.clientWidth;
   }
   state.tabScroll = strip.scrollLeft;
-  const [left, right] = root.querySelectorAll('.tabs-scroll');
-  left.disabled = strip.scrollLeft <= 0;
-  right.disabled = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1;
   root.querySelector('.tabs')?.classList.toggle('overflow', strip.scrollWidth > strip.clientWidth + 1);
 }
 
@@ -358,23 +351,30 @@ function renderThemePicker() {
       <span class="theme-name">${escapeHtml(themeName(theme.id, L()))}</span>${current === theme.id ? icon('check', 'icon check') : ''}
     </button>`).join('')}
   </div>`;
-  root.innerHTML = frame({
-    glyph: 'palette', title: t('theme.pickTitle'),
-    body: `<div class="theme-picker">
-      <div class="picker-top">
-        <button class="picker-item ${current === SYSTEM ? 'active' : ''}" data-pick-theme="${SYSTEM}" title="${escapeHtml(themeName(SYSTEM, L()))}">${icon('sun')}<span class="theme-name">${escapeHtml(themeName(SYSTEM, L()))}</span>${current === SYSTEM ? icon('check', 'icon check') : ''}</button>
-        <button class="picker-item ${current === CUSTOM ? 'active' : ''}" data-pick-theme="${CUSTOM}" title="${escapeHtml(themeName(CUSTOM, L()))}">${icon('palette')}<span class="theme-name">${escapeHtml(themeName(CUSTOM, L()))}</span>${current === CUSTOM ? icon('check', 'icon check') : ''}</button>
-      </div>
-      <div class="picker-columns">${column('moon', t('theme.darkGroup', { count: DARK_THEMES.length }), DARK_THEMES)}${column('sun', t('theme.lightGroup', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}</div>
-    </div>`,
-    foot: `<button class="button small" data-action="edit-custom" title="${escapeHtml(t('settings.editCustom'))}">${icon('edit')}<span>${escapeHtml(t('settings.editCustom'))}</span></button><button class="button small" data-action="random-theme" title="${escapeHtml(t('action.themeRandom'))}">${icon('dice')}<span>${escapeHtml(t('action.themeRandom'))}</span></button><span class="grow"></span>${button('close', t('common.close'), 'close')}`,
-  });
+  setOsTitle(t('theme.pickTitle'));
+  // A dropdown, like the menus: no title bar and no Close button — a click outside (or Esc) closes it.
+  const custom = resolveTheme(CUSTOM, false, s().customTheme);
+  root.innerHTML = `<div class="theme-dropdown" role="menu" aria-label="${escapeHtml(t('theme.pickTitle'))}">
+    <div class="picker-top">
+      <button class="picker-item ${current === SYSTEM ? 'active' : ''}" data-pick-theme="${SYSTEM}" title="${escapeHtml(themeName(SYSTEM, L()))}">${icon('sun')}<span class="theme-name">${escapeHtml(themeName(SYSTEM, L()))}</span>${current === SYSTEM ? icon('check', 'icon check') : ''}</button>
+      <button class="picker-item ${current === CUSTOM ? 'active' : ''}" data-pick-theme="${CUSTOM}" data-custom-theme title="${escapeHtml(themeName(CUSTOM, L()))}"><span class="theme-swatch">${custom.swatch.map((color) => `<i style="background:${color}"></i>`).join('')}</span><span class="theme-name">${escapeHtml(themeName(CUSTOM, L()))}</span>${current === CUSTOM ? icon('check', 'icon check') : ''}</button>
+    </div>
+    <div class="picker-columns">${column('moon', t('theme.darkGroup', { count: DARK_THEMES.length }), DARK_THEMES)}${column('sun', t('theme.lightGroup', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}</div>
+    <div class="picker-foot">
+      <button class="button small" data-action="edit-custom" title="${escapeHtml(t('theme.customSettings'))}">${icon('palette')}<span>${escapeHtml(t('theme.customSettings'))}</span></button>
+      <button class="button small" data-action="random-theme" title="${escapeHtml(t('action.themeRandom'))}">${icon('dice')}<span>${escapeHtml(t('action.themeRandom'))}</span></button>
+    </div>
+  </div>`;
   const anchor = P().anchor;
   if (anchor && !state.placed) {
     state.placed = true;
-    const size = POPUPS.theme;
-    if (desktop) native.invoke('place_popup', { x: anchor.x, y: anchor.y, width: size.width, height: size.height, flipY: anchor.flipY ?? null, show: true }).catch(() => {});
-    else send('place', { x: anchor.x, y: anchor.y, width: size.width, height: size.height, flipY: anchor.flipY ?? null });
+    const box = root.querySelector('.theme-dropdown');
+    const width = Math.ceil(box.scrollWidth) + 2;
+    const height = Math.ceil(box.scrollHeight) + 2;
+    // Right-aligned to the toolbar button: the dropdown grows leftwards and stays on the screen.
+    const x = anchor.right != null ? anchor.right - width : anchor.x;
+    if (desktop) native.invoke('place_popup', { x, y: anchor.y, width, height, flipY: anchor.flipY ?? null, show: true }).then(() => window.focus()).catch(() => {});
+    else send('place', { x, y: anchor.y, width, height, flipY: anchor.flipY ?? null });
   }
   ready();
 }
@@ -736,7 +736,8 @@ function printProject() {
 }
 
 function printSetup() {
-  if (!state.print) state.print = { ...defaultPrintOptions(), ...(P().setup ?? {}), range: 'all', selectedOnly: false };
+  // Opened from the burndown report: that chart is what gets printed (the other choices stay as saved).
+  if (!state.print) state.print = { copies: 1, printer: '', ...defaultPrintOptions(), ...(P().setup ?? {}), ...(P().content ? { content: P().content } : {}), range: 'all', selectedOnly: false };
   return state.print;
 }
 
@@ -748,6 +749,11 @@ function printLayout() {
   });
 }
 
+/**
+ * Print window: one column of settings (printer, what to print, range, page setup,
+ * header and footer) beside the preview. "Print" prints at once: straight to the
+ * chosen printer on Windows, the system dialog elsewhere (and in the browser).
+ */
 function renderPrint() {
   const options = printSetup();
   const p = P();
@@ -756,31 +762,49 @@ function renderPrint() {
   const page = layout.pages[state.page];
   const sel = (key, values, label) => select('data-print', key, values, options[key], label);
   const check = (key, label, glyph) => row(glyph, label, `<label class="switch-wrap" title="${escapeHtml(label)}"><input type="checkbox" data-print-toggle="${key}" ${options[key] ? 'checked' : ''} aria-label="${escapeHtml(label)}" /><span class="switch" aria-hidden="true"></span></label>`);
-  const custom = options.range === 'custom';
+  const burndown = options.content === 'burndown';
+  const custom = options.range === 'custom' && !burndown;
+  // The printers are asked for once; until then, and without any, the system dialog prints.
+  if (!state.printers) {
+    state.printers = { printers: [], defaultPrinter: '' };
+    native.listPrinters().then((list) => { state.printers = list; if (list.printers.length) render(); }).catch(() => {});
+  }
+  const { printers, defaultPrinter } = state.printers;
+  const section = (glyph, title, rows) => `<section class="print-section"><h3>${icon(glyph)}<span>${escapeHtml(title)}</span></h3>${rows.join('')}</section>`;
   root.innerHTML = frame({
     glyph: 'print', title: t('print.title'),
-    tabs: tabsHtml([['range', 'list', t('print.tabRange')], ['page', 'pageSetup', t('print.tabPage')], ['header', 'notes', t('print.tabHeader')]], state.tab === 'general' ? 'range' : state.tab),
     body: `<div class="print-view">
       <div class="print-options">
-        ${(state.tab === 'page') ? [
+        <div class="print-column">
+        ${section('print', t('print.printer'), [
+          printers.length
+            ? row('print', t('print.printer'), select('data-print', 'printer', [['', t('print.defaultPrinter', { name: defaultPrinter || '-' })], ...printers.map((name) => [name, name])], printers.includes(options.printer) ? options.printer : '', t('print.printer')))
+            : row('info', t('print.printer'), `<span class="muted">${escapeHtml(t('print.systemDialog'))}</span>`),
+          printers.length ? row('copy', t('print.copies'), numberField('print:copies', options.copies ?? 1, 1, 99, 1, '', t('print.copies'))) : '',
+        ])}
+        ${section('layers', t('print.content'), [
+          row('layers', t('print.content'), sel('content', CONTENTS.map((c) => [c, t(`print.content.${c}`)]), t('print.content'))),
+          check('legend', t('print.legend'), 'list'),
+        ])}
+        ${section('list', t('print.tabRange'), [
+          ...RANGES.map((range) => `<label class="row radio-row ${burndown ? 'disabled-row' : ''}" title="${escapeHtml(t(`print.range.${range}`))}"><input type="radio" name="range" data-print-range="${range}" ${options.range === range ? 'checked' : ''} ${burndown ? 'disabled' : ''} /><span>${icon({ all: 'selectAll', view: 'eye', custom: 'filter' }[range])}${escapeHtml(t(`print.range.${range}`))}</span></label>`),
+          row('list', t('print.rows'), `${numberField('print:fromRow', options.fromRow, 1, 9999, 1, '', t('print.fromRow'))}<span>–</span>${numberField('print:toRow', Math.min(options.toRow, 9999), 1, 9999, 1, '', t('print.toRow'))}`, t('print.rows'), custom ? '' : 'disabled-row'),
+          row('calendar', t('print.dates'), `${dateField('print:fromDate', options.fromDate, t('print.fromDate'))}<span>–</span>${dateField('print:toDate', options.toDate, t('print.toDate'))}`, t('print.dates'), custom ? '' : 'disabled-row'),
+          `<label class="row radio-row ${custom ? '' : 'disabled-row'}" title="${escapeHtml(t('print.selectedOnly'))}"><input type="checkbox" data-print-toggle="selectedOnly" ${options.selectedOnly ? 'checked' : ''} ${custom ? '' : 'disabled'} /><span>${icon('selectAll')}${escapeHtml(t('print.selectedOnly'))} (${(p.selected ?? []).length})</span></label>`,
+        ])}
+        ${section('pageSetup', t('print.tabPage'), [
           row('file', t('print.paper'), sel('paper', Object.keys(PAPERS).map((paper) => [paper, paper]), t('print.paper'))),
           row('pageSetup', t('print.orientation'), segmented('orientation', [['portrait', t('print.portrait')], ['landscape', t('print.landscape')]], options.orientation, 'data-print-segment')),
           row('fitProject', t('print.margin'), sel('margin', Object.keys(MARGINS).map((margin) => [margin, t(`print.margin.${margin}`)]), t('print.margin'))),
           row('zoomIn', t('print.scale'), numberField('print:scale', options.scale, 50, 150, 10, '%', t('print.scale'))),
-          row('layers', t('print.content'), sel('content', CONTENTS.map((c) => [c, t(`print.content.${c}`)]), t('print.content'))),
-          check('legend', t('print.legend'), 'list'),
-        ].join('') : state.tab === 'header' ? [
+        ])}
+        ${section('notes', t('print.tabHeader'), [
           check('header', t('print.header'), 'notes'),
           row('edit', t('print.headerText'), `<input type="text" data-print-text="headerText" value="${escapeHtml(options.headerText)}" placeholder="${escapeHtml(p.title ?? '')}" title="${escapeHtml(t('print.headerText'))}" />`),
           check('footer', t('print.footer'), 'pageSetup'),
           row('edit', t('print.footerText'), `<input type="text" data-print-text="footerText" value="${escapeHtml(options.footerText)}" placeholder="MyWorkPlan" title="${escapeHtml(t('print.footerText'))}" />`),
-        ].join('') : [
-          ...RANGES.map((range) => `<label class="row radio-row" title="${escapeHtml(t(`print.range.${range}`))}"><input type="radio" name="range" data-print-range="${range}" ${options.range === range ? 'checked' : ''} /><span>${icon({ all: 'selectAll', view: 'eye', custom: 'filter' }[range])}${escapeHtml(t(`print.range.${range}`))}</span></label>`),
-          row('list', t('print.rows'), `${numberField('print:fromRow', options.fromRow, 1, 9999, 1, '', t('print.fromRow'))}<span>–</span>${numberField('print:toRow', Math.min(options.toRow, 9999), 1, 9999, 1, '', t('print.toRow'))}`, t('print.rows'), custom ? '' : 'disabled-row'),
-          row('calendar', t('print.dates'), `${dateField('print:fromDate', options.fromDate, t('print.fromDate'))}<span>–</span>${dateField('print:toDate', options.toDate, t('print.toDate'))}`, t('print.dates'), custom ? '' : 'disabled-row'),
-          `<label class="row radio-row ${custom ? '' : 'disabled-row'}" title="${escapeHtml(t('print.selectedOnly'))}"><input type="checkbox" data-print-toggle="selectedOnly" ${options.selectedOnly ? 'checked' : ''} ${custom ? '' : 'disabled'} /><span>${icon('selectAll')}${escapeHtml(t('print.selectedOnly'))} (${(p.selected ?? []).length})</span></label>`,
-          row('info', t('print.summary'), `<span class="muted">${escapeHtml(t('print.summaryText', { rows: layout.rows, pages: layout.count }))}</span>`),
-        ].join('')}
+        ])}
+        </div>
       </div>
       <div class="print-preview" id="print-preview">
         ${page && layout.rows ? `<div class="preview-stage">${page.svg}</div>` : `<div class="preview-empty">${icon('info')}<span>${escapeHtml(t('print.empty'))}</span></div>`}
@@ -790,15 +814,16 @@ function renderPrint() {
     foot: `<button class="icon-button" data-action="page" data-value="-1" title="${escapeHtml(t('print.prev'))}" aria-label="${escapeHtml(t('print.prev'))}" ${state.page <= 0 ? 'disabled' : ''}>${icon('chevronLeft')}</button>
       <span class="page-number" id="page-number">${escapeHtml(t('print.page', { n: state.page + 1, total: layout.count }))}</span>
       <button class="icon-button" data-action="page" data-value="1" title="${escapeHtml(t('print.next'))}" aria-label="${escapeHtml(t('print.next'))}" ${state.page >= layout.count - 1 ? 'disabled' : ''}>${icon('chevronRight')}</button>
+      <span class="print-summary muted" title="${escapeHtml(t('print.summary'))}">${icon('info')}<span>${escapeHtml(burndown ? t('print.summaryBurndown', { pages: layout.count }) : t('print.summaryText', { rows: layout.rows, pages: layout.count }))}</span></span>
       <span class="grow"></span>
-      <button class="button primary" data-action="print" title="${escapeHtml(t('print.print'))}" ${layout.rows ? '' : 'disabled'}>${icon('print')}<span>${escapeHtml(t('print.print'))}</span></button>
+      <button class="button primary" data-action="print" title="${escapeHtml(printers.length ? t('print.printTo', { name: options.printer || defaultPrinter || '-' }) : t('print.print'))}" ${layout.rows ? '' : 'disabled'}>${icon('print')}<span>${escapeHtml(t('print.print'))}</span></button>
       ${button('close', t('common.close'), 'close')}`,
   });
   let style = document.querySelector('#page-style');
   if (!style) { style = document.createElement('style'); style.id = 'page-style'; document.head.append(style); }
-  const paper = PAPERS[options.paper] ?? PAPERS.A4;
-  const landscape = options.orientation === 'landscape';
-  style.textContent = `@page { size: ${landscape ? paper.height : paper.width}mm ${landscape ? paper.width : paper.height}mm; margin: 0; }`;
+  // A hair under the paper's height: a sheet exactly as tall as the page can round over it and print an empty page.
+  style.textContent = `@page { size: ${layout.paper.width}mm ${layout.paper.height}mm; margin: 0; }
+@media print { .print-sheet .print-page { width: ${layout.paper.width}mm; height: ${layout.paper.height - 0.5}mm; } }`;
   fitPreview();
   ready();
 }
@@ -830,7 +855,11 @@ function changePrint(patch) {
 
 async function doPrint() {
   try {
-    if (window.__myworkplanPrintHook) window.__myworkplanPrintHook(printLayout());
+    const layout = printLayout();
+    const options = printSetup();
+    const job = { printer: state.printers?.printers.includes(options.printer) ? options.printer : '', copies: options.copies ?? 1, widthMm: layout.paper.width, heightMm: layout.paper.height };
+    if (window.__myworkplanPrintHook) window.__myworkplanPrintHook(layout, job);
+    else if (state.printers?.printers.length) await native.printDirect(job);
     else await native.printWindow();
     action('printed');
   } catch (error) {
@@ -847,19 +876,28 @@ function renderMenu() {
   const items = p.items;
   setOsTitle(p.header?.title);
   // Items only: no name/icon header row (the name stays the window title and the accessible name).
-  const header = '';
-  root.innerHTML = `<div class="popup-menu" role="menu" aria-label="${escapeHtml(p.header?.title ?? '')}">${header}${items.map((item, index) => (item.separator
-    ? '<div class="menu-sep" role="separator"></div>'
-    : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
-        <span class="menu-icon">${icon(item.icon)}</span>
-        <span class="menu-label">${escapeHtml(item.label)}</span>
-        <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
-        <span class="menu-check">${item.submenu ? icon('chevronRight') : item.checked ? icon('check') : ''}</span>
-      </button>`)).join('')}</div>`;
-  const menu = root.querySelector('.popup-menu');
-  const width = Math.ceil(menu.scrollWidth) + 2;
-  const height = Math.ceil(menu.scrollHeight) + 2;
-  const anchor = p.anchor ?? { x: 100, y: 100 };
+  state.subIndex = null;
+  root.innerHTML = `<div class="menu-cascade"><div class="popup-menu" role="menu" aria-label="${escapeHtml(p.header?.title ?? '')}">${menuRows(items)}</div></div>`;
+  placeMenu();
+  menuOpen = true;
+}
+
+const menuRows = (items, sub = false) => items.map((item, index) => (item.separator
+  ? '<div class="menu-sep" role="separator"></div>'
+  : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${sub ? 'data-sub-item' : ''} ${item.submenu ? 'aria-haspopup="menu"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
+      <span class="menu-icon">${icon(item.icon)}</span>
+      <span class="menu-label">${escapeHtml(item.label)}</span>
+      <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
+      <span class="menu-check">${item.submenu ? icon('chevronRight') : item.checked ? icon('check') : ''}</span>
+    </button>`)).join('');
+
+/** Sizes the menu window to its lists (the parent, and the open group beside it) at the anchor. */
+function placeMenu() {
+  const cascade = root.querySelector('.menu-cascade');
+  if (!cascade) return;
+  const width = Math.ceil(cascade.scrollWidth) + 2;
+  const height = Math.ceil(cascade.scrollHeight) + 2;
+  const anchor = P().anchor ?? { x: 100, y: 100 };
   if (desktop) {
     native.invoke('place_popup', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null, show: true })
       .then(() => window.focus())
@@ -867,7 +905,35 @@ function renderMenu() {
   } else {
     send('place', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null });
   }
-  menuOpen = true;
+}
+
+/**
+ * Opens a group's items beside the parent list, level with the group's row; the
+ * parent list stays. `index` of the group in the parent; null closes it.
+ */
+function openSubmenu(index, { focus = false } = {}) {
+  if (state.subIndex === index) {
+    if (focus) root.querySelector('.popup-menu.sub .menu-item:not([disabled])')?.focus();
+    return;
+  }
+  const cascade = root.querySelector('.menu-cascade');
+  if (!cascade) return;
+  cascade.querySelector('.popup-menu.sub')?.remove();
+  for (const row of cascade.querySelectorAll('.menu-item.sub-open')) row.classList.remove('sub-open');
+  state.subIndex = index;
+  const item = index == null ? null : P().items?.[index];
+  if (!item?.children?.length) { placeMenu(); return; }
+  const row = cascade.querySelector(`.popup-menu:not(.sub) .menu-item[data-index="${index}"]`);
+  row?.classList.add('sub-open');
+  const sub = document.createElement('div');
+  sub.className = 'popup-menu sub';
+  sub.setAttribute('role', 'menu');
+  sub.setAttribute('aria-label', item.label);
+  sub.style.marginTop = `${Math.max(0, (row?.offsetTop ?? 0) - 6)}px`;
+  sub.innerHTML = menuRows(item.children, true);
+  cascade.append(sub);
+  placeMenu();
+  if (focus) sub.querySelector('.menu-item:not([disabled])')?.focus();
 }
 
 let menuOpen = false;
@@ -880,7 +946,13 @@ async function chooseMenu(id) {
   if (!menuOpen) return;
   menuOpen = false;
   const item = id ? root.querySelector(`.menu-item[data-id="${CSS.escape(id)}"]`) : null;
-  // A group: the host opens its items in a menu just right of this row (screen coordinates).
+  // A group with its items here: open them beside this list (the menu stays open).
+  if (item?.classList.contains('has-sub') && P().items?.[Number(item.dataset.index)]?.children?.length) {
+    menuOpen = true;
+    openSubmenu(Number(item.dataset.index), { focus: true });
+    return undefined;
+  }
+  // A group without them: the host opens its items in a menu just right of this row (screen coordinates).
   if (item?.classList.contains('has-sub')) {
     const rect = item.getBoundingClientRect();
     const frame = window.frameElement?.getBoundingClientRect() ?? { left: 0, top: 0 };
@@ -891,8 +963,19 @@ async function chooseMenu(id) {
   await hide({ id });
 }
 
+// Pointing at a group opens its items beside the list; pointing at another row of the parent closes them.
+root.addEventListener('pointerover', (event) => {
+  if (kind !== 'menu' || !menuOpen) return;
+  const row = event.target.closest?.('.menu-item');
+  if (!row || row.hasAttribute('data-sub-item')) return;
+  const group = row.classList.contains('has-sub') && !row.disabled && P().items?.[Number(row.dataset.index)]?.children?.length;
+  openSubmenu(group ? Number(row.dataset.index) : null);
+});
+
 function moveMenuFocus(direction) {
-  const items = [...root.querySelectorAll('.menu-item:not([disabled])')];
+  // Up / down move within the list that has the focus (the parent or the open group).
+  const list = document.activeElement?.closest?.('.popup-menu') ?? root.querySelector('.popup-menu');
+  const items = [...list.querySelectorAll('.menu-item:not([disabled])')];
   if (!items.length) return;
   const current = items.indexOf(document.activeElement);
   items[(current + direction + items.length) % items.length].focus();
@@ -1922,6 +2005,12 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowUp') { event.preventDefault(); moveMenuFocus(-1); }
     if (event.key === 'Enter' && document.activeElement?.classList.contains('menu-item')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id); }
     if (event.key === 'ArrowRight' && document.activeElement?.classList.contains('has-sub')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id); }
+    if (event.key === 'ArrowLeft' && document.activeElement?.hasAttribute('data-sub-item')) {
+      event.preventDefault();
+      const parent = root.querySelector(`.popup-menu:not(.sub) .menu-item[data-index="${state.subIndex}"]`);
+      openSubmenu(null);
+      parent?.focus();
+    }
   }
   if (kind === 'print' && event.key === 'PageDown') { state.page += 1; render(); }
   if (kind === 'print' && event.key === 'PageUp') { state.page -= 1; render(); }

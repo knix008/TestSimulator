@@ -43,7 +43,7 @@ export const STEPS = [
   { id: 'background', chapter: 'start', target: '.start-card.background', dwell: 7000, async run(a) {
     await a.start();
     a.scrollStart('.start-card.background');
-    for (const kind of ['waves', 'constellation', 'gantt', 'aurora']) { a.app.updateSettings({ animation: kind, backgroundKind: 'animated' }); await sleep(1300); }
+    for (const kind of ['kanban', 'network', 'burndown', 'timeline']) { a.app.updateSettings({ animation: kind, backgroundKind: 'animated' }); await sleep(1300); }
   } },
   // ── building a plan
   { id: 'sample', chapter: 'build', target: '#view-host', run: (a) => a.sample() },

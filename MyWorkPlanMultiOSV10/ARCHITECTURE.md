@@ -42,9 +42,11 @@
 | `├ templates.js` | 템플릿 7종과 튜토리얼 예제(한/영 사양을 일반 편집 함수로 빌드) |
 | `├ fields.js`, `filters.js` | 표의 열(필드)과 표 묶음, 필터·그룹·정렬·검색 |
 | `├ settings.js`, `recent.js` | 설정 기본값·검증·저장(localStorage), 최근 파일·폴더 10개 |
-| `src/views/` | 12가지 보기: `gantt.js`(간트·추적 간트), `sheet.js`, `usage.js`(작업/자원 사용), `network.js`, `calendar-view.js`, `timeline.js`, `resource-graph.js`, `team-planner.js`, `reports.js`, 공통 `timescale.js` |
-| `src/ui/` | `grid.js`(가상 스크롤 편집 표), `startpage.js`, `tutorial.js`(STEPS), `background.js`(움직이는 배경 8종), `dom.js` |
-| `src/print/render.js` | 인쇄·PNG 내보내기용 SVG 페이지(테마와 무관한 흑백) |
+| `src/views/` | 13가지 보기: `gantt.js`(간트·추적 간트), `sheet.js`, `usage.js`(작업/자원 사용), `network.js`, `calendar-view.js`, `timeline.js`, `kanban.js`(칸반 보드), `resource-graph.js`, `team-planner.js`, `reports.js`(번다운 차트 포함), 공통 `timescale.js` |
+| `src/ui/` | `grid.js`(가상 스크롤 편집 표), `startpage.js`, `tutorial.js`(STEPS), `background.js` + `background-plan.js`(프로젝트 계획을 그린 움직이는 배경 14종), `dom.js` |
+| `src/print/render.js` | 인쇄·PNG 내보내기용 SVG 페이지(테마와 무관한 흑백); `burndown.js` 번다운 차트 인쇄 쪽 |
+| `src/domain/burndown.js` | 번다운 데이터(이상선·현재 일정·기준 계획·실제, 남은 작업 수) — 보고서·인쇄 공용 |
+| `src-tauri/src/printing.rs` | 프린터 목록(EnumPrinters)과 고른 프린터로 바로 인쇄(WebView2 Print, 대화 상자 없음), 시험용 PDF 출력 |
 | `src/platform/native.js` | 플랫폼 경계: 데스크톱은 Rust 명령, 웹은 브라우저 API(File System Access·내려받기·IndexedDB) |
 | `src/platform/popups.js` | 팝업 열기/닫기/메시지, 팝업 크기 표(`POPUPS`) |
 | `src/app.js` | 메인 창: 명령 표(`commands`), `MENUS`, `TOOLBAR`, 오른쪽 클릭 메뉴, `SHORTCUTS`, 파일 처리 |

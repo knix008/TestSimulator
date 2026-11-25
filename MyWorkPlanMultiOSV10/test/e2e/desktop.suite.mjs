@@ -58,7 +58,7 @@ async function freshSample(app) {
 /** OS window checks for a popup: its own window titled "<title> — MyWorkPlan vX", owned by the main window, fixed size, no scroll bars, icon + title. */
 async function expectPopupWindow(app, page, kind, { resizable = false } = {}) {
   assert.equal(await page.eval('document.title'), `popup-${kind}`);
-  const head = await page.eval(`(() => { if (${kind === 'menu'}) { const m = document.querySelector('.popup-menu'); return m ? { icon: true, text: m.getAttribute('aria-label') || '', drag: true, noHeader: !document.querySelector('.menu-head') } : null; } const h = document.querySelector('.popup-head h2'); return h ? { icon: Boolean(h.querySelector('svg')), text: h.textContent.trim(), drag: Boolean(document.querySelector('[data-tauri-drag-region]')) } : null; })()`);
+  const head = await page.eval(`(() => { if (${kind === 'menu' || kind === 'theme'}) { const m = document.querySelector('.popup-menu, .theme-dropdown'); return m ? { icon: true, text: m.getAttribute('aria-label') || '', drag: true, noHeader: !document.querySelector('.menu-head') } : null; } const h = document.querySelector('.popup-head h2'); return h ? { icon: Boolean(h.querySelector('svg')), text: h.textContent.trim(), drag: Boolean(document.querySelector('[data-tauri-drag-region]')) } : null; })()`);
   assert.ok(head?.icon && head.text, `${kind}: header has an icon and a title (${JSON.stringify(head)})`);
   assert.ok(head.drag, `${kind}: can be moved by its title bar`);
   assert.deepEqual(await page.eval(POPUP_SCROLL_CHECK), [], `${kind}: no scroll bars inside the popup`);
@@ -356,6 +356,9 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.deepEqual(info.counts, [20, 20]);
     assert.ok(info.lefts[0] < info.lefts[1], 'side by side');
     assert.ok(info.custom);
+    // A dropdown, not a window: no title bar or Close; the custom theme and its settings button are there.
+    const shape = await page.eval(`({ head: Boolean(document.querySelector('.popup-head')), close: Boolean(document.querySelector('[data-action="close"]')), settings: Boolean(document.querySelector('[data-action="edit-custom"]')), fits: document.documentElement.scrollHeight <= innerHeight + 1 && document.documentElement.scrollWidth <= innerWidth + 1 })`);
+    assert.deepEqual(shape, { head: false, close: false, settings: true, fits: true });
     await page.click('[data-pick-theme="nord"]');
     page.close();
     await sleep(400);
@@ -458,17 +461,19 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(250);
     const groups = await menu.eval(`[...document.querySelectorAll('.menu-item.has-sub')].map((i) => ({ id: i.dataset.id, arrow: Boolean(i.querySelector('.menu-check svg')) }))`);
     assert.ok(groups.length >= 4 && groups.every((g) => g.arrow), JSON.stringify(groups));
-    const parent = await menu.eval(`(() => { const r = document.querySelector('[data-id="submenu:views"]').getBoundingClientRect(); return { right: window.screenX + r.right, top: window.screenY + r.top }; })()`);
     await menu.click('[data-id="submenu:views"]');
-    menu.close();
-    await sleep(300);
-    menu = await app.popup('menu');
-    await menu.waitFor(`document.querySelector('[data-id="view:network"]') && document.hasFocus()`);
-    await sleep(250);
-    const place = await menu.eval(`({ x: window.screenX, y: window.screenY, head: document.querySelector('.popup-menu').getAttribute('aria-label'), count: document.querySelectorAll('.menu-item').length })`);
+    // The group opens beside its row in the same window: the parent list stays in view.
+    await menu.waitFor(`document.querySelector('.popup-menu.sub [data-id="view:network"]')`);
+    await sleep(350);
+    const place = await menu.eval(`(() => {
+      const parent = document.querySelector('.popup-menu:not(.sub)'); const sub = document.querySelector('.popup-menu.sub'); const row = document.querySelector('[data-id="submenu:views"]');
+      const p = parent.getBoundingClientRect(); const s = sub.getBoundingClientRect(); const r = row.getBoundingClientRect();
+      return { head: sub.getAttribute('aria-label'), count: sub.querySelectorAll('.menu-item').length, parentItems: parent.querySelectorAll('.menu-item').length, beside: s.left - p.right, level: s.top - r.top, fits: document.documentElement.scrollWidth <= innerWidth + 1 && s.right <= innerWidth + 1 && s.bottom <= innerHeight + 1 };
+    })()`);
     assert.equal(place.head, '보기 전환');
-    assert.equal(place.count, 12);
-    assert.ok(Math.abs(place.x - parent.right) < 12 && Math.abs(place.y - parent.top) < 20, `submenu opens beside its row ${JSON.stringify({ parent, place })}`);
+    assert.equal(place.count, 13);
+    assert.ok(place.parentItems > 4, 'the parent menu is still there');
+    assert.ok(place.beside >= 0 && place.beside < 12 && Math.abs(place.level) < 20 && place.fits, `submenu opens beside its row, inside the window ${JSON.stringify(place)}`);
     await menu.click('[data-id="view:network"]');
     menu.close();
     await sleep(500);
@@ -549,8 +554,9 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.deepEqual(await page.eval(CLIP_CHECK), [], `${kind}: nothing cut off`);
     const tabs = await page.eval(`[...document.querySelectorAll('.tabs [data-action="tab"]')].map((t) => t.dataset.value)`);
     if (tabs.length) {
-      const nav = await page.eval(`(() => { const n = document.querySelector('.tabs .tabs-nav'); if (!n) return null; const r = n.getBoundingClientRect(); return { right: document.querySelector('.tabs').getBoundingClientRect().right - r.right, buttons: n.querySelectorAll('.tabs-scroll').length, scrollbar: document.querySelector('.tabs-strip').offsetHeight - document.querySelector('.tabs-strip').clientHeight }; })()`);
-      assert.ok(nav && nav.buttons === 2 && nav.right < 16 && nav.scrollbar === 0, `${kind}: < > at the right end of the tabs ${JSON.stringify(nav)}`);
+      // Every tab is in view: no "<" ">", nothing hidden past the edge (the popup is wide enough).
+      const nav = await page.eval(`(() => { const s = document.querySelector('.tabs-strip'); return { arrows: document.querySelectorAll('.tabs-scroll').length, hidden: s.scrollWidth - s.clientWidth, scrollbar: s.offsetHeight - s.clientHeight }; })()`);
+      assert.ok(nav.arrows === 0 && nav.hidden <= 1 && nav.scrollbar === 0, `${kind}: all tabs visible, no < > ${JSON.stringify(nav)}`);
     }
     for (const tab of tabs) {
       await page.eval(`document.querySelector('.tabs [data-value="${tab}"]').click(); 1`);
@@ -684,12 +690,12 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await freshSample(app);
     await app.main.click('#left-panel .panel-header [data-command="leftPanel"]');
     await sleep(300);
-    const rail = await app.main.eval(`(() => { const p = document.querySelector('#left-panel'); const expand = p.querySelector('.rail-button.expand'); const title = p.querySelector('.rail-title'); const buttons = [...p.querySelectorAll('.rail-button')]; return { width: p.offsetWidth, expandFirst: buttons[0] === expand, title: title?.textContent.trim(), icons: buttons.every((b) => b.querySelector('svg')) }; })()`);
+    const rail = await app.main.eval(`(() => { const p = document.querySelector('#left-panel'); const expand = p.querySelector('.rail-button.expand'); const title = p.querySelector('.rail-title'); const buttons = [...p.querySelectorAll('.rail-button')]; return { width: p.offsetWidth, expandFirst: buttons[0] === expand && p.querySelector('.panel-rail').firstElementChild === expand, title: title?.textContent.trim(), icons: buttons.every((b) => b.querySelector('svg')) }; })()`);
     assert.ok(rail.width < 80 && rail.expandFirst && rail.title && rail.icons, JSON.stringify(rail));
     await app.main.click('#left-panel .rail-button.expand');
     await app.main.click('#right-panel .panel-header [data-command="rightPanel"]');
     await sleep(300);
-    assert.ok(await app.main.eval(`document.querySelector('#right-panel .rail-title') && document.querySelector('#right-panel .rail-button.expand') === document.querySelector('#right-panel .rail-button')`));
+    assert.ok(await app.main.eval(`document.querySelector('#right-panel .rail-title') && document.querySelector('#right-panel .rail-button.expand') === document.querySelector('#right-panel .panel-rail').firstElementChild`));
     await app.main.click('#right-panel .rail-button.expand');
     await sleep(300);
     const split = await app.main.center('[data-split="left"]');
@@ -1158,7 +1164,12 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(await rows(), 2, 'selected tasks only');
     await page.eval(`(() => { const r = document.querySelector('[data-print-range="all"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
     assert.equal(await rows(), all);
-    await page.click('.tabs [data-value="page"]');
+    // One column, no tabs: printer, contents, range, page setup, header and footer.
+    assert.equal(await page.eval(`document.querySelectorAll('.tabs').length`), 0, 'no tabs');
+    assert.equal(await page.eval(`document.querySelectorAll('.print-section').length`), 5);
+    // The printers of this computer are offered (Windows); the job goes straight to the chosen one.
+    const printers = await page.eval(`window.__TAURI_INTERNALS__.invoke('list_printers')`);
+    if (printers.printers.length) assert.ok(await page.eval(`Boolean(document.querySelector('[data-print="printer"]'))`), 'printer choice');
     const landscape = await pages();
     await page.click('[data-print-segment="orientation"][data-value="portrait"]');
     const portrait = await pages();
@@ -1167,6 +1178,15 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await page.click('[data-action="print"]');
     await sleep(300);
     assert.ok(await page.eval('window.__printed') >= 1, 'printed');
+    // What WebView2 would print, as a PDF (no printer, no dialog): the burndown chart is one page, not one plus an empty one.
+    await page.eval(`(() => { const s = document.querySelector('[data-print="content"]'); s.value = 'burndown'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(300);
+    const pdf = path.join(tempDir('print'), 'burndown.pdf');
+    await page.eval(`window.__TAURI_INTERNALS__.invoke('print_pages_to_pdf', { job: { printer: '', copies: 1, widthMm: 210, heightMm: 297 }, path: ${JSON.stringify(pdf)} }).then(() => 1)`);
+    const bytes = fs.readFileSync(pdf).toString('latin1');
+    assert.ok(bytes.startsWith('%PDF-'), 'a PDF');
+    assert.equal((bytes.match(/\/Type\s*\/Page[^s]/g) || []).length, 1, 'one page');
+    await page.eval(`(() => { const s = document.querySelector('[data-print="content"]'); s.value = 'both'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
     page.close();
     await closePopups(app);
   } },

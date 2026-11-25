@@ -72,7 +72,7 @@ Until you have finished the tutorial once, a hint banner under this row says "Ne
 | **Recent** | 1 column | **Recent files** and **Recent folders** |
 | **New** | 3 columns | **Blank project** and 7 templates |
 | **Sample projects** | 3 columns | 40 sample plans in 8 groups (see [Sample projects](#sample-projects)) |
-| **Moving background** | 3 columns | 21 animations and the background controls |
+| **Moving background** | 3 columns | 14 animations and the background controls |
 
 There is no theme card on the start page: themes are chosen with the theme buttons on the toolbar or in **Settings › Theme** (see [Themes](#themes)).
 
@@ -128,11 +128,11 @@ Templates come with phases (summary tasks), tasks, links, milestones and resourc
 
 ### Moving background
 
-![The Moving background card with the 21 animations and its controls](docs/guide/images/en/03-start-background.png)
+![The Moving background card with the 14 animations and its controls](docs/guide/images/en/03-start-background.png)
 
 | Control | What it does |
 |---|---|
-| Animation tiles | Pick one of 21 animations: Aurora · Waves · Particles · Constellation · Bubbles · Flowing grid · Gantt bars · Star field · Rain · Snow · Fireflies · Ripples · Code rain · Hexagons · Orbits · Lava lamp · Spiral galaxy · Confetti · Milestones · Ribbons · Fireworks |
+| Animation tiles | Pick one of 14 planning animations: Timeline · Gantt bars · Kanban board · Dependency network · Burndown chart · Calendar · Critical path · Milestones · Progress · Resource load · Sprints · Blueprint · Against baseline · Team lanes (two full rows of seven) |
 | **Change moving background** | Switches to another animation at random (`Ctrl+Shift+B`) |
 | **Background image…** | Uses a picture as the background instead |
 | **Motion speed** | 0–300% |
@@ -314,10 +314,10 @@ The desktop app has no separate system title bar: the menu bar does that job.
 | Left end | The program icon, **MyWorkPlan** and the version (v1.0.0) |
 | **Home** | Toggles the start page (below) |
 | Menus | **File** · **Edit** · **View** · **Task** · **Resource** · **Project** · **Report** · **Help** |
-| Right end | **Minimize** · **Maximize** (**Restore down** while maximised) · **Close**. Close asks about unsaved plans, like **File › Exit** |
+| Right end | The panel buttons **Tool panel** · **Bottom panel** · **Properties panel** (highlighted while shown), then **Minimize** · **Maximize** (**Restore down** while maximised) · **Close**. Close asks about unsaved plans, like **File › Exit** |
 
 - Drag an empty part of the menu bar to move the window; double-click it to maximise or restore. Windows Snap works as usual (drag to a screen edge, or `Win+arrow`).
-- In the web version the menu bar shows the icon, name and version but no window buttons; the browser has its own.
+- In the web version the menu bar has no window buttons (the browser has its own); the panel buttons sit at its right end.
 
 **Home** (`Ctrl+Shift+H`) is a toggle:
 
@@ -331,23 +331,23 @@ Long menus are grouped into submenus: click an item with › on the right (or pr
 |---|---|
 | **File** | New project · Open… · Start page · Recent files… · Recent folders · Clear all recent files and folders · Save · Save as… · Save all · Save as template… · Open from database… · Save to database (desktop) · **Import and export** › (Import (MS Project XML · CSV)… · Export to MS Project XML… · Export to CSV… · Export Gantt chart as picture (PNG)…) · Print… · Close tab · Close all tabs · Exit |
 | **Edit** | Undo · Redo · Cut · Copy · Paste · Fill down · Delete · Select all · Clear selection · Find… · Replace… · Go to… |
-| **View** | **Switch view** › (the 12 views) · Switch view · **Table, filter and group** › (Table (column set) · Choose columns… · Filter · Clear filter, group and sort · Group · Sort · Highlight instead of filter · Show summary tasks only (collapse all) · Show all subtasks (expand all)) · **Zoom and timescale** › (Zoom in · Zoom out · Zoom to 100% · Zoom in timescale · Zoom out timescale · Entire project · Scroll to task · Go to today) · **Show** › (Show critical path · Show slack · Show baseline bars · Show progress line · Show/hide tool panel · Show/hide properties panel · Bottom panel (schedule check) · Fold / unfold the bottom panel · Status bar) · **Theme, language and background** › (Random theme · Choose theme · Switch language · Change moving background · Background image… · Turn background off) |
+| **View** | **Switch view** › (the 13 views) · Switch view · **Table, filter and group** › (Table (column set) · Choose columns… · Filter · Clear filter, group and sort · Group · Sort · Highlight instead of filter · Show summary tasks only (collapse all) · Show all subtasks (expand all)) · **Zoom and timescale** › (Zoom in · Zoom out · Zoom to 100% · Zoom in timescale · Zoom out timescale · Entire project · Scroll to task · Go to today) · **Show** › (Show critical path · Show slack · Show baseline bars · Show progress line · Show/hide tool panel · Show/hide properties panel · Bottom panel (schedule check) · Fold / unfold the bottom panel · Status bar) · **Theme, language and background** › (Random theme · Choose theme · Switch language · Change moving background · Background image… · Turn background off) |
 | **Task** | Insert task · Insert summary task · Insert milestone · Recurring task… · Indent (make subtask) · Outdent · Move up · Move down · Link tasks · Unlink tasks · Information… · Notes… · Add to timeline · **Progress** › (0% complete … 100% complete · Mark on track · Update tasks…) · Manually schedule · Auto schedule · Inactivate task |
 | **Resource** | Add resource · Resource information… · Assign resources… · Level all · Clear leveling · Leveling options… · Next overallocation · Resource Sheet · Resource Usage · Resource Graph · Team Planner |
 | **Project** | Project information… · Change working time… · Project statistics… · Set baseline… · Clear baseline… · Update project… · Status date… · Calculate now · Find critical path · Insert another project… |
 | **Report** | The 10 reports (including Labor cost) · **Export report** › (HTML · Markdown · Word · PDF) · Copy report · Print… |
 | **Help** | Tutorial · Tutorial document · Tutorial video · User's guide · Keyboard shortcuts… · Settings… · About… (the documents and the video open in their own windows) |
 
-Every menu item shows an icon and its shortcut, and menus may extend outside the main window. Commands that cannot be used right now are dimmed.
+Every menu item shows an icon and its shortcut, and menus may extend outside the main window. Commands that cannot be used right now are dimmed. Pointing at (or clicking, or → on) an item with › opens its group **right beside the menu**: the menu stays, and each list keeps its own size. ← goes back to the menu.
 
 ### Toolbar
 
 | Where | Buttons |
 |---|---|
-| Left | New project · Open · Save · Print │ Undo · Redo │ Copy · Paste │ Insert task · Insert milestone · Indent · Outdent · Link tasks · Information │ Switch view (current view name ▾) │ Show critical path · Find critical path │ Zoom `[−] 100% [+]` │ Zoom out / in timescale │ Tool panel · Bottom panel · Properties panel |
+| Left | New project · Open · Save · Print │ Undo · Redo │ Copy · Paste │ Insert task · Insert milestone · Indent · Outdent · Link tasks · Information │ Switch view (current view name ▾) │ Show critical path · Find critical path │ Zoom `[−] 100% [+]` │ Zoom out / in timescale |
 | Right | Tutorial (graduation cap) · Random theme + ▾ (Choose theme) · Switch language (flag) · Settings · About (ⓘ) |
 
-Every button has a tooltip. The Undo and Redo tooltips say what will be undone (for example "Undo: Change duration").
+The panel buttons (Tools · Bottom · Properties) are on the menu bar, left of the Minimize button. Every button has a tooltip. The Undo and Redo tooltips say what will be undone (for example "Undo: Change duration").
 
 ### Colour icons
 
@@ -372,12 +372,14 @@ Each project gets a tab. When there are many, scroll them with the arrows at the
 
 Shows the properties of the selection and lets you change them in place. Change a value and press `Enter`; `Ctrl+Z` undoes it.
 
-Numbers are edited with steppers, `[−] value [+]`, with the value and its unit in the middle; all fields line up in one column.
+Numbers are edited with steppers, `[−] value [+]`, with the value and its unit in the middle; all fields line up in one column. Labels and values form two aligned columns and every row is one field high; a progress bar sits under the % Complete stepper.
 
 | Selection | Stepper | Range and step |
 |---|---|---|
 | Task | **Duration** | In the task's own unit (d, wk, h …), step 1 |
 | Task | **% Complete** | 0–100%, step 5 |
+| Summary task · project (nothing selected) | **% Complete** | 0–100%, step 5. Filled in schedule order: the tasks that finish first are done (100%), the next one is partly done, the rest are 0% |
+| Several tasks | **% Complete** | 0–100%, step 5. Sets all of them to the same value (starts at their average) |
 | Task | **Priority** | 0–1000, step 50 |
 | Resource | **Max. Units** | %, step 10 |
 | Resource | **Std. Rate** | Per hour, step ₩1,000 (or $1 and so on in other currencies) |
@@ -390,7 +392,7 @@ Click − or + to step once, or hold the button to keep stepping. You can also t
 |---|---|
 | Nothing | The project: title, project start, finish, duration, status date, % complete, cost, work, number of tasks and resources, Critical / Late / Overallocated badges, buttons **Project** · **Calendar** · **Baseline** · **Level** |
 | One task | Task name, WBS, duration, start, finish, % complete, predecessors, resource names, mode, constraint type and date, deadline, priority, cost, work, total slack, badges (critical · running late · overallocated · finish variance), notes, bar color, **More…** · **Assign** · **Scroll to** |
-| Several tasks | Count, start and finish, cost, Link · Unlink · Indent · Outdent · 0% · 50% · 100% · Inactive · Info |
+| Several tasks | Count, % complete, start and finish, cost, Link · Unlink · Indent · Outdent · 0% · 50% · 100% · Inactive · Info |
 | A resource | Name, type, initials, group, max. units, std. rate, cost/use, work, cost, assigned tasks |
 | A link | Predecessor, successor, type, lag, **Delete link** |
 
@@ -788,7 +790,7 @@ The **Delays** tab of the [bottom panel](#bottom-panel-schedule-check) lists lat
 
 ## Views
 
-Switch between the 12 views with the toolbar view button (current view name ▾), the **Views** section of the Tools panel or **View › Switch view**. Each tab remembers its view; the first view of new projects is set in **Settings › General › Default view of new projects**.
+Switch between the 13 views with the toolbar view button (current view name ▾), the **Views** section of the Tools panel or **View › Switch view**. Each tab remembers its view; the first view of new projects is set in **Settings › General › Default view of new projects**.
 
 ### Gantt Chart
 
@@ -843,6 +845,16 @@ Each resource with its assignments and hours per day; periods over the limit are
 ![The Resource Graph view](docs/guide/images/en/15-resource-graph.png)
 
 Pick a resource on the left to see its work per day (columns) against its availability (line); red above the line is overallocation. Max. units · peak · total work are summed up at the top, and **per day** · **per week** switch the scale. Only work resources are graphed.
+
+### Kanban Board
+
+![The Kanban Board view](docs/guide/images/en/29-kanban.png)
+
+The tasks as cards in three columns by progress: **Not started** (0%) · **In progress** (1–99%) · **Done** (100%), each with its card count.
+
+- A card shows its phase (the summary above it), ID, name, start–finish dates and duration, a % complete bar, the people's initials and the critical / late / missed-deadline marks. Its left stripe takes the bar colour.
+- **Drag a card to another column** to change its progress: Not started = 0%, In progress = 50% (a task already in progress keeps its value), Done = 100%. Actual dates are recorded and `Ctrl+Z` undoes it. Several selected cards move together.
+- Click selects, double-click opens Task Information, right-click gives the task menu. Summary and inactive tasks have no card.
 
 ### Team Planner
 
@@ -920,7 +932,7 @@ Pick a report from the **Report** menu or the list in the Reports view. Reports 
 | **Project overview** | % complete, late and critical task counts, progress by phase, upcoming milestones |
 | **Cost overview** | Cumulative cost (baseline · scheduled · actual), cost by phase (lower bar: baseline), cost by resource |
 | **Work overview** | Work by resource, work by week |
-| **Burndown** | Remaining work: remaining as scheduled (blue line) and actually remaining (green line) |
+| **Burndown chart** | Key figures (total, done, remaining, open tasks, % complete, ahead/behind schedule) and two charts, **Remaining work** and **Open tasks**: Ideal (grey dashed, an even fall from start to finish) · Baseline (purple dotted, when saved) · Scheduled (blue) · Actual (green, up to the status date) · the status date (red dashed). A plan without resources counts task durations |
 | **Critical tasks** | Tasks with no slack: a delay in any of them delays the project finish |
 | **Late tasks** | Tasks behind their schedule at the status date |
 | **Upcoming tasks** | Tasks starting within two weeks of the status date |
@@ -929,6 +941,8 @@ Pick a report from the **Report** menu or the list in the Reports view. Reports 
 | **Labor cost** | What the people cost and their share of the total (below) |
 
 **Copy report** puts the report on the clipboard as text, ready to paste into a spreadsheet or document. **Print…** on the report screen opens the [print preview](#printing-and-preview) (it prints the task table and Gantt chart).
+
+![The burndown chart report: key figures, remaining work and open tasks](docs/guide/images/en/30-burndown.png)
 
 ### Labor cost report
 
@@ -1051,15 +1065,21 @@ Choose in **Settings › Database**.
 
 ![The Print preview window](docs/guide/images/en/20-print.png)
 
-**File › Print…** (`Ctrl+P`), the Print toolbar button or the **Print** tile on the start page opens the **Print preview** window. The preview on the right follows every change; **Previous page** · **Next page** at the bottom turn the pages.
+**File › Print…** (`Ctrl+P`), the Print toolbar button or the **Print** tile on the start page opens the **Print preview** window. The preview on the right follows every change; **Previous page** · **Next page** at the bottom turn the pages, next to the number of tasks and pages to print.
 
-| Tab | Fields |
+Every setting is listed **in one column**, without tabs:
+
+![The print preview with the burndown chart chosen](docs/guide/images/en/31-print-burndown.png)
+
+| Group | Fields |
 |---|---|
-| **What to print** | **Entire project** · **Current view (filtered tasks)** · **Custom** (Task ID range, Date range, Selected tasks only), and **To print** (tasks and pages) |
-| **Page setup** | Paper, orientation (portrait / landscape), margins (narrow · normal · wide), scale (50–150%), content (Table + Gantt chart · Table only · Gantt chart only), legend |
+| **Printer** | This computer's printers (the default first) and **Copies**. Without printers (the web version, other systems) it says that Print opens the system dialog |
+| **Content** | Table + Gantt chart · Table only · Gantt chart only · **Burndown chart**, legend |
+| **What to print** | **Entire project** · **Current view (filtered tasks)** · **Custom** (Task ID range, Date range, Selected tasks only); not used by the burndown chart |
+| **Page setup** | Paper, orientation (portrait / landscape), margins (narrow · normal · wide), scale (50–150%) |
 | **Header and footer** | Header and footer on/off and their text |
 
-**Print** opens the system print dialog (Save as PDF lives there too). Prints are black on white whatever the theme; the timescale fits the page width and rows continue on the following pages. The page setup is kept for the next time.
+**Print** prints **at once** on the chosen printer (Windows; no second dialog). In the web version and on other systems it opens the system print dialog (Save as PDF lives there too). **Print…** on the **Burndown chart** report opens the window with the burndown chart chosen: one page with the key figures and both charts. Prints are black on white whatever the theme; the timescale fits the page width and rows continue on the following pages. The page setup is kept for the next time.
 
 Printing from the start page with no plan open first asks for the plan file, opens it, and then shows the preview.
 
@@ -1068,7 +1088,9 @@ Printing from the start page with no plan open first asks for the plan file, ope
 ### Themes
 
 - The **Random theme** toolbar button picks a different theme at random on every press; its tooltip names the current theme.
-- The ▾ next to it (**Choose theme**) opens a window with **Dark (20)** and **Light (20)** in two columns, plus **System setting** (follows the OS) and **Custom** at the top.
+![The theme dropdown](docs/guide/images/en/32-theme-dropdown.png)
+
+- The ▾ next to it (**Choose theme**) drops down a **theme menu** under the button (not a separate window; it opens leftwards from the button's right edge, so it never runs off the screen): **Dark (20)** and **Light (20)** in two columns, **System setting** (follows the OS) and **Custom theme** (your colours, with its swatch) at the top, and at the bottom **Custom theme settings…**, which goes straight to the custom theme editor in Settings. A click outside or `Esc` closes it.
 - **Settings › Theme** tab: Dark · Light · Custom groups and **System setting**. Custom lets you change Background · Surface · Panel · Text · Dim text · Border · Accent · Text on accent · Striped rows · Chart background · Toolbar · Status bar one by one, with **Copy the current theme's colors** and a **Dark theme** switch. Low contrast shows the warning "Text may be hard to read".
 
 The start page follows the theme too; it has no theme card of its own.
@@ -1088,7 +1110,7 @@ The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches be
 | Field | Contents |
 |---|---|
 | **Background** | Moving · Image · None |
-| **Moving background** | The 21 animations, **Change moving background** (`Ctrl+Shift+B`, random) |
+| **Moving background** | The 14 animations, **Change moving background** (`Ctrl+Shift+B`, random) |
 | **Motion speed** | 0–300% |
 | **Random background at start** | A different animation on every start |
 | **Start page background changes** | Off · Every 15 s · 30 s · 1 min · 2 min · 5 min, while the start page is open |
@@ -1103,8 +1125,8 @@ The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches be
 
 ![Both side panels folded to rails and the bottom panel folded to its header line](docs/guide/images/en/27-panels-folded.png)
 
-- Fold and unfold the Tools and Properties panels with the double-arrow button at the outer edge of their header, **Show/hide tool panel** (`Ctrl+Shift+1`) · **Show/hide properties panel** (`Ctrl+Shift+2`) or the toolbar buttons.
-- Folded, a side panel becomes a narrow rail (44 px): at the top the panel's icon and short title (**Tools** or **Props**), then the **Expand** button, then icon-only buttons whose names are in their tooltips. The Tools rail still switches views; the Properties rail runs the main commands (Info, Resource, Project, Calendar, Baseline, Level).
+- Fold and unfold the Tools and Properties panels with the double-arrow button at the outer edge of their header, **Show/hide tool panel** (`Ctrl+Shift+1`) · **Show/hide properties panel** (`Ctrl+Shift+2`) or the panel buttons on the menu bar.
+- Folded, a side panel becomes a narrow rail (44 px): **the Expand button at the very top**, then the panel's icon and short title (**Tools** or **Props**), then icon-only buttons whose names are in their tooltips. The Tools rail still switches views; the Properties rail runs the main commands (Info, Resource, Project, Calendar, Baseline, Level).
 - The bottom panel folds to one header line (see [Bottom panel: schedule check](#bottom-panel-schedule-check)); `Ctrl+Shift+3` turns it off and on.
 - Drag the separators to change the panel widths, and the bottom panel's top edge to change its height.
 
@@ -1117,13 +1139,13 @@ The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches be
 
 ### The Settings window
 
-**Help › Settings…** (`Ctrl+,`), the Settings button on the toolbar or the **Settings** tile on the start page. Settings apply at once and are kept for the next start. **Defaults** puts every setting back (the language and the background image stay); **Done** closes the window.
+**Help › Settings…** (`Ctrl+,`), the Settings button on the toolbar or the **Settings** tile on the start page. Settings apply at once and are kept for the next start. **Defaults** puts every setting back (the language and the background image stay); **Done** closes the window. The window is wide enough for all its tabs, so there are no < > buttons.
 
 | Tab | Fields |
 |---|---|
 | **General** | Language, date format (ISO · Korean · US · European), Show times with dates, Default view of new projects, Show the start page when starting, Reopen last files when starting, Ask before deleting, Clock on the status bar, Status bar, Last folder used, Start the tutorial |
 | **Start page** | What the start page shows, card opacity, card layout (see [Start page settings](#start-page-settings)) |
-| **Theme** | Dark · Light · Custom, System setting |
+| **Theme** | Dark · Light · **Custom theme** (set the twelve colours yourself, copy the current theme's colours, dark theme), System setting |
 | **Font** | Font, size, weight, style, row height, zoom |
 | **Background** | Background, moving background, motion speed, random at start, automatic change, start page only, background image, background opacity, fit |
 | **Schedule** | Hours per day, Hours per week, Days per month (also used to turn wages into hourly rates), Mode of new tasks |

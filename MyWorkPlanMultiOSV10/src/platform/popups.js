@@ -14,13 +14,13 @@ import { emitTo, invoke, isDesktop, listen } from './native.js';
 
 /** Logical size of each popup. Fixed: each fits its content without scrolling. */
 export const POPUPS = {
-  settings: { width: 920, height: 640 },
+  settings: { width: 1000, height: 640 }, // wide enough for every tab, in both languages (no "<" ">")
   about: { width: 740, height: 600 },
   confirm: { width: 540, height: 270 },
   error: { width: 720, height: 500 },
   progress: { width: 480, height: 210 },
   recent: { width: 800, height: 600 },
-  print: { width: 1180, height: 760 },
+  print: { width: 1180, height: 920 }, // one column of every print setting beside the preview
   menu: { width: 300, height: 200 },
   theme: { width: 620, height: 680 },
   task: { width: 820, height: 600 },
@@ -217,6 +217,8 @@ export class PopupHost {
   }
 
   placeFrame(frame, left, top, width, height, flipTop = null) {
+    // Never taller than the browser window (a tall popup such as Print scrolls its settings instead of losing its buttons).
+    height = Math.min(height, Math.max(200, window.innerHeight - 8));
     let x = Math.min(left, window.innerWidth - width - 4);
     let y = top;
     if (y + height > window.innerHeight - 4) y = flipTop != null && flipTop - height >= 0 ? flipTop - height : window.innerHeight - height - 4;

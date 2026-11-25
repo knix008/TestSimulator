@@ -38,7 +38,7 @@ async function sample(id, view = 'gantt') {
 }
 
 const SHOTS = [
-  ['start', async () => { await closePopups(); await A(`for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); a.updateSettings({ startLayout: null, animation: 'aurora', backgroundKind: 'animated', animationInterval: 0 }); a.showStartPage()`); await page.eval(`(document.querySelector('#start-page .start-scroll').scrollTop = 0, 1)`); }],
+  ['start', async () => { await closePopups(); await A(`for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); a.updateSettings({ startLayout: null, animation: 'timeline', backgroundKind: 'animated', animationInterval: 0 }); a.showStartPage()`); await page.eval(`(document.querySelector('#start-page .start-scroll').scrollTop = 0, 1)`); }],
   ['start-samples', async () => { await page.eval(`(() => { const box = document.querySelector('#start-page .start-scroll'); const card = document.querySelector('.start-card-samples'); box.scrollTop += card.getBoundingClientRect().top - box.getBoundingClientRect().top - 12; return 1; })()`); }],
   ['start-background', async () => { await page.eval(`(() => { const box = document.querySelector('#start-page .start-scroll'); box.scrollTop = box.scrollHeight; return 1; })()`); }],
   ['gantt', () => sample('website-redesign')],
@@ -75,6 +75,11 @@ const SHOTS = [
   ['bottom-panel', async () => { await sample('website-redesign'); await A(`a.updateSettings({ showBottomPanel: true, bottomPanelCollapsed: false, bottomPanelTab: 'problems', bottomPanelHeight: 300 })`); }],
   ['panels-folded', async () => { await sample('website-redesign'); await A(`a.updateSettings({ showLeftPanel: false, showRightPanel: false, bottomPanelCollapsed: true })`); }],
   ['guide-window', async () => { await closePopups(); await A(`a.showStartPage(); w.popups.inline = true; a.openDocWindow('guide')`); await settle(2200); await A(`w.popups.inline = false`); }],
+  // The kanban board, the burndown chart report and its print page, the theme dropdown.
+  ['kanban', async () => { await sample('website-redesign', 'kanban'); await A(`a.updateSettings({ showLeftPanel: true, showRightPanel: true, bottomPanelCollapsed: true })`); }],
+  ['burndown', async () => { await sample('website-redesign'); await A(`a.updateSettings({ bottomPanelCollapsed: true }); a.activeDoc().view.report = 'burndown'; a.switchView('reports')`); }],
+  ['print-burndown', async () => { await sample('website-redesign'); await A(`a.activeDoc().view.report = 'burndown'; a.switchView('reports'); w.run('print')`); await settle(1800); }],
+  ['theme-dropdown', async () => { await sample('website-redesign'); await A(`a.updateSettings({ bottomPanelCollapsed: false }); w.run('themeMenu')`); await settle(1000); }],
 ];
 
 try {

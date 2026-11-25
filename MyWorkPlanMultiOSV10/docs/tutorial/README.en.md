@@ -62,7 +62,7 @@ The last 10 files and 10 folders are remembered. ✕ removes one entry, "Clear a
 
 ### 7. Moving background
 
-The start page background keeps moving. Pick one of 21 animations (aurora, waves, constellation, Gantt bars, fireflies, spiral galaxy…), shuffle with "Change moving background", and set the speed. Every start picks a different background at random, and while the start page is open it changes by itself after a set time (30 s by default). An image can be the background too.
+The start page background keeps moving. Pick one of 14 planning animations (timeline, Gantt bars, kanban board, dependency network, burndown chart, critical path…), shuffle with "Change moving background", and set the speed. Every start picks a different background at random, and while the start page is open it changes by itself after a set time (30 s by default). An image can be the background too.
 
 ![Moving background](images/07-background.jpg)
 
@@ -258,7 +258,7 @@ The upper bar is the current schedule, the gray bar below the baseline. The prog
 
 ### 38. Switching views
 
-The view button on the toolbar and the tool panel switch between 12 views: Gantt, Tracking Gantt, Task Sheet, Task Usage, Network Diagram, Calendar, Timeline, Resource Sheet / Usage / Graph, Team Planner and Reports.
+The view button on the toolbar and the tool panel switch between 13 views: Gantt, Tracking Gantt, Task Sheet, Task Usage, Network Diagram, Calendar, Timeline, Kanban Board, Resource Sheet / Usage / Graph, Team Planner and Reports.
 
 ![Switching views](images/38-viewMenu.jpg)
 

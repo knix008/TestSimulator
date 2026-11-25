@@ -10,6 +10,7 @@ import { dayOf, dayStart, formatDay, nowMin } from '../domain/time.js';
 import { assignmentLoad } from '../domain/schedule.js';
 import { laborBreakdown } from '../domain/labor.js';
 import { labelIndexes, valueAxis } from '../ui/axes.js';
+import { burndownData, burndownVariance } from '../domain/burndown.js';
 
 export const REPORTS = [
   ['overview', 'reportOverview'], ['cost', 'reportCost'], ['work', 'reportWork'], ['burndown', 'burndown'], ['critical', 'reportCritical'],
@@ -61,6 +62,21 @@ export function series(project, sched, kind) {
     }
     return { day, planned, scheduled, actual: dayStart(day) <= status ? actual : null, remaining: total - actual };
   });
+}
+
+/** Burndown key figures: [icon, label, value, tone]. */
+export function burndownKpis(data, sched, amount) {
+  // Positive: less is left than scheduled (ahead); negative: more is left (behind). Whole hours.
+  const variance = Math.round(burndownVariance(data) / 60) * 60;
+  const ahead = variance === 0 ? t('burndown.onTrack') : t(variance > 0 ? 'burndown.ahead' : 'burndown.behind', { value: amount(Math.abs(variance)) });
+  return [
+    ['reportWork', t(data.unit === 'work' ? 'burndown.totalWork' : 'burndown.totalDuration'), amount(data.total), ''],
+    ['check', t('burndown.done'), amount(data.done), ''],
+    ['hourglass', t('burndown.remaining'), amount(data.remaining), ''],
+    ['list', t('burndown.openTasks'), `${data.tasksOpen} / ${data.tasks}`, ''],
+    ['percent', t('field.percentComplete'), `${sched.percentComplete ?? 0}%`, ''],
+    ['burndown', t('burndown.variance'), ahead, variance < 0 ? 'bad' : 'good'],
+  ];
 }
 
 /**
@@ -135,8 +151,18 @@ export function reportModel(app, id = 'overview') {
     for (const a of project.assignments) assignmentLoad(sched, a.id, from, to).forEach((m, i) => { const w = weeks[Math.floor(i / 7)]; if (w) w.work += m; });
     blocks.push(bars(t('report.workByWeek'), weeks.map((w) => ({ label: date(dayStart(w.day)), value: w.work })), hours));
   } else if (id === 'burndown') {
-    const points = series(project, sched, 'work').map((p) => ({ ...p, remaining: p.actual == null ? null : p.remaining, remainingPlan: (sched.work - p.scheduled) }));
-    blocks.push(line(t('report.burndownTitle'), points, [['remainingPlan', 'scheduled'], ['remaining', 'actual']], hours, t('report.burndownHint')));
+    const data = burndownData(project, sched);
+    const amount = data.unit === 'work' ? hours : days;
+    blocks.push({ type: 'kpis', items: burndownKpis(data, sched, amount).map(([, label, value, tone]) => ({ label, value, tone })) });
+    // Export tones: ideal = the dashed "planned" style, scheduled, actual.
+    const keys = [['ideal', 'planned'], ['planned', 'scheduled'], ['actual', 'actual']];
+    const chartBlock = (title, points, format) => ({
+      ...line(title, points, keys, format),
+      series: keys.map(([key, tone]) => ({ key, tone, label: t(`burndown.series.${key}`) })),
+    });
+    blocks.push(chartBlock(t(data.unit === 'work' ? 'burndown.chartWork' : 'burndown.chartDuration'), data.points, amount));
+    blocks.push(chartBlock(t('burndown.chartTasks'), data.points.map((p) => ({ day: p.day, ideal: p.tasksIdeal, planned: p.tasksPlanned, actual: p.tasksActual })), (v) => String(Math.round(v))));
+    blocks.push({ type: 'note', text: t('burndown.hint') });
   } else if (['critical', 'late', 'upcoming', 'milestones'].includes(id)) {
     const fields = {
       critical: ['name', 'duration', 'start', 'finish', 'totalSlack', 'resourceNames', 'percentComplete'],
@@ -298,7 +324,7 @@ export class ReportsView {
   }
 
   /** Lines over time: a value ruler with round ticks and gridlines on the left, dated ticks below. */
-  lineChart(points, keys, format, kind = 'count') {
+  lineChart(points, keys, format, kind = 'count', { labels = null, marker = null } = {}) {
     const W = 760;
     const H = 260;
     const M = { left: 76, right: 18, top: 12, bottom: 34 };
@@ -306,7 +332,7 @@ export class ReportsView {
     const plotH = H - M.top - M.bottom;
     const language = getLanguage();
     const max = Math.max(1, ...points.flatMap((p) => keys.map(([key]) => p[key] ?? 0)));
-    const axis = valueAxis(max, kind, { currency: this.app.project().options.currency, language });
+    const axis = valueAxis(max, kind, { currency: this.app.project().options.currency, language, minutesPerDay: (this.app.project().options.hoursPerDay ?? 8) * 60 });
     const x = (i) => M.left + (i / Math.max(1, points.length - 1)) * plotW;
     const y = (v) => M.top + plotH - (v / axis.top) * plotH;
     const lines = keys.map(([key, cls]) => {
@@ -320,8 +346,15 @@ export class ReportsView {
       <line class="tick" x1="${x(i)}" x2="${x(i)}" y1="${M.top + plotH}" y2="${M.top + plotH + 5}"/>
       <text x="${x(i)}" y="${M.top + plotH + 18}" class="axis-text middle">${escapeHtml(this.date(dayStart(points[i].day)))}</text>`).join('');
     const frame = `<line class="axis" x1="${M.left}" x2="${M.left}" y1="${M.top}" y2="${M.top + plotH}"/><line class="axis" x1="${M.left}" x2="${M.left + plotW}" y1="${M.top + plotH}" y2="${M.top + plotH}"/>`;
-    return `<svg class="line-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img">${yAxis}${xAxis}${frame}${lines}</svg>
-      <div class="chart-legend">${keys.map(([key, cls]) => `<span><i class="${cls}"></i>${escapeHtml(t(`report.series.${key}`))}</span>`).join('')}</div>`;
+    let mark = '';
+    const first = points[0]?.day;
+    const last = points.at(-1)?.day;
+    if (marker && first != null && marker.day >= first && marker.day <= last) {
+      const mx = M.left + ((marker.day - first) / Math.max(1, last - first)) * plotW;
+      mark = `<line class="status-mark" x1="${mx}" x2="${mx}" y1="${M.top}" y2="${M.top + plotH}"/><text class="status-text" x="${mx + 4}" y="${M.top + 11}">${escapeHtml(marker.label)}</text>`;
+    }
+    return `<svg class="line-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img">${yAxis}${xAxis}${frame}${mark}${lines}</svg>
+      <div class="chart-legend">${keys.map(([key, cls]) => `<span><i class="${cls}"></i>${escapeHtml(labels ? labels(key) : t(`report.series.${key}`))}</span>`).join('')}</div>`;
   }
 
   overview() {
@@ -383,11 +416,21 @@ export class ReportsView {
       </div>`;
   }
 
+  /** Burndown chart: what is left over time — ideal, scheduled, baseline and actual — in work (or durations) and in open tasks. */
   burndown() {
     const project = this.app.project();
     const sched = this.app.sched();
-    const points = series(project, sched, 'work').map((p) => ({ ...p, remaining: p.actual == null ? null : p.remaining, remainingPlan: (sched.work - p.scheduled) }));
-    return `<div class="report-cards"><section class="card wide"><h3>${icon('burndown')}${escapeHtml(t('report.burndownTitle'))}</h3>${this.lineChart(points, [['remainingPlan', 'scheduled'], ['remaining', 'actual']], (v) => this.hours(v), 'hours')}<p class="muted">${escapeHtml(t('report.burndownHint'))}</p></section></div>`;
+    const data = burndownData(project, sched);
+    const amount = (v) => (data.unit === 'work' ? this.hours(v) : this.days(v));
+    const kind = data.unit === 'work' ? 'hours' : 'days';
+    const keys = [['ideal', 'ideal'], ...(data.hasBaseline ? [['baseline', 'base']] : []), ['planned', 'scheduled'], ['actual', 'actual']];
+    const opts = { labels: (key) => t(`burndown.series.${key}`), marker: { day: data.statusDay, label: t('field.statusDate') } };
+    const tasks = data.points.map((p) => ({ day: p.day, ideal: p.tasksIdeal, planned: p.tasksPlanned, actual: p.tasksActual }));
+    return `<div class="kpis burndown-kpis">${burndownKpis(data, sched, amount).map(([glyph, label, value, tone]) => this.kpi(glyph, label, value, tone)).join('')}</div>
+      <div class="report-cards">
+        <section class="card wide burndown-card" data-burndown="work"><h3>${icon('burndown')}${escapeHtml(t(data.unit === 'work' ? 'burndown.chartWork' : 'burndown.chartDuration'))}</h3>${this.lineChart(data.points, keys, amount, kind, opts)}</section>
+        <section class="card wide burndown-card" data-burndown="tasks"><h3>${icon('list')}${escapeHtml(t('burndown.chartTasks'))}</h3>${this.lineChart(tasks, keys.filter(([key]) => key !== 'baseline'), (v) => String(Math.round(v)), 'count', opts)}<p class="muted">${escapeHtml(t('burndown.hint'))}</p></section>
+      </div>`;
   }
 
   rowsTable(rows, fields) {

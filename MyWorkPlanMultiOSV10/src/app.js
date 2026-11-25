@@ -14,7 +14,7 @@ import { buildSample, buildTemplate, TEMPLATES } from './domain/templates.js';
 import { FILTERS, GROUPS, rowsFor, SORTS } from './domain/filters.js';
 import { RESOURCE_FIELD_MAP, RESOURCE_TABLES, TASK_FIELD_MAP, TASK_TABLES } from './domain/fields.js';
 import { levelResources } from './domain/schedule.js';
-import { clearBaseline, leafIds, markOnTrack, setBaseline, setPercentComplete, updateProgress, updateProjectThrough, rescheduleUncompleted, copyBaseline } from './domain/tracking.js';
+import { clearBaseline, distributePercent, leafIds, markOnTrack, setBaseline, setPercentComplete, updateProgress, updateProjectThrough, rescheduleUncompleted, copyBaseline } from './domain/tracking.js';
 import { insertRecurring } from './domain/recurring.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
@@ -48,6 +48,7 @@ import { CalendarView } from './views/calendar-view.js';
 import { TimelineView } from './views/timeline.js';
 import { ResourceGraphView } from './views/resource-graph.js';
 import { TeamPlannerView } from './views/team-planner.js';
+import { KanbanView } from './views/kanban.js';
 import { REPORTS, ReportsView, reportModel } from './views/reports.js';
 import { bytesToBase64, reportFileName, reportToDocx, reportToHtml, reportToMarkdown } from './export/report-export.js';
 import { chartPngs, reportToPdf } from './export/report-pdf.js';
@@ -461,6 +462,14 @@ function resizeTaskBar(id, finish) {
   });
 }
 
+/** % complete of summaries / the whole project: filled in schedule order (earliest tasks done first). */
+function setSummaryProgress(ids, percent) {
+  const doc = activeDoc();
+  if (!doc || !ids.length) return;
+  const count = change('op.progress', (project) => distributePercent(project, doc.sched, ids, percent));
+  notify('success', t('notice.progress', { count, percent }));
+}
+
 function setProgress(ids, percent) {
   const doc = activeDoc();
   const targets = ids ?? selectedTasks();
@@ -711,6 +720,7 @@ function mountView() {
     resourceUsage: () => new UsageView(appApi, host, 'resource'),
     resourceGraph: () => new ResourceGraphView(appApi, host),
     teamPlanner: () => new TeamPlannerView(appApi, host),
+    kanban: () => new KanbanView(appApi, host),
     reports: () => new ReportsView(appApi, host),
   }[id] ?? (() => new GanttView(appApi, host));
   state.view = make();
@@ -952,7 +962,7 @@ const viewIs = (...ids) => hasDoc() && !state.showStart && ids.includes(activeDo
 
 const VIEW_ICONS = {
   gantt: 'viewGantt', tracking: 'viewTracking', taskSheet: 'viewSheet', taskUsage: 'viewTaskUsage', network: 'viewNetwork', calendar: 'viewCalendar',
-  timeline: 'viewTimeline', resourceSheet: 'viewResourceSheet', resourceUsage: 'viewResourceUsage', resourceGraph: 'viewResourceGraph', teamPlanner: 'viewTeam', reports: 'viewReports',
+  timeline: 'viewTimeline', kanban: 'viewKanban', resourceSheet: 'viewResourceSheet', resourceUsage: 'viewResourceUsage', resourceGraph: 'viewResourceGraph', teamPlanner: 'viewTeam', reports: 'viewReports',
 };
 
 const commands = {
@@ -1167,8 +1177,9 @@ const TOOLBAR = [
   ['showCritical', 'criticalPath'],
   ['zoom'],
   ['timescaleOut', 'timescaleIn'],
-  ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
+/** Panel fold / unfold buttons: on the menu bar, just left of the window's minimize button. */
+const PANEL_BUTTONS = ['leftPanel', 'bottomPanel', 'rightPanel'];
 /** Right end of the toolbar: start page, tutorial, theme (random + dropdown), language, settings, about. */
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
 
@@ -1238,11 +1249,15 @@ function renderMenubar() {
   // No system title bar: the menu bar carries the program's icon, name and version on the
   // left and (desktop) the window buttons on the right; its empty parts move the window.
   const brand = `<span class="menubar-brand" data-window-drag title="${escapeHtml(`MyWorkPlan v${appApi.version()}`)}"><img src="${appIcon}" alt="" class="menubar-logo" draggable="false" /><b>MyWorkPlan</b> <small class="menubar-version">v${escapeHtml(appApi.version())}</small></span><span class="menubar-sep" aria-hidden="true"></span>`;
-  const controls = desktop ? `<span class="grow menubar-drag" data-window-drag aria-hidden="true"></span><span class="window-controls" role="group" aria-label="${escapeHtml(t('window.controls'))}">
+  const panels = `<span class="menubar-panels" role="group" aria-label="${escapeHtml(t('panel.toggles'))}">${PANEL_BUTTONS.map((id) => {
+    const checked = Boolean(commands[id].checked?.());
+    return `<button type="button" class="tool-button menubar-panel ${checked ? 'active' : ''}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(commands[id].label))}" aria-pressed="${checked}" ${commandEnabled(id) ? '' : 'disabled'}>${icon(commands[id].icon)}</button>`;
+  }).join('')}</span>`;
+  const controls = desktop ? `<span class="grow menubar-drag" data-window-drag aria-hidden="true"></span>${panels}<span class="window-controls" role="group" aria-label="${escapeHtml(t('window.controls'))}">
       <button type="button" class="window-button" data-window="minimize" title="${escapeHtml(t('window.minimize'))}" aria-label="${escapeHtml(t('window.minimize'))}">${icon('winMinimize')}</button>
       <button type="button" class="window-button" data-window="maximize" title="${escapeHtml(t(windowMaximized ? 'window.restore' : 'window.maximize'))}" aria-label="${escapeHtml(t(windowMaximized ? 'window.restore' : 'window.maximize'))}">${icon(windowMaximized ? 'winRestore' : 'winMaximize')}</button>
       <button type="button" class="window-button close" data-window="close" title="${escapeHtml(t('window.close'))}" aria-label="${escapeHtml(t('window.close'))}">${icon('winClose')}</button>
-    </span>` : '<span class="grow menubar-drag" aria-hidden="true"></span>';
+    </span>` : `<span class="grow menubar-drag" aria-hidden="true"></span>${panels}`;
   menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `
     <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + controls;
 }
@@ -1285,7 +1300,7 @@ function renderToolbar() {
 }
 
 function renderToolbarState() {
-  for (const element of root.querySelectorAll('#toolbar [data-command]')) {
+  for (const element of root.querySelectorAll('#toolbar [data-command], #menubar [data-command]')) {
     const id = element.dataset.command;
     element.disabled = !commandEnabled(id);
     element.title = commandTip(id);
@@ -1394,8 +1409,8 @@ function renderLeft() {
   const doc = activeDoc();
   if (!state.settings.showLeftPanel) {
     panel.innerHTML = `<div class="panel-rail">
-      <div class="rail-title" title="${escapeHtml(t('panel.leftTitle'))}">${icon('viewSwitch')}<span>${escapeHtml(t('panel.toolsShort'))}</span></div>
       <button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}" aria-label="${escapeHtml(t('panel.expandLeft'))}">${icon('foldRight')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
+      <div class="rail-title" title="${escapeHtml(t('panel.leftTitle'))}">${icon('viewSwitch')}<span>${escapeHtml(t('panel.toolsShort'))}</span></div>
       ${VIEWS.map((id) => `<button class="rail-button ${doc && !state.showStart && doc.view.id === id ? 'active' : ''}" data-command="view:${id}" title="${escapeHtml(t(`view.${id}`))}" ${doc ? '' : 'disabled'}>${icon(VIEW_ICONS[id])}<span class="rail-label">${escapeHtml(t(`viewShort.${id}`))}</span></button>`).join('')}
     </div>`;
     return;
@@ -1448,8 +1463,8 @@ function renderRight() {
   if (!panel) return;
   if (!state.settings.showRightPanel) {
     panel.innerHTML = `<div class="panel-rail">
-      <div class="rail-title" title="${escapeHtml(t('panel.rightTitle'))}">${icon('taskInfo')}<span>${escapeHtml(t('panel.propsShort'))}</span></div>
       <button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('panel.expandRight'))}" aria-label="${escapeHtml(t('panel.expandRight'))}">${icon('foldLeft')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
+      <div class="rail-title" title="${escapeHtml(t('panel.rightTitle'))}">${icon('taskInfo')}<span>${escapeHtml(t('panel.propsShort'))}</span></div>
       ${['taskInfo', 'resourceInfo', 'projectInfo', 'calendar', 'setBaseline', 'levelAll'].map((id) => `<button class="rail-button" data-command="${id}" title="${escapeHtml(commandTip(id))}" ${commandEnabled(id) ? '' : 'disabled'}>${icon(commands[id].icon)}<span class="rail-label">${escapeHtml(t(`toolShort.${id}`))}</span></button>`).join('')}
     </div>`;
     return;
@@ -1471,6 +1486,8 @@ function renderRight() {
 }
 
 const propRow = (glyph, label, control, tall = false) => `<div class="prop-row ${tall ? 'tall' : ''}" title="${escapeHtml(label)}"><span class="prop-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="prop-control">${control}</span></div>`;
+/** A thin bar under the % complete stepper, in the control column. */
+const progressBarRow = (pct) => `<div class="prop-row prop-progress-row" aria-hidden="true"><span></span><span class="prop-control"><span class="mini-progress"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></span></span></div>`;
 const propValue = (value) => `<span class="prop-value" title="${escapeHtml(value)}">${escapeHtml(value)}</span>`;
 
 // ── numbers in the properties panel: [ − ]  value + unit  [ + ], the value centred
@@ -1496,10 +1513,12 @@ function onPropStepper(key, value) {
     const id = selectedTasks()[0];
     const task = P.findTask(doc.project, id);
     if (!task) return;
-    if (name === 'percent') return setProgress([id], value);
+    if (name === 'percent') return doc.sched.info(id)?.summary ? setSummaryProgress([id], value) : setProgress([id], value);
     const text = name === 'duration' ? `${value}${durationUnitOf(task) === 'mo' ? 'mo' : durationUnitOf(task)}` : String(value);
     return editTaskField({ item: task, info: doc.sched.info(id) }, TASK_FIELD_MAP.get(name), text);
   }
+  if (kind === 'tasks' && name === 'percent') return setProgress(selectedTasks(), value);
+  if (kind === 'project' && name === 'percent') return setSummaryProgress(doc.project.tasks.map((task) => task.id), value);
   if (kind === 'resource') {
     const resource = P.findResource(doc.project, selectedResources()[0]);
     if (!resource) return;
@@ -1535,7 +1554,8 @@ function taskProps(doc, id) {
       : input('duration', leaf)),
     propRow('calendar', t('field.start'), input('start', leaf)),
     propRow('flag', t('field.finish'), input('finish', leaf)),
-    leaf ? propRow('percent', t('field.percentComplete'), propStepper('task:percent', pct, { min: 0, max: 100, step: 5, unit: '%', label: t('field.percentComplete') })) : propRow('percent', t('field.percentComplete'), propValue(`${pct}%`)),
+    propRow('percent', t('field.percentComplete'), propStepper('task:percent', pct, { min: 0, max: 100, step: 5, unit: '%', label: t('field.percentComplete') })),
+    progressBarRow(pct),
     propRow('link2', t('field.predecessors'), input('predecessors')),
     propRow('user', t('field.resourceNames'), input('resourceNames', leaf)),
     propRow('autoMode', t('field.mode'), `<select data-prop-field="mode" title="${escapeHtml(t('field.mode'))}">${['auto', 'manual'].map((m) => `<option value="${m}" ${(task.manual ? 'manual' : 'auto') === m ? 'selected' : ''}>${escapeHtml(t(`mode.${m}`))}</option>`).join('')}</select>`),
@@ -1564,8 +1584,13 @@ function multiProps(doc) {
   const start = Math.min(...infos.map((info) => info.start));
   const finish = Math.max(...infos.map((info) => info.finish));
   const cost = infos.filter((info) => !info.summary).reduce((sum, info) => sum + info.cost, 0);
+  // Several tasks: the same value when they agree, else their average (setting it marks them all).
+  const leafInfos = leafIds(doc.project, ids).map((id) => doc.sched.info(id)).filter(Boolean);
+  const multiPct = leafInfos.length ? Math.round(leafInfos.reduce((sum, info) => sum + (info.percentComplete ?? 0), 0) / leafInfos.length) : 0;
   const body = [
     propRow('selectAll', t('props.selected'), propValue(String(ids.length))),
+    propRow('percent', t('field.percentComplete'), propStepper('tasks:percent', multiPct, { min: 0, max: 100, step: 5, unit: '%', label: t('field.percentComplete') })),
+    progressBarRow(multiPct),
     propRow('calendar', t('field.start'), propValue(formatDay(start, state.settings.dateFormat))),
     propRow('flag', t('field.finish'), propValue(formatDay(finish, state.settings.dateFormat))),
     propRow('money', t('field.cost'), propValue(formatMoney(cost, doc.project.options.currency))),
@@ -1635,7 +1660,8 @@ function projectProps(doc) {
     propRow('flag', t('field.finish'), propValue(formatDay(s.finish, settings.dateFormat))),
     propRow('hourglass', t('field.duration'), propValue(formatDuration(s.duration, 'd', project.options, getLanguage()))),
     propRow('statusDate', t('field.statusDate'), propValue(project.statusDate ? formatDay(toMin(project.statusDate), settings.dateFormat) : t('common.na'))),
-    `<div class="prop-row" title="${escapeHtml(t('field.percentComplete'))}"><span class="prop-label">${icon('percent')}<span>${escapeHtml(t('field.percentComplete'))}</span></span><span class="prop-control"><span class="mini-progress"><i style="width:${s.percentComplete}%"></i></span><b>${s.percentComplete}%</b></span></div>`,
+    propRow('percent', t('field.percentComplete'), propStepper('project:percent', s.percentComplete ?? 0, { min: 0, max: 100, step: 5, unit: '%', label: t('field.percentComplete') })),
+    progressBarRow(s.percentComplete ?? 0),
     propRow('money', t('field.cost'), propValue(money)),
     propRow('reportWork', t('field.work'), propValue(work)),
     propRow('list', t('props.taskCount'), propValue(String(project.tasks.length))),
@@ -1936,7 +1962,7 @@ function toggleCriticalPath() {
 }
 
 function shuffleBackground() {
-  const next = (startBackground ?? appBackground)?.shuffle() ?? 'aurora';
+  const next = (startBackground ?? appBackground)?.shuffle() ?? 'timeline';
   updateSettings({ animation: next, backgroundKind: 'animated' });
   notify('info', t('notice.animation', { name: t(`animation.${next}`) }));
 }
@@ -2033,7 +2059,11 @@ function applySettings(previous = {}) {
 /** Theme dropdown: a popup with the dark and the light themes in two columns. */
 async function openThemePicker(anchor) {
   const element = root.querySelector('.split-button [data-command="themeMenu"]')?.closest('.split-button') ?? root.querySelector('[data-command="themeMenu"]');
-  const result = await popups.open('theme', { current: state.settings.theme }, { anchor: anchor ?? anchorBelow(element) });
+  // The dropdown opens leftwards from the button's right edge, and never past the window's right edge.
+  const base = anchor ?? anchorBelow(element);
+  const box = element.getBoundingClientRect();
+  const right = Math.min(toScreen(box.right, 0).x, toScreen(window.innerWidth - 4, 0).x);
+  const result = await popups.open('theme', { current: state.settings.theme }, { anchor: { ...base, right } });
   if (result?.theme) updateSettings({ theme: result.theme });
 }
 
@@ -2600,6 +2630,8 @@ function openPrint() {
     columns: currentColumns('task').filter((id) => id !== 'indicators' && id !== 'mode'),
     view: doc.view.id,
     setup,
+    // From the burndown report: print that chart.
+    content: doc.view.id === 'reports' && doc.view.report === 'burndown' ? 'burndown' : null,
     dateFormat: state.settings.dateFormat,
     showCritical: state.settings.showCritical,
   });
@@ -3167,6 +3199,8 @@ function menuItems(ids) {
     icon: SUBMENUS[id.sub].icon,
     submenu: true,
     disabled: !SUBMENUS[id.sub].items.some((item) => item !== '-' && commandEnabled(item)),
+    // The group's items travel with it: the menu window opens them beside the parent list (both stay visible).
+    children: menuItems(SUBMENUS[id.sub].items),
   } : {
     id,
     label: t(commands[id].label),

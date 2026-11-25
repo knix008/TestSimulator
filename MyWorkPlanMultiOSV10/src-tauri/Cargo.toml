@@ -25,6 +25,11 @@ tauri-plugin-dialog = "2"
 # The "already running" message, shown before the app (and its event loop) starts.
 rfd = { version = "0.16", default-features = false, features = ["gtk3", "common-controls-v6"] }
 
+# Printing straight to a chosen printer (WebView2 silent print) and the printer list.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Printing", "Win32_Security"] }
+
 [dev-dependencies]
 tempfile = "3"
 # Starts a throw-away PostgreSQL server for the database tests (downloaded once, then cached).

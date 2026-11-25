@@ -68,9 +68,10 @@ export default {
 
   // ── views
   'view.gantt': '간트 차트', 'view.tracking': '추적 간트', 'view.taskSheet': '작업 시트', 'view.taskUsage': '작업 사용', 'view.network': '네트워크 다이어그램', 'view.calendar': '일정표',
-  'view.timeline': '시간 표시 막대', 'view.resourceSheet': '자원 시트', 'view.resourceUsage': '자원 사용', 'view.resourceGraph': '자원 그래프', 'view.teamPlanner': '팀 플래너', 'view.reports': '보고서',
+  'view.timeline': '시간 표시 막대', 'view.kanban': '칸반 보드', 'view.resourceSheet': '자원 시트', 'view.resourceUsage': '자원 사용', 'view.resourceGraph': '자원 그래프', 'view.teamPlanner': '팀 플래너', 'view.reports': '보고서',
   'viewShort.gantt': '간트', 'viewShort.tracking': '추적', 'viewShort.taskSheet': '시트', 'viewShort.taskUsage': '작업 사용', 'viewShort.network': '네트워크', 'viewShort.calendar': '일정표',
-  'viewShort.timeline': '타임라인', 'viewShort.resourceSheet': '자원', 'viewShort.resourceUsage': '자원 사용', 'viewShort.resourceGraph': '그래프', 'viewShort.teamPlanner': '팀', 'viewShort.reports': '보고서',
+  'viewShort.timeline': '타임라인', 'viewShort.kanban': '칸반',
+  'kanban.todo': '시작 전', 'kanban.doing': '진행 중', 'kanban.done': '완료', 'kanban.empty': '여기에 카드를 끌어 놓으세요', 'viewShort.resourceSheet': '자원', 'viewShort.resourceUsage': '자원 사용', 'viewShort.resourceGraph': '그래프', 'viewShort.teamPlanner': '팀', 'viewShort.reports': '보고서',
 
   // ── tables, filters, groups, sorting
   'tableName.entry': '입력', 'tableName.schedule': '일정', 'tableName.cost': '비용', 'tableName.work': '작업량', 'tableName.tracking': '추적', 'tableName.variance': '차이',
@@ -152,7 +153,7 @@ export default {
   'graph.daily': '일 단위', 'graph.weekly': '주 단위',
 
   // ── reports
-  'report.overview': '프로젝트 개요', 'report.cost': '비용 개요', 'report.work': '작업량 개요', 'report.burndown': '번다운', 'report.critical': '주 공정 작업', 'report.late': '늦은 작업',
+  'report.overview': '프로젝트 개요', 'report.cost': '비용 개요', 'report.work': '작업량 개요', 'report.burndown': '번다운 차트', 'report.critical': '주 공정 작업', 'report.late': '늦은 작업',
   'report.upcoming': '다가오는 작업', 'report.milestones': '마일스톤 보고서', 'report.resources': '자원 개요', 'report.none': '해당하는 항목이 없습니다.',
   'report.lateCount': '늦은 작업', 'report.criticalCount': '주 공정 작업', 'report.complete': '완료율', 'report.phases': '단계별 완료율', 'report.nextMilestones': '다가오는 마일스톤',
   'report.cumulativeCost': '누적 비용', 'report.costByPhase': '단계별 비용 (막대 아래: 기준 계획)', 'report.costByResource': '자원별 비용', 'report.workByResource': '자원별 작업량',
@@ -221,10 +222,8 @@ export default {
   'start.tutorialBanner': '처음이세요? 튜토리얼이 예제 프로젝트로 모든 기능을 차례로 보여 줍니다 (언제든 도움말 › 튜토리얼 또는 F11).',
   'start.new': '새로 만들기', 'start.recent': '최근 파일', 'start.recentFolders': '최근 폴더', 'start.samples': '예제 프로젝트', 'start.sampleBuiltin': '웹사이트 리뉴얼 (예제)',
   'start.background': '움직이는 배경', 'start.help': '도움말',
-  'animation.aurora': '오로라', 'animation.waves': '물결', 'animation.particles': '입자', 'animation.constellation': '별자리', 'animation.bubbles': '거품', 'animation.gridflow': '흐르는 격자',
-  'animation.gantt': '간트 막대', 'animation.starfield': '별빛',
-  'animation.rain': '비', 'animation.snow': '눈', 'animation.fireflies': '반딧불', 'animation.ripples': '파문', 'animation.coderain': '코드 비', 'animation.hexagons': '육각 격자',
-  'animation.orbits': '궤도', 'animation.lava': '라바 램프', 'animation.spiral': '은하 나선', 'animation.confetti': '색종이', 'animation.milestones': '마일스톤', 'animation.ribbons': '리본', 'animation.fireworks': '불꽃놀이',
+  'animation.timeline': '타임라인', 'animation.gantt': '간트 막대', 'animation.kanban': '칸반 보드', 'animation.network': '의존 관계망', 'animation.burndown': '번다운 차트', 'animation.calendar': '일정 달력',
+  'animation.critical': '주 공정', 'animation.milestones': '마일스톤', 'animation.progress': '진행률', 'animation.resources': '자원 부하', 'animation.sprint': '스프린트', 'animation.blueprint': '계획 설계도', 'animation.baseline': '기준 계획 대비', 'animation.swimlanes': '팀 레인',
   'welcome.title': 'MyWorkPlan에 오신 것을 환영합니다', 'welcome.text': '처음 실행하셨네요. 튜토리얼이 예제 프로젝트로 작업 만들기부터 일정·자원·추적·보고서·인쇄·설정까지 모든 기능을 차례로 보여 줍니다.',
   'welcome.point1': '튜토리얼: 도움말 › 튜토리얼 (F11), 시작 페이지의 "튜토리얼 시작"', 'welcome.point2': '예제 프로젝트: 시작 페이지 › 예제 프로젝트', 'welcome.point3': '사용 설명서: 도움말 › 사용 설명서',
   'welcome.later': '나중에', 'welcome.sample': '예제 열기', 'welcome.start': '튜토리얼 시작',
@@ -252,7 +251,7 @@ export default {
   'dateFormat.iso': '국제 표준', 'dateFormat.ko': '한국식', 'dateFormat.us': '미국식', 'dateFormat.eu': '유럽식',
   'colorKey.bg': '바탕', 'colorKey.surface': '표면', 'colorKey.panel': '패널', 'colorKey.text': '글자', 'colorKey.muted': '흐린 글자', 'colorKey.border': '테두리', 'colorKey.accent': '강조',
   'colorKey.accentText': '강조 위 글자', 'colorKey.gridAlt': '줄무늬 행', 'colorKey.chart': '차트 바탕', 'colorKey.toolbar': '툴바', 'colorKey.status': '상태 표시줄',
-  'theme.pickTitle': '테마 고르기', 'theme.darkGroup': '다크 ({count})', 'theme.lightGroup': '라이트 ({count})',
+  'theme.pickTitle': '테마 고르기', 'theme.customSettings': '사용자 테마 설정…', 'theme.darkGroup': '다크 ({count})', 'theme.lightGroup': '라이트 ({count})',
   'stepper.decrease': '{label} 줄이기', 'stepper.increase': '{label} 늘리기', 'shortcut.wheel': 'Ctrl+마우스 휠', 'shortcut.drag': 'Ctrl+끌기', 'shortcut.pan': '차트·다이어그램 이동',
 
   // ── about
@@ -274,6 +273,10 @@ export default {
   'print.legend': '범례', 'print.header': '머리글', 'print.headerText': '머리글 문구', 'print.footer': '바닥글', 'print.footerText': '바닥글 문구', 'print.page': '{n} / {total}쪽',
   'print.prev': '이전 쪽', 'print.next': '다음 쪽', 'print.print': '인쇄', 'print.empty': '인쇄할 작업이 없습니다.', 'print.legendTask': '작업', 'print.legendCritical': '주 공정 작업',
   'print.legendSummary': '요약 작업', 'print.legendBaseline': '기준 계획', 'print.legendMilestone': '마일스톤',
+  'print.printer': '프린터', 'print.defaultPrinter': '기본 프린터 ({name})', 'print.systemDialog': '인쇄 버튼을 누르면 시스템 인쇄 창이 열립니다.', 'print.copies': '매수', 'print.printTo': '{name}(으)로 바로 인쇄', 'print.summaryBurndown': '번다운 차트 · {pages}쪽', 'print.content.burndown': '번다운 차트',
+  'burndown.totalWork': '전체 작업량', 'burndown.totalDuration': '전체 기간 합', 'burndown.done': '끝낸 양', 'burndown.remaining': '남은 양', 'burndown.openTasks': '남은 작업', 'burndown.chartWork': '남은 작업량', 'burndown.chartDuration': '남은 작업 기간', 'burndown.chartTasks': '남은 작업 수',
+  'burndown.series.ideal': '이상선', 'burndown.series.baseline': '기준 계획', 'burndown.series.planned': '현재 일정', 'burndown.series.actual': '실제', 'burndown.variance': '일정 대비', 'burndown.ahead': '{value} 앞섬', 'burndown.behind': '{value} 뒤짐', 'burndown.onTrack': '일정대로',
+  'burndown.hint': '이상선은 시작부터 완료까지 똑같은 속도로 줄었을 때, 현재 일정은 일정대로 했을 때, 실제는 완료율로 본 남은 양입니다 (빨간 점선 = 상태 날짜). 자원이 없는 계획은 작업 기간으로 셉니다.',
 
   // ── task information
   'taskInfo.title': '작업 정보', 'taskInfo.titleMulti': '여러 작업 정보', 'taskInfo.general': '일반', 'taskInfo.predecessors': '선행 작업', 'taskInfo.resources': '자원', 'taskInfo.advanced': '고급',
@@ -366,7 +369,7 @@ export default {
   'tutorial.welcome.title': 'MyWorkPlan에 오신 것을 환영합니다', 'tutorial.welcome.text': '이 튜토리얼은 예제 프로젝트로 MyWorkPlan의 모든 기능을 차례로 보여 줍니다. 다음(또는 자동 재생)을 누르세요. 내 파일은 바뀌지 않고, 바꾼 설정은 끝날 때 원래대로 돌아갑니다.',
   'tutorial.templates.title': '새 프로젝트 만들기', 'tutorial.templates.text': '빈 프로젝트나 소프트웨어 개발·건설·행사·마케팅·제품 출시·연구·사무실 이전 템플릿으로 시작합니다. 템플릿에는 단계, 작업, 연결, 마일스톤, 자원이 들어 있습니다.',
   'tutorial.recent.title': '최근 파일과 폴더', 'tutorial.recent.text': '최근에 연 파일 10개와 폴더 10개가 기억됩니다. ✕로 하나씩, "모두 지우기"로 한 번에 지웁니다. 파일 메뉴의 최근 파일·최근 폴더에서도 관리합니다.',
-  'tutorial.background.title': '움직이는 배경', 'tutorial.background.text': '시작 페이지의 배경은 계속 움직입니다. 오로라·물결·별자리·간트 막대·반딧불·은하 나선 등 21가지 중에서 고르거나 "움직이는 배경 바꾸기"로 무작위로 바꾸고, 속도도 조절합니다. 프로그램을 시작할 때마다 다른 배경이 무작위로 골라지고, 시작 페이지가 열려 있으면 정한 시간(기본 30초)마다 저절로 다른 배경으로 바뀝니다. 이미지를 배경으로 쓸 수도 있습니다.',
+  'tutorial.background.title': '움직이는 배경', 'tutorial.background.text': '시작 페이지의 배경은 계속 움직입니다. 타임라인·간트 막대·칸반 보드·의존 관계망·번다운 차트·주 공정 등 프로젝트 계획을 그린 14가지 중에서 고르거나 "움직이는 배경 바꾸기"로 무작위로 바꾸고, 속도도 조절합니다. 프로그램을 시작할 때마다 다른 배경이 무작위로 골라지고, 시작 페이지가 열려 있으면 정한 시간(기본 30초)마다 저절로 다른 배경으로 바뀝니다. 이미지를 배경으로 쓸 수도 있습니다.',
   'tutorial.sample.title': '예제 프로젝트', 'tutorial.sample.text': '웹사이트 리뉴얼 예제를 열었습니다. 왼쪽은 작업 표, 오른쪽은 간트 차트입니다. 요약 작업은 검은 괄호, 마일스톤은 마름모, 빨간 막대는 주 공정 작업입니다.',
   'tutorial.layout.title': '화면 구성', 'tutorial.layout.text': '위에서부터 메뉴, 툴바(한 줄), 프로젝트 탭이 있고, 왼쪽 도구 모음·가운데 보기·오른쪽 속성 패널·아래 상태 표시줄로 되어 있습니다. 패널 사이의 구분자를 끌어 너비를 바꿉니다.',
   'tutorial.insertTask.title': '작업 추가', 'tutorial.insertTask.text': '툴바의 "작업 삽입"(Insert 키)은 선택한 행 위에 새 작업을 넣습니다. 표 맨 아래의 빈 행에 이름을 바로 입력해도 됩니다.',
@@ -395,7 +398,7 @@ export default {
   'tutorial.progress.title': '진행률 입력', 'tutorial.progress.text': '작업을 고르고 0%·25%·50%·75%·100% 버튼을 누르면 실제 시작·완료가 자동으로 기록됩니다. 막대 안의 어두운 부분이 진행률입니다.',
   'tutorial.updateProject.title': '프로젝트 업데이트', 'tutorial.updateProject.text': '상태 날짜까지 일정대로 진행된 것으로 한 번에 표시하거나, 늦어진 작업의 남은 부분을 그 뒤로 다시 잡습니다.',
   'tutorial.trackingGantt.title': '추적 간트', 'tutorial.trackingGantt.text': '위 막대는 현재 일정, 아래 회색 막대는 기준 계획입니다. 진행선은 상태 날짜에서 각 작업이 어디까지 했는지 이어 보여 줍니다.',
-  'tutorial.viewMenu.title': '보기 전환', 'tutorial.viewMenu.text': '툴바의 보기 버튼이나 왼쪽 도구 모음에서 12가지 보기로 바꿉니다: 간트, 추적 간트, 작업 시트, 작업 사용, 네트워크, 일정표, 시간 표시 막대, 자원 시트·사용·그래프, 팀 플래너, 보고서.',
+  'tutorial.viewMenu.title': '보기 전환', 'tutorial.viewMenu.text': '툴바의 보기 버튼이나 왼쪽 도구 모음에서 13가지 보기로 바꿉니다: 간트, 추적 간트, 작업 시트, 작업 사용, 네트워크, 일정표, 시간 표시 막대, 칸반 보드, 자원 시트·사용·그래프, 팀 플래너, 보고서.',
   'tutorial.network.title': '네트워크 다이어그램', 'tutorial.network.text': '작업을 상자로, 연결을 화살표로 보여 줍니다. 끌어서 이동하고 Ctrl+휠로 확대합니다. 빨간 상자는 주 공정입니다.',
   'tutorial.calendarView.title': '일정표', 'tutorial.calendarView.text': '달력에 작업이 걸쳐 있는 날을 막대로 보여 줍니다. 화살표나 마우스 휠로 달을 넘깁니다.',
   'tutorial.timeline.title': '시간 표시 막대', 'tutorial.timeline.text': '프로젝트 전체를 한 줄에 요약합니다: 단계, 마일스톤, "시간 표시 막대에 추가"한 작업. 보고용으로 좋습니다.',
@@ -565,7 +568,7 @@ export default {
   'tutorial.bottomPanel.title': "하단 패널: 일정 점검",
   'tutorial.bottomPanel.text': "아래쪽 일정 점검 패널은 일정의 문제(순환 연결, 제약 충돌, 마감일 초과, 초과 할당, 늦은 작업, 연결 없는 작업), 주 공정, 초과 할당된 사람, 지연, 마일스톤을 탭마다 개수와 함께 보여 줍니다. 줄을 누르면 그 작업이나 자원으로 갑니다. 머리글의 단추로 접고 펴며(접어도 아이콘·제목·개수는 보임), 툴바의 하단 패널 단추(Ctrl+Shift+3)로 켜고 끕니다. 위쪽 경계를 끌어 높이를 바꿉니다.",
   // ── window buttons
-  'window.controls': "창 단추",
+  'panel.toggles': '패널 펼치기·접기', 'window.controls': "창 단추",
   'window.minimize': "최소화",
   'window.maximize': "최대화",
   'window.restore': "이전 크기로",

@@ -79,6 +79,40 @@ export function setPercentComplete(project, sched, ids, percent) {
   return count;
 }
 
+/**
+ * % complete of a summary task or the whole project (MS Project style): the
+ * work done is filled in schedule order — the tasks that finish earliest are
+ * done first, the next one is partly done, the later ones are not started. The
+ * weight of a task is its duration (a milestone counts as done once
+ * everything before it is done).
+ */
+export function distributePercent(project, sched, ids, percent) {
+  const value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  const leaves = leafIds(project, ids)
+    .map((id) => ({ id, task: findTask(project, id), info: sched.info(id) }))
+    .filter((x) => x.task && x.info && x.task.active !== false)
+    .sort((a, b) => a.info.finish - b.info.finish || a.info.start - b.info.start);
+  const weight = (x) => (x.task.milestone || !(x.info.duration > 0) ? 0 : x.info.duration);
+  const total = leaves.reduce((sum, x) => sum + weight(x), 0);
+  const target = (total * value) / 100;
+  let done = 0;
+  for (const x of leaves) {
+    const w = weight(x);
+    let pct;
+    if (value >= 100) pct = 100;
+    else if (value <= 0) pct = 0;
+    else if (w === 0) pct = total === 0 ? value : done <= target ? 100 : 0;
+    else pct = Math.round((Math.max(0, Math.min(w, target - done)) / w) * 100);
+    done += w;
+    x.task.percentComplete = pct;
+    if (pct === 0) { x.task.actualStart = null; x.task.actualFinish = null; } else {
+      x.task.actualStart ??= fromMin(x.info.start);
+      x.task.actualFinish = pct >= 100 ? fromMin(x.info.finish) : null;
+    }
+  }
+  return leaves.length;
+}
+
 /** The detailed "Update Tasks" dialog: % complete, actual dates, actual / remaining duration. */
 export function updateProgress(project, sched, id, { percentComplete, actualStart, actualFinish, actualDuration, remainingDuration }) {
   const task = findTask(project, id);

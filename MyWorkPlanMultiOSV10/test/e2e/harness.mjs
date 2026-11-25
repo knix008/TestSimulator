@@ -131,7 +131,7 @@ export class App {
       const page = await new Page(target).open().catch((error) => { last = error; return null; });
       if (!page) { await sleep(200); continue; }
       try {
-        await page.waitFor(`Boolean(window.__myworkplanPopup && document.querySelector('.popup, .popup-menu'))`, { timeout: Math.max(1000, end - Date.now()) });
+        await page.waitFor(`Boolean(window.__myworkplanPopup && document.querySelector('.popup, .popup-menu, .theme-dropdown'))`, { timeout: Math.max(1000, end - Date.now()) });
         return page;
       } catch (error) {
         last = error;

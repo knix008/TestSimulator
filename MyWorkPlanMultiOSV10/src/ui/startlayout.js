@@ -8,6 +8,18 @@ export const LAYOUT_VERSION = 1;
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
+/** The program's information card: always first, across the whole board, as tall as its content — never moved or resized. */
+export const FIXED_CARD = 'hero';
+
+/** Puts the fixed card back at the top (full width, fit) and the others below it. */
+function pinFixed(cards) {
+  if (!cards[FIXED_CARD]) return cards;
+  const fixed = { ...cards[FIXED_CARD], col: 0, row: 0, w: COLS, fit: true };
+  const out = { [FIXED_CARD]: fixed };
+  for (const [id, c] of Object.entries(cards)) if (id !== FIXED_CARD) out[id] = { ...c, row: Math.max(c.row, fixed.h) };
+  return out;
+}
+
 export const rowsFor = (px) => Math.max(2, Math.ceil((px + GAP) / ROW));
 
 export const overlaps = (a, b) => a.col < b.col + b.w && b.col < a.col + a.w && a.row < b.row + b.h && b.row < a.row + a.h;
@@ -90,14 +102,14 @@ export function cardsOf(saved, ids, defaultSpan, measured = {}, fallbackRows = 8
     cards = pack([...ids], (id) => defaultSpan[id] || 1, rows);
   }
   for (const id of Object.keys(cards)) if (cards[id].fit && measured[id]) cards[id] = { ...cards[id], h: measured[id] };
-  return compact(resolve(cards, null));
+  return compact(resolve(pinFixed(cards), cards[FIXED_CARD] ? FIXED_CARD : null));
 }
 
 /** The board with one card moved or resized. */
-export const place = (cards, id, target) => compact(resolve({ ...cards, [id]: { ...cards[id], ...target } }, id));
+export const place = (cards, id, target) => (id === FIXED_CARD ? cards : compact(resolve(pinFixed({ ...cards, [id]: { ...cards[id], ...target } }), id)));
 
 /** The default arrangement. */
-export const autoArrange = (ids, defaultSpan, measured = {}, fallbackRows = 8) => compact(pack([...ids], (id) => defaultSpan[id] || 1, (id) => measured[id] || fallbackRows));
+export const autoArrange = (ids, defaultSpan, measured = {}, fallbackRows = 8) => compact(pinFixed(pack([...ids], (id) => defaultSpan[id] || 1, (id) => measured[id] || fallbackRows)));
 
 /** The form saved in the settings. */
 export function layoutValue(cards) {

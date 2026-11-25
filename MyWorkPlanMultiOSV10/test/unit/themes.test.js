@@ -70,7 +70,7 @@ test('custom theme: copied from a theme, repaired, readable defaults; system fol
   assert.equal(resolveTheme('system', true).id, 'dark');
   assert.equal(resolveTheme('system', false).id, 'light');
   assert.equal(resolveTheme('nope').id, LIGHT_THEMES[0].id);
-  assert.equal(themeName('custom', 'en'), 'Custom');
+  assert.equal(themeName('custom', 'en'), 'Custom theme');
   const vars = themeVariables(LIGHT_THEMES[0]);
   for (const name of ['--bg', '--text', '--accent', '--accent-text', '--grid-alt', '--chart', '--danger']) assert.ok(vars[name], name);
 });

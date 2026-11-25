@@ -296,6 +296,12 @@ export async function setMinimumSize(width, height) {
 }
 
 export const printWindow = () => (isDesktop() ? invoke('print_window') : Promise.resolve(window.print()));
+/** The computer's printers: { printers, defaultPrinter }; none in the browser and outside Windows. */
+export const listPrinters = () => (isDesktop() ? invoke('list_printers') : Promise.resolve({ printers: [], defaultPrinter: '' }));
+/** Prints this window's print view straight to a printer, with no dialog. job: { printer, copies, widthMm, heightMm }. */
+export const printDirect = (job) => invoke('print_direct', { job });
+/** The same pages into a PDF file (tests: what would be printed, on no paper). */
+export const printPagesToPdf = (job, path) => invoke('print_pages_to_pdf', { job, path });
 export const quitApp = () => (isDesktop() ? invoke('quit_app') : Promise.resolve());
 
 // ───────────────────────── clipboard
