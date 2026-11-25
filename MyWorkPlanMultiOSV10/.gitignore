@@ -16,7 +16,7 @@ release/
 /MyWorkPlan-*.AppImage
 
 # Videos (npm run tutorial:video → MyWorkPlan-Tutorial.mp4)
-*.mp4
+#*.mp4
 
 # Test runs (npm test)
 test-results/

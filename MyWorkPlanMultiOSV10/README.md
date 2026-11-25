@@ -107,6 +107,8 @@ npm run build:docs   # UsersGuide*.md · docs/tutorial/README*.md → docs/*.htm
 npm run build:icons  # 아이콘 다시 만들기
 npm run samples      # samples/ 예제 프로젝트 40개(한·영) 다시 만들기
 npm run guide:images # 사용 설명서 그림 → docs/guide/images/{ko,en}/ (웹 빌드를 헤드리스 Edge로 찍음)
+npm run clean        # 빌드·테스트 결과물 삭제(dist, src-tauri/target·gen, release, test-results, 루트 설치 파일; -- --dry-run 으로 미리 보기)
+npm run clean:all    # 위 + node_modules (다음에 npm install)
 ```
 
 Tauri는 교차 빌드를 하지 않으므로 각 OS 설치 파일은 그 OS에서 만듭니다. Windows 설치 파일은 `release/`에 만들어지고 프로젝트 루트에 `MyWorkPlan-Setup-1.0.0.exe`로 사본이 놓입니다. 설치 파일에는 사용 설명서(HTML·Markdown), 튜토리얼 문서와 그림, 예제 프로젝트가 함께 들어갑니다.
@@ -186,6 +188,8 @@ npm run build:linux    # .deb · .rpm · .AppImage
 npm run build:all      # everything this OS can build
 npm run build:web      # web build → dist/
 npm test               # all tests (npm test -- --quick, --only js,rust, --installer)
+npm run clean          # remove build/test output (dist, src-tauri/target, release, test-results, root installer; -- --dry-run to preview)
+npm run clean:all      # the above + node_modules (run npm install afterwards)
 ```
 
 The Windows installer asks for Korean or English, removes a previous installation completely, resets the previous settings while keeping the user's data (recent files, database connection, background image), registers `.mwp` / `.mwpt` with their own icons and installs the user's guide with a Start-menu shortcut.
