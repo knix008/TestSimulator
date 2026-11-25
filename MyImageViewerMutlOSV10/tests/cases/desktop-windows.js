@@ -340,6 +340,23 @@ module.exports = {
       assertIncludes(h.read('src-tauri/src/host/system.rs'), '"galleryDir"', 'gallery folder');
     });
 
+    test('Title bar stays draggable: page containers carry no inherited no-drag, and it shows no build number', () => {
+      // Chromium does not clip app-region boxes to scroll boxes: an inherited no-drag let tree
+      // rows and thumbnails scrolled out of sight cover the title bar (no move, no double-click)
+      const rule = (sel) => {
+        const at = src.css.indexOf(`\n${sel} {`);
+        assert(at >= 0, `rule ${sel}`);
+        return src.css.slice(at, src.css.indexOf('}', at));
+      };
+      for (const sel of ['html, body', '#app', '#main-area', '#edit-window-body']) {
+        const body = rule(sel);
+        assert(!/app-region:\s*no-drag/.test(body) && /\sapp-region: initial;/.test(body), `${sel} has no region`);
+      }
+      for (const sel of ['#menubar', '.app-brand', '.titlebar-file']) assert(/\sapp-region: drag;/.test(rule(sel)), `${sel} drags`);
+      const label = app.slice(app.indexOf('function _versionLabel'), app.indexOf('}', app.indexOf('function _versionLabel')));
+      assert(!label.includes('buildNumber') && label.includes('return `V$'), 'version only');
+    });
+
     test('Prev / next buttons step inside the ruler band', () => {
       assertIncludes(app, "container.classList.toggle('has-ruler', show && rulerOn);", 'class');
       assertIncludes(src.css, '.has-ruler > .viewer-nav-prev { left: 36px; }', 'left');

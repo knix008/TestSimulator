@@ -13353,10 +13353,9 @@ hr { border: 0; border-top: 1px solid #bbb; margin: 1.2em 0; }
     return _appInfoCache;
   }
 
+  /** Title bar and start screen: the version only — the build number is not shown there. */
   function _versionLabel(info) {
-    const version = String(info?.version || '1.0.3');
-    const build = String(info?.buildNumber || '').trim();
-    return build ? `V${version} (${build})` : `V${version}`;
+    return `V${String(info?.version || '1.0.3')}`;
   }
 
   async function _refreshAboutInfo() {

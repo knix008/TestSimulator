@@ -192,8 +192,9 @@ html, body {
   color: var(--text-primary);
   user-select: none;
   -webkit-user-select: none;
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+  /* No region (see #main-area): an inherited no-drag would reach scrolled-away content */
+  -webkit-app-region: initial;
+  app-region: initial;
 }
 
 /* ========== Scrollbars ========== */
@@ -210,8 +211,8 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+  -webkit-app-region: initial;
+  app-region: initial;
 }
 
 /* ========== Title bar (icon · name · version; window drag region) ========== */
@@ -1097,8 +1098,11 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   flex: 1;
   overflow: hidden;
   position: relative;
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+  /* No region at all (not no-drag): app-region is inherited, and Chromium does not clip
+     regions to scroll boxes, so tree rows / thumbnails scrolled up out of sight would
+     cover the title bar with no-drag boxes and it could no longer be dragged. */
+  -webkit-app-region: initial;
+  app-region: initial;
 }
 
 /* ========== Sidebar ========== */
@@ -4396,10 +4400,14 @@ body.frameless #ew-win-gutter { display: block; }
 #ew-toolbar-row .ew-toolbar,
 #ew-toolbar-row .ew-group,
 #ew-toolbar-row .ew-actions,
-#ew-toolbar-row .ew-btn,
-#edit-window-body {
+#ew-toolbar-row .ew-btn {
   -webkit-app-region: no-drag;
   app-region: no-drag;
+}
+/* Scrolling content: no region (see #main-area) */
+#edit-window-body {
+  -webkit-app-region: initial;
+  app-region: initial;
 }
 
 #edit-window-title {
