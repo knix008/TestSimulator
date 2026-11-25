@@ -1,0 +1,85 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyICOMaker",
+  "mainBinaryName": "MyICOMaker",
+  "version": "../package.json",
+  "identifier": "com.shkwon.myicomaker",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1470",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) 2026 SHKWON (knix008@naver.com)",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Icon designer",
+    "longDescription": "Design icons with more than a hundred shapes and drawing tools, gradients, 3D, gloss and shadow effects, and export multi-size Windows .ico, macOS .icns, PNG sets and SVG. Start screen, user's guide window and print preview.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../public/docs/UsersGuide.html": "docs/UsersGuide.html",
+      "../public/docs/UsersGuide.en.html": "docs/UsersGuide.en.html",
+      "../public/docs/guide.css": "docs/guide.css",
+      "../public/docs/images/": "docs/images/",
+      "../public/icon.png": "icon.png"
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "myico"
+        ],
+        "name": "MyICOMaker.Design",
+        "description": "MyICOMaker Icon Design",
+        "mimeType": "application/x-myicomaker",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Korean",
+          "English"
+        ],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "MyICOMaker"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ]
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ]
+      }
+    }
+  }
+}

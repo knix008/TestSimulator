@@ -1,0 +1,52 @@
+{
+  "name": "myicomaker",
+  "productName": "MyICOMaker",
+  "version": "1.0.1",
+  "description": "Icon designer for Web, Windows, macOS and Linux (Tauri 2) — draw with 100+ shapes and tools, add 3D/shadow/gradient effects and export multi-size .ico, .icns, PNG and SVG icons.",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "desktop:dev": "node scripts/start.mjs",
+    "web": "node scripts/dev-web.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4186 --strictPort",
+    "tauri": "tauri",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "test": "node scripts/test.mjs",
+    "test:unit": "node scripts/test.mjs --only unit",
+    "test:rust": "node scripts/test.mjs --only rust",
+    "test:gui": "node scripts/test.mjs --only gui",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all",
+    "build:docs": "node scripts/build-docs.mjs",
+    "docs:shots": "node scripts/test.mjs --only gui --shots",
+    "build:emoji": "node scripts/build-emoji.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "dicom-parser": "^1.8.21",
+    "heic2any": "^0.0.4",
+    "jszip": "^3.10.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.170.0",
+    "utif": "^3.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "@twemoji/svg": "^15.0.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "sharp": "^0.33.4",
+    "vite": "^5.4.1",
+    "ws": "^8.18.0"
+  }
+}

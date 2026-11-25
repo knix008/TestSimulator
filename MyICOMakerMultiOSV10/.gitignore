@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output (npm run clean removes all of these)
+dist/
+release/
+src-tauri/target/
+src-tauri/gen/
+.vite/
+test-results/
+
+# Installers copied to the project root by npm run build:*
+/MyICOMaker-*.exe
+/MyICOMaker-*.msi
+/MyICOMaker-*.dmg
+/MyICOMaker-*.AppImage
+/MyICOMaker-*.deb
+/MyICOMaker-*.rpm
+
+# Logs / OS / editors
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.claude/
