@@ -505,6 +505,19 @@ ${band('ftr', footerMm, footer)}
     transcodeMedia: (filePath, kind) => call('media-transcode', filePath, kind),
     rembgRemove: (opts) => call('rembg-remove', opts),
     onRembgProgress: (cb) => { on('rembg-progress', cb); return () => {}; },
+    // Super-resolution engines (host superres.rs): status / install / remove / run, progress
+    superresStatus: () => call('superres-status'),
+    superresInstall: (opts) => call('superres-install', opts),
+    superresUninstall: (opts) => call('superres-uninstall', opts),
+    superresRun: (opts) => call('superres-run', opts),
+    superresCancel: () => call('superres-cancel'),
+    superresDiscard: (p) => call('superres-discard', p),
+    onSuperresProgress: (cb) => {
+      on('sr-progress', cb);
+      return () => { const l = listeners['sr-progress'] || []; const i = l.indexOf(cb); if (i >= 0) l.splice(i, 1); };
+    },
+    // AVIF file from a PNG data URL (WebView2 cannot write AVIF)
+    encodeAvif: (opts) => call('encode-avif', opts),
     onOpenProgress: (cb) => { on('open-progress', cb); return () => {}; },
     decodeDicom: (filePath) => call('decode-dicom', filePath),
     saveFile: (data) => call('save-file', data),

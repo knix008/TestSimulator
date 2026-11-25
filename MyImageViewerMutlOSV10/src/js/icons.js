@@ -16,6 +16,8 @@ window.Icons = {
   flipH: `<svg viewBox="0 0 24 24"><path d="M15 21h2v-2h-2v2zm4-12h2V7h-2v2zm0 4h2v-2h-2v2zm0 4h2v-2h-2v2zm-4-4h2v-2h-2v2zM3 3v18h2V3H3zm8 18h2v-2h-2v2zm4-16h2V3h-2v2zm-4 0h2V3h-2v2zm0 4h2V7h-2v2zm0 8h2v-2h-2v2zm0-4h2v-2h-2v2z"/></svg>`,
   flipV: `<svg viewBox="0 0 24 24"><path d="M3 15v2h2v-2H3zm4 4h2v-2H7v2zm4 2v-2h-2v2h2zm-4-8h2v-2H7v2zM3 3v2h18V3H3zm12 16h2v-2h-2v2zm-4-8h2v-2h-2v2zm4-4h2V5h-2v2zm0 4h2v-2h-2v2zm0 8h2v-2h-2v2z"/></svg>`,
   resize: `<svg viewBox="0 0 24 24"><path d="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>`,
+  // Super-resolution: a small picture grown into a sharp big one, with a spark
+  superRes: `<svg viewBox="0 0 24 24"><rect x="2" y="13" width="7" height="7" rx="1" opacity=".45"/><path d="M11 4h9a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-9v-2h9V6h-9z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M7.5 11.5 13 6m0 0h-4m4 0v4"/><path d="M5 2.2l.8 1.9 1.9.8-1.9.8L5 7.6l-.8-1.9-1.9-.8 1.9-.8z"/></svg>`,
   prev: `<svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>`,
   next: `<svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>`,
   first: `<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>`,
@@ -251,7 +253,7 @@ window.Icons = {
     openFile: '#4c8dff', openFolder: '#e8b84a', save: '#3ecf8e', saveAs: '#2fbf7a',
     zoomIn: '#7aa2f7', zoomOut: '#9aa5ce', fitWindow: '#2dd4bf', actualSize: '#38bdf8',
     rotateLeft: '#c084fc', rotateRight: '#a78bfa', flipH: '#f472b6', flipV: '#fb7185',
-    resize: '#fb923c', prev: '#60a5fa', next: '#38bdf8', undo: '#fbbf24', redo: '#f59e0b',
+    resize: '#fb923c', superRes: '#22d3ee', prev: '#60a5fa', next: '#38bdf8', undo: '#fbbf24', redo: '#f59e0b',
     edit: '#34d399', effects: '#e879f9', sun: '#facc15', moon: '#a5b4fc', image: '#86efac',
     folder: '#e8b84a', folderUp: '#e8b84a', folderOpen: '#f0c14a', folderTree: '#e8b84a', drive: '#38bdf8',
     file: '#94a3b8', close: '#f87171', delete: '#ef4444', print: '#818cf8', export: '#22d3ee',

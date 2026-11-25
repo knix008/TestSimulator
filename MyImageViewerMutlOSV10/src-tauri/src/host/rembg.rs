@@ -13,6 +13,7 @@ use serde_json::{json, Value};
 use std::io::{BufRead, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -48,27 +49,35 @@ fn model_url(m: &Model) -> String {
 
 /// Progress that never moves backwards across phases (provision → model → inference),
 /// which would look like a stall or a reset.
-struct Progress {
-    last: u32,
+pub(super) struct Progress {
+    pub last: u32,
+    /// The page event it goes to (rembg-progress; superres.rs uses sr-progress)
+    pub channel: &'static str,
 }
 
 impl Progress {
-    fn emit(&mut self, percent: f64, message: &str) {
+    pub(super) fn emit(&mut self, percent: f64, message: &str) {
         self.last = self.last.max(percent.clamp(0.0, 100.0) as u32);
-        emit("rembg-progress", json!({ "percent": self.last, "message": message }));
+        emit(self.channel, json!({ "percent": self.last, "message": message }));
     }
 }
 
-struct CmdResult {
-    code: i32,
-    out: String,
-    err: String,
-    timed_out: bool,
+pub(super) struct CmdResult {
+    pub code: i32,
+    pub out: String,
+    pub err: String,
+    pub timed_out: bool,
+    pub cancelled: bool,
 }
 
 /// Run a command; `timeout` kills it (and reports timed_out) instead of waiting forever.
 /// on_line sees every stdout / stderr line as it comes.
-fn run_cmd(cmd: &Path, args: &[&str], timeout: Duration, envs: &[(&str, String)], mut on_line: impl FnMut(&str, bool)) -> CmdResult {
+fn run_cmd(cmd: &Path, args: &[&str], timeout: Duration, envs: &[(&str, String)], on_line: impl FnMut(&str, bool)) -> CmdResult {
+    run_cmd_cancel(cmd, args, timeout, envs, None, on_line)
+}
+
+/// run_cmd that also stops (kills the child) as soon as `cancel` is set.
+pub(super) fn run_cmd_cancel(cmd: &Path, args: &[&str], timeout: Duration, envs: &[(&str, String)], cancel: Option<&AtomicBool>, mut on_line: impl FnMut(&str, bool)) -> CmdResult {
     let mut command = hidden_command(cmd);
     command.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     for (k, v) in envs {
@@ -76,7 +85,7 @@ fn run_cmd(cmd: &Path, args: &[&str], timeout: Duration, envs: &[(&str, String)]
     }
     let mut child = match command.spawn() {
         Ok(c) => c,
-        Err(e) => return CmdResult { code: -1, out: String::new(), err: e.to_string(), timed_out: false },
+        Err(e) => return CmdResult { code: -1, out: String::new(), err: e.to_string(), timed_out: false, cancelled: false },
     };
     let (tx, rx) = mpsc::channel::<(bool, String)>();
     for (is_err, stream) in [(false, child.stdout.take().map(|s| Box::new(s) as Box<dyn Read + Send>)), (true, child.stderr.take().map(|s| Box::new(s) as Box<dyn Read + Send>))] {
@@ -91,10 +100,20 @@ fn run_cmd(cmd: &Path, args: &[&str], timeout: Duration, envs: &[(&str, String)]
     }
     drop(tx);
     let deadline = Instant::now() + timeout;
-    let (mut out, mut err, mut timed_out) = (String::new(), String::new(), false);
+    let (mut out, mut err, mut timed_out, mut cancelled) = (String::new(), String::new(), false, false);
     loop {
+        if cancel.is_some_and(|c| c.load(Ordering::SeqCst)) {
+            cancelled = true;
+            let _ = child.kill();
+            break;
+        }
         let left = deadline.saturating_duration_since(Instant::now());
-        match rx.recv_timeout(left) {
+        if left.is_zero() {
+            timed_out = true;
+            let _ = child.kill();
+            break;
+        }
+        match rx.recv_timeout(left.min(Duration::from_millis(200))) {
             Ok((is_err, line)) => {
                 on_line(&line, is_err);
                 let target = if is_err { &mut err } else { &mut out };
@@ -102,18 +121,14 @@ fn run_cmd(cmd: &Path, args: &[&str], timeout: Duration, envs: &[(&str, String)]
                 target.push('\n');
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                timed_out = true;
-                let _ = child.kill();
-                break;
-            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
         }
     }
     let code = child.wait().ok().and_then(|s| s.code()).unwrap_or(-1);
-    CmdResult { code, out, err, timed_out }
+    CmdResult { code, out, err, timed_out, cancelled }
 }
 
-fn python_works(py: &Path) -> bool {
+pub(super) fn python_works(py: &Path) -> bool {
     let r = run_cmd(py, &["--version"], Duration::from_secs(15), &[], |_, _| {});
     r.code == 0 && format!("{}{}", r.out, r.err).contains("Python 3.")
 }
@@ -126,7 +141,12 @@ fn managed_python() -> PathBuf {
 /// dest.part first and only a complete (and, with a hash, verified) file is renamed into
 /// place; no response for 20 s or no byte for 30 s fails; a short body or a checksum
 /// mismatch fails (and deletes the part).
-fn download(url: &str, dest: &Path, hash: Option<(&str, &str)>, mut on_progress: impl FnMut(f64, u64, u64)) -> Result<(), String> {
+fn download(url: &str, dest: &Path, hash: Option<(&str, &str)>, on_progress: impl FnMut(f64, u64, u64)) -> Result<(), String> {
+    download_cancel(url, dest, hash, None, on_progress)
+}
+
+/// download that gives up (removing the part file) as soon as `cancel` is set: Err("cancelled").
+pub(super) fn download_cancel(url: &str, dest: &Path, hash: Option<(&str, &str)>, cancel: Option<&AtomicBool>, mut on_progress: impl FnMut(f64, u64, u64)) -> Result<(), String> {
     use md5::Digest;
     if let Some(dir) = dest.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -152,6 +172,9 @@ fn download(url: &str, dest: &Path, hash: Option<(&str, &str)>, mut on_progress:
         let mut got = 0u64;
         let mut buf = vec![0u8; 64 * 1024];
         loop {
+            if cancel.is_some_and(|c| c.load(Ordering::SeqCst)) {
+                return Err("cancelled".into());
+            }
             let n = reader.read(&mut buf).map_err(|e| if e.kind() == std::io::ErrorKind::TimedOut { "no data for 30 s".to_string() } else { e.to_string() })?;
             if n == 0 {
                 break;
@@ -270,7 +293,7 @@ fn install_managed_python(p: &mut Progress) -> Result<PathBuf, String> {
 
 /// A working Python, preferring what the machine already has:
 /// explicit override → system python → previously app-installed → install.
-fn resolve_python(p: &mut Progress) -> Result<PathBuf, String> {
+pub(super) fn resolve_python(p: &mut Progress) -> Result<PathBuf, String> {
     let mut candidates: Vec<PathBuf> = Vec::new();
     if let Some(py) = std::env::var_os("IMAGEVIEWER_PYTHON") {
         candidates.push(PathBuf::from(py));
@@ -341,7 +364,7 @@ pub fn remove(opts: &Value) -> Value {
 }
 
 fn run(data_url: &str, model_key: &str, tmp: &Path, in_path: &Path, out_path: &Path) -> Value {
-    let mut p = Progress { last: 0 };
+    let mut p = Progress { last: 0, channel: "rembg-progress" };
     if !data_url.starts_with("data:") {
         return error("Invalid image data");
     }

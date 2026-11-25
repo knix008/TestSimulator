@@ -14,6 +14,7 @@ mod files;
 mod imaging;
 mod media;
 mod rembg;
+mod superres;
 mod system;
 mod thumbs;
 
@@ -135,6 +136,14 @@ fn dispatch(channel: &str, args: &[Value]) -> Value {
         "read-media-meta" => media::read_media_meta(s0),
         "media-transcode" => media::transcode(s0, a1.as_str() == Some("audio")),
         "rembg-remove" => rembg::remove(a0),
+        // ── super-resolution engines (Real-ESRGAN, Real-CUGAN, waifu2x) and the AVIF writer ──
+        "superres-status" => superres::status(),
+        "superres-install" => superres::install(a0),
+        "superres-uninstall" => superres::uninstall(a0),
+        "superres-run" => superres::run(a0),
+        "superres-discard" => superres::discard(s0),
+        "superres-cancel" => superres::cancel(),
+        "encode-avif" => superres::encode_avif(a0),
         // Decoded in the page (DicomDecoder); this was only the Node fallback
         "decode-dicom" => error("DICOM is decoded in the page"),
         // ── Explorer › Favorites (favorites.db) ──

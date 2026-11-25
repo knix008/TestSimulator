@@ -7,6 +7,8 @@
  *   runtime/ffmpeg(.exe)       converts media the webview cannot play, reads media facts
  *                              (ffmpeg-static: the build of the OS this runs on)
  *   runtime/rembg_worker.py    AI background removal (run with the user's Python)
+ *   runtime/sr_worker.py       SwinIR / EDSR / AuraSR / ESPCN super-resolution (the app's PyTorch environment)
+ *   runtime/sr_models/         the SwinIR network (vendored, Apache-2.0, licence beside it) and EDSR
  *
  * Everything else the host does is in the app itself (src-tauri/src/host/).
  */
@@ -31,6 +33,11 @@ const ffmpegName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
 fs.copyFileSync(ffmpeg, path.join(OUT, ffmpegName));
 if (process.platform !== 'win32') fs.chmodSync(path.join(OUT, ffmpegName), 0o755);
 fs.copyFileSync(path.join(ROOT, 'scripts', 'rembg_worker.py'), path.join(OUT, 'rembg_worker.py'));
+fs.copyFileSync(path.join(ROOT, 'scripts', 'sr_worker.py'), path.join(OUT, 'sr_worker.py'));
+fs.mkdirSync(path.join(OUT, 'sr_models'), { recursive: true });
+for (const n of fs.readdirSync(path.join(ROOT, 'scripts', 'sr_models'))) {
+  if (/\.py$|^LICENSE/.test(n)) fs.copyFileSync(path.join(ROOT, 'scripts', 'sr_models', n), path.join(OUT, 'sr_models', n));
+}
 
 const mb = (fs.statSync(path.join(OUT, ffmpegName)).size / 1048576).toFixed(1);
-console.log(`[stage-runtime] ${ffmpegName} (${mb} MB) + rembg_worker.py → src-tauri/runtime`);
+console.log(`[stage-runtime] ${ffmpegName} (${mb} MB) + rembg_worker.py + sr_worker.py → src-tauri/runtime`);

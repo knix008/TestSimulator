@@ -9,8 +9,8 @@ window.FileDialog = (() => {
   let _sep = '\\';
   let _bound = false;
 
-  const SAVE_EXTS = ['png', 'jpg', 'webp', 'bmp'];
-  const LOSSY_EXTS = ['jpg', 'jpeg', 'webp'];   // formats whose encoder takes a quality
+  const SAVE_EXTS = ['png', 'jpg', 'webp', 'avif', 'gif', 'bmp'];
+  const LOSSY_EXTS = ['jpg', 'jpeg', 'webp', 'avif'];   // formats whose encoder takes a quality
   const QUALITY_KEY = 'saveImageQuality';
   const DEFAULT_QUALITY = 92;
   let _saveTypes = null;   // [[ext, label], …] for a non-image save (e.g. DICOM tag export); null → images
@@ -259,6 +259,8 @@ window.FileDialog = (() => {
           ['png', _t('fd.filterPng', 'PNG (*.png)')],
           ['jpg', _t('fd.filterJpeg', 'JPEG (*.jpg)')],
           ['webp', _t('fd.filterWebp', 'WebP (*.webp)')],
+          ['avif', _t('fd.filterAvif', 'AVIF (*.avif)')],
+          ['gif', _t('fd.filterGif', 'GIF (*.gif)')],
           ['bmp', _t('fd.filterBmp', 'BMP (*.bmp)')],
         ]
       : _mode === 'openFolder'
@@ -462,7 +464,7 @@ window.FileDialog = (() => {
     if (done) done(result);
   }
 
-  async function show({ mode = 'openFile', defaultPath = '', title = '', saveTypes = null } = {}) {
+  async function show({ mode = 'openFile', defaultPath = '', title = '', saveTypes = null, quality = null } = {}) {
     _bindOnce();
     _overlay = document.getElementById('file-dialog-overlay');
     if (!_overlay) return { canceled: true };
@@ -506,7 +508,9 @@ window.FileDialog = (() => {
       }
     }
     if (e.name) e.name.value = nameHint || (mode === 'save' ? 'image.png' : '');
-    if (e.quality) e.quality.value = String(_savedQuality());
+    // A caller that already asked for a quality (super-resolution) starts from it
+    const q = Number(quality) > 0 && Number(quality) <= 1 ? Math.max(40, Math.round(quality * 100)) : _savedQuality();
+    if (e.quality) e.quality.value = String(q);
     _syncQualityLabel();
     _refreshQuality();
 

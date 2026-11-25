@@ -34,6 +34,9 @@ md-5 = "0.10"
 sha2 = "0.10"
 # rembg: Python installer and model downloads
 ureq = "2"
+# Super-resolution: the engine release zips; AVIF files (WebView2 cannot write AVIF)
+zip = { version = "2", default-features = false, features = ["deflate"] }
+ravif = { version = "0.13", default-features = false, features = ["threading"] }
 # Explorer › Favorites: favorites.db (SQLite compiled in, nothing to install)
 rusqlite = { version = "0.32", features = ["bundled"] }
 
@@ -43,6 +46,10 @@ winreg = "0.55"
 # Installed font families for the font lists (GDI EnumFontFamiliesExW). The page's own
 # queryLocalFonts() made WebView2 ask "use your computer's fonts?" on every start.
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Gdi"] }
+
+# The AV1 encoder is unusably slow unoptimised (seconds become minutes): optimised in dev too
+[profile.dev.package.rav1e]
+opt-level = 3
 
 [profile.release]
 panic = "abort"

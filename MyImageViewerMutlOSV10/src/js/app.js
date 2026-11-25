@@ -1000,13 +1000,22 @@
     ];
   }
 
+  /** Edit window › Image: the tools' items, then super-resolution. */
+  function _ewImageMenuItems() {
+    return [
+      ...EditTools.imageMenuItems(),
+      { separator: true },
+      { icon: Icons.superRes, label: `${I18n.t('sr.title')}…`, shortcut: 'Ctrl+Shift+U', disabled: !Editor.isLoaded(), action: () => SuperResUI.open() },
+    ];
+  }
+
   // Edit-window menu bar: the same five menus with the editor's own actions
   function _ewMenubarDefs() {
     return [
       { id: 'file',    labelKey: 'menu.file',    icon: 'file',    prefix: 'ew-', items: () => _ewFileMenuItems() },
       { id: 'edit',    labelKey: 'menu.edit',    icon: 'edit',    prefix: 'ew-', items: () => _ewEditMenuItems() },
       { id: 'view',    labelKey: 'menu.view',    icon: 'image',   prefix: 'ew-', items: () => _ewViewMenuItems() },
-      { id: 'image',   labelKey: 'menu.image',   icon: 'toneCurve', prefix: 'ew-', items: () => EditTools.imageMenuItems() },
+      { id: 'image',   labelKey: 'menu.image',   icon: 'toneCurve', prefix: 'ew-', items: () => _ewImageMenuItems() },
       { id: 'select',  labelKey: 'menu.select',  icon: 'rectSelect', prefix: 'ew-', items: () => _ewSelectMenuItems() },
       { id: 'effects', labelKey: 'menu.effects', icon: 'effects', prefix: 'ew-', items: () => _effectsMenuItems() },
       { id: 'help',    labelKey: 'menu.help',    icon: 'help',    prefix: 'ew-', items: () => _helpMenuItems() },
@@ -9247,6 +9256,7 @@
     ['ew-flip-h',    'flipH',       'toolbar.flipH',        () => { _flip('h'); }],
     ['ew-flip-v',    'flipV',       'toolbar.flipV',        () => { _flip('v'); }],
     ['ew-resize',    'resize',      'toolbar.resize',       () => { _openResizeDialog(); }],
+    ['ew-superres',  'superRes',    'sr.titleTip',          () => { SuperResUI.open(); }],
     ['ew-print',     'print',       'toolbar.print',        () => { _openPrintPreview(); }],
     ['ew-undo',      'undo',        'editWindow.undo',      () => { _undoEdit(); }],
     ['ew-redo',      'redo',        'editWindow.redo',      () => { _redoEdit(); }],
@@ -9489,6 +9499,23 @@
       onPixelsChanged: () => { _ewUpdateSelBtns(); _updateUndoRedoBtns(); _updateStatus({ dims: true }); },
       onEffectsChanged: () => { _syncSlidersFromEffects('eff'); _syncSlidersFromEffects('ew-eff'); },
       onSelectionChanged: () => _ewUpdateSelBtns(),
+    });
+    SuperResUI.init({
+      t: (k) => I18n.t(k),
+      progress: ProgressDialog,
+      showDialog: (id) => _showDialog(id),
+      hideDialog: (id) => _hideDialog(id),
+      showError: (msg, detail) => _showError(msg, detail),
+      // The app's own confirm popup: on the desktop it is a window above Settings
+      messageBox: (o) => _appConfirm(o),
+      status: (msg) => _updateStatus({ msg }),
+      afterApply: () => { _ewFit(); _updateUndoRedoBtns(); _ewUpdateSelBtns(); _updateStatus({ dims: true }); },
+      // The result straight to <folder>/<name>.<ext> (the dialog shows and lets you edit both)
+      writeImage: (o) => _writeImageFile(o),
+      currentFile: () => state.currentFile || '',
+      settingsOpen: () => document.getElementById('settings-overlay')?.classList.contains('visible'),
+      // The tab after the window has been measured (on the General tab, its usual size)
+      openSettings: (tab) => { _openSettings(); if (tab) setTimeout(() => _settingsSelectTab(tab), 0); },
     });
   }
 
@@ -9737,7 +9764,52 @@
   }
 
   // Formats Editor.exportAsDataUrl can write back in place
-  const SAVE_IN_PLACE = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp' };
+  const SAVE_IN_PLACE = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp', gif: 'image/gif', avif: 'image/avif' };
+
+  /** The edited picture as a data URL in `format`: PNG / JPEG / WebP by the web view,
+   *  BMP / GIF / AVIF by ImageCodec (the web view has no encoder for those). */
+  async function _exportForSave(format, quality) {
+    const ext = { 'image/bmp': 'bmp', 'image/gif': 'gif', 'image/avif': 'avif' }[format];
+    if (ext && window.ImageCodec) {
+      const img = Editor.exportImageData();
+      return img ? ImageCodec.encode(img, ext, quality ?? 0.92) : null;
+    }
+    return quality !== undefined ? Editor.exportAsDataUrl(format, quality) : Editor.exportAsDataUrl(format);
+  }
+
+  /** Write the edited picture to `filePath` in `ext` (super-resolution result); web: a download. */
+  async function _writeImageFile({ filePath, ext, quality }) {
+    const mime = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp', avif: 'image/avif', gif: 'image/gif', bmp: 'image/bmp' }[ext] || 'image/png';
+    const lossy = mime === 'image/jpeg' || mime === 'image/webp' || mime === 'image/avif';
+    const r = await _runOpWithProgress(async (dlg) => {
+      let exported;
+      try {
+        exported = await _exportForSave(mime, lossy ? (quality ?? 0.92) : undefined);
+      } catch (err) {
+        return { success: false, error: _codecError(err) };
+      }
+      if (!exported) return { success: false, error: 'export' };
+      const dataUrl = await _withPhotoInfo(exported, Editor.getDimensions());
+      dlg?.set(60, I18n.t('progress.saving') || 'Saving…');
+      if (_isWeb()) return window.electronAPI.saveFile({ defaultPath: filePath, dataUrl });
+      const wr = await window.electronAPI.writeFile({ filePath, dataUrl });
+      if (wr && wr.success) { try { await FileTree.refresh({ force: true }); } catch (_) { /* ignore */ } }
+      return wr;
+    }, { messageKey: 'progress.saving', kind: 'encode', force: true });
+    if (r && !r.error && r.success !== false) {
+      _updateStatus({ msg: `${I18n.t('sr.saved') || 'Saved'}: ${filePath}` });
+      return true;
+    }
+    await _showError(I18n.t('dialog.save.error') || 'Could not save the file.', (r && r.error) || '');
+    return false;
+  }
+
+  function _codecError(err) {
+    const m = (err && err.message) || String(err);
+    if (m === 'AVIF_UNAVAILABLE') return I18n.t('save.avifUnavailable') || m;
+    if (m === 'GIF_TOO_LARGE') return I18n.t('save.gifTooLarge') || m;
+    return m;
+  }
 
   /** Save (Ctrl+S): overwrite the open file in its own format; anything else goes to Save As. */
   async function _save() {
@@ -9748,9 +9820,12 @@
     if (!filePath || !format || state.isAnimated || _isWeb()) return state.editMode ? _saveAsNewFile() : _saveAs();
 
     const writeResult = await _runOpWithProgress(async (dlg) => {
-      const exported = (format === 'image/jpeg' || format === 'image/webp')
-        ? Editor.exportAsDataUrl(format, 0.92)
-        : Editor.exportAsDataUrl(format);
+      let exported;
+      try {
+        exported = await _exportForSave(format, (format === 'image/jpeg' || format === 'image/webp' || format === 'image/avif') ? 0.92 : undefined);
+      } catch (err) {
+        return { success: false, error: _codecError(err) };
+      }
       if (!exported) return { success: false, error: 'export' };
       const dataUrl = await _withPhotoInfo(exported, Editor.getDimensions());
       dlg?.set(55, I18n.t('progress.saving') || 'Saving…');
@@ -9937,22 +10012,26 @@
     }
     // Export: force the chosen format's extension on the suggested name
     if (opts.ext) defaultPath = defaultPath.replace(/\.[^./\\]+$/, '') + '.' + String(opts.ext).replace(/^\./, '');
+    if (opts.defaultPath) defaultPath = opts.defaultPath;
 
-    const dlgResult = await window.FileDialog.save({ defaultPath });
+    const dlgResult = await window.FileDialog.save({ defaultPath, quality: opts.quality });
     if (!dlgResult || dlgResult.canceled || !dlgResult.filePath) return false;
 
     const savePath = dlgResult.filePath;
     const ext = savePath.split('.').pop().toLowerCase();
-    const fmtMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp' };
+    const fmtMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp', gif: 'image/gif', avif: 'image/avif' };
     const format  = fmtMap[ext] || 'image/png';
-    const quality = (format === 'image/jpeg' || format === 'image/webp')
+    const quality = (format === 'image/jpeg' || format === 'image/webp' || format === 'image/avif')
       ? (Number.isFinite(dlgResult.quality) ? dlgResult.quality : 0.92)
       : undefined;
 
     const writeResult = await _runOpWithProgress(async (dlg) => {
-      const exported = quality !== undefined
-        ? Editor.exportAsDataUrl(format, quality)
-        : Editor.exportAsDataUrl(format);
+      let exported;
+      try {
+        exported = await _exportForSave(format, quality);
+      } catch (err) {
+        return { success: false, error: _codecError(err) };
+      }
       if (!exported) return { success: false, error: 'export' };
       const dataUrl = await _withPhotoInfo(exported, Editor.getDimensions());
       dlg?.set(55, I18n.t('progress.saving') || 'Saving…');
@@ -12155,6 +12234,7 @@
       tab.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     document.querySelectorAll('#settings-overlay .settings-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === id));
+    if (id === 'superres') SuperResUI.syncSettings();
   }
 
   /** Viewer options that are plain CSS switches. */
@@ -12483,6 +12563,7 @@
       if (ctrl && e.key === '[') { e.preventDefault(); _rotate(-90); return; }
       if (ctrl && e.key === ']') { e.preventDefault(); _rotate(90); return; }
       if (ctrl && e.shiftKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); if (_isEditableImage()) _openResizeDialog(); return; }
+      if (ctrl && e.shiftKey && e.code === 'KeyU') { e.preventDefault(); if (state.editMode && _isEditableImage()) SuperResUI.open(); return; }
       if (ctrl && e.key === 'e') { e.preventDefault(); _openEditWindow(); return; }
       // Ctrl+S save, Ctrl+Shift+S save as (by e.code so Caps Lock does not turn one into the other)
       if (ctrl && !e.altKey && (e.code === 'KeyS' || e.key === 's' || e.key === 'S')) {
@@ -12668,6 +12749,7 @@
     window.EditTools?.applyI18n();
     _buildEffectsPanel();
     _populateBgAlgoSelect();
+    window.SuperResUI?.syncToolbar();
     _updateStatus();
     if (state.editMode) _ewSyncTitle();
     _buildMenubar();

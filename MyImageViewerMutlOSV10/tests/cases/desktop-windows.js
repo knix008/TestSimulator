@@ -223,7 +223,8 @@ module.exports = {
 
     test('Host progress events reach the page (host-event)', () => {
       assertIncludes(host, 'app.emit_to("main", "host-event", json!({ "channel": channel, "payload": payload }))', 'host sends');
-      assertIncludes(host, 'emit("rembg-progress"', 'background removal progress');
+      assertIncludes(host, 'let mut p = Progress { last: 0, channel: "rembg-progress" };', 'background removal progress');
+      assertIncludes(host, 'emit(self.channel, json!({ "percent": self.last, "message": message }));', 'sent on its channel');
       assertIncludes(host, 'emit("open-progress"', 'open / convert progress');
       assertIncludes(bridge, "tauri.event.listen('host-event'", 'page listens');
     });

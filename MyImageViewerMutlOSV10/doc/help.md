@@ -174,6 +174,19 @@ Saving keeps the photo information (date taken, camera, GPS — Settings can dro
 - Folder, file name, format (PNG, JPEG, WebP, BMP), and JPEG/WebP quality
 - **Also apply to the current image** changes the picture in the viewer as well as the saved file.
 
+## Super-resolution
+
+**Image › Super-resolution…** in the edit window (toolbar button next to Resize, `Ctrl+Shift+U`) makes the picture bigger without the blur of plain resizing.
+
+- **Built-in** (no download): nearest neighbour (pixel art), bilinear, bicubic (sharpness a), Lanczos (2–4 lobes); scale ×1.5 to ×8, optional sharpening after
+- **AI models**: Real-ESRGAN x4plus (photos, the default), x4plus Anime (illustrations), AnimeVideo v3; Real-CUGAN SE and Pro; waifu2x CUnet, UpConv7 Photo and UpConv7 Anime; **SwinIR** (classical, real-world M / L, lightweight), **EDSR**, **AuraSR v2** (best on uncompressed pictures: it also enlarges JPEG blocks) and **ESPCN**. Choose one in the drop-down next to the toolbar button or in the popup.
+- SwinIR, EDSR, AuraSR and ESPCN run in the app's own PyTorch environment, installed automatically: the CUDA build for an NVIDIA GPU, else the CPU build. Device **Automatic** uses the GPU when there is one, else the CPU.
+- Each one shows its own parameters: scale, denoise level, tile sync, tile size, device (GPU, or CPU for Real-CUGAN and waifu2x), TTA, sharpening. The result size is shown as you change them; **Default values** resets this algorithm, **All defaults** resets everything (first run: Real-ESRGAN x4plus ×4 on the desktop, Lanczos ×2 with 20 % sharpening in a browser; JPG 92).
+- **Scale**: buttons at the top of the parameters (**2x, 3x, 4x …**), up to the largest scale the model supports (shown as `Up to Nx`: built-in 8x, Real-ESRGAN and Real-CUGAN SE 4x, Real-CUGAN Pro 3x, waifu2x 32x).
+- **Result**: the **file name** is made for you (`original_SR_algorithm_xScale`, following the algorithm and scale) and can be edited; **↺** brings the automatic name back. Choose the format, **JPG (default)**, PNG, WEBP, AVIF, GIF or BMP, with a quality for JPG / WEBP / AVIF, and the **folder** (the original's; **Browse…** changes it). The file is saved there at once, never over an existing one (` (2)` is added). The picture in the editor changes too (one undo step).
+- An AI model that is not installed yet is **downloaded and installed automatically** first (about 34–44 MB), with progress in a popup and a **Stop** button. While upscaling, the popup shows the percent, the sizes, the elapsed time and the time left. **Settings › Super-resolution** sets the default algorithm, format and quality (**All defaults** resets them) and downloads, reinstalls or removes each engine.
+- AI models run in the desktop app only and need a Vulkan graphics device (Real-CUGAN and waifu2x can also run on the CPU).
+
 ## Print
 
 Print preview puts the page on the left and the settings on the right.
@@ -207,6 +220,7 @@ The language button switches between 한국어 and English. The flag is the lang
 - **Viewer & editing**: wheel zoom step, checkerboard, smooth zoomed pixels, background-removal algorithm
 - **DICOM**: annotations, default cine speed, overlay colour
 - **Media**: subtitles, preferred language, volume, mute
+- **Super-resolution**: install state of each AI engine, with Download / Reinstall / Remove
 
 **Reset all settings** returns these values to their defaults. Recent folders are cleared separately on the General tab.
 
@@ -225,6 +239,7 @@ The language button switches between 한국어 and English. The flag is the lang
 | Fit / actual size | `Ctrl+0` / `Ctrl+1` |
 | Rotate left / right | `Ctrl+[` / `Ctrl+]` |
 | Resize | `Ctrl+Shift+R` |
+| Super-resolution (edit window) | `Ctrl+Shift+U` |
 | Previous / next | `Left` `Page Up` / `Right` `Page Down` |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
 | Edit tools | `B` `H` `E` `L` `A` `R` `O` `T` `M` `U` `S` `J` `Y` `C` `K` `W`, size `[` / `]` |

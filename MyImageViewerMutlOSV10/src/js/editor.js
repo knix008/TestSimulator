@@ -3049,6 +3049,44 @@ window.Editor = (() => {
     }, { kind: 'transform', messageKey: 'progress.resizing' });
   }
 
+  /** What the picture looks like now (rotation, flips and effects included), as ImageData. */
+  function exportImageData() {
+    _flush();
+    if (!displayCanvas || !displayCtx) return null;
+    return displayCtx.getImageData(0, 0, displayCanvas.width, displayCanvas.height);
+  }
+
+  /**
+   * Replace the picture with `img` (ImageData or { width, height, data }) as one undo step —
+   * super-resolution's result. Like Resize, what was shown is now the pixels themselves, so
+   * rotation, flips and effects start over.
+   */
+  function applyImageData(img) {
+    _flush();
+    if (!displayCanvas || !img || !img.width || !img.height) return false;
+    const w = img.width, h = img.height;
+    const data = img instanceof ImageData ? img : new ImageData(new Uint8ClampedArray(img.data.buffer || img.data), w, h);
+    rotation = 0;
+    flipH = false;
+    flipV = false;
+    _resetEffects();
+    naturalW = w;
+    naturalH = h;
+    displayCanvas.width = w;
+    displayCanvas.height = h;
+    if (selCanvas) {
+      selCanvas.width = w;
+      selCanvas.height = h;
+    }
+    displayCtx.putImageData(data, 0, 0);
+    workingPixels = displayCtx.getImageData(0, 0, w, h);
+    _bake();
+    clearSelection();
+    _render();
+    _saveHistory();
+    return true;
+  }
+
   function getCanvasElement() { return displayCanvas; }
 
   function isLoaded() { return !!workingPixels; }
@@ -3315,7 +3353,7 @@ window.Editor = (() => {
     setMagicTolerance,
     undo, redo, canUndo, canRedo, saveHistory: _saveHistory,
     beginEditSession, revertEditSession, commitEditSession, hasEditSessionChanges,
-    exportAsDataUrl, exportResizedDataUrl, resizeTo, getCanvasElement, isLoaded, clear,
+    exportAsDataUrl, exportResizedDataUrl, resizeTo, exportImageData, applyImageData, getCanvasElement, isLoaded, clear,
     getDimensions, getPhotoDimensions, getRotation, getFlipState,
     // editTools.js
     setToolHandler, setPendingHook, imageToClient, clientToImage, imageScale, redrawOverlay, getPixels, previewPixels, commitPixels,

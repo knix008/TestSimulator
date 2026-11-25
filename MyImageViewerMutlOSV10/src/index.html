@@ -759,6 +759,8 @@ Do you want to save before closing?</p>
           <button class="ew-btn" id="ew-flip-h"   data-i18n-title="toolbar.flipH"></button>
           <button class="ew-btn" id="ew-flip-v"   data-i18n-title="toolbar.flipV"></button>
           <button class="ew-btn" id="ew-resize"   data-i18n-title="toolbar.resize"></button>
+          <button class="ew-btn" id="ew-superres" data-i18n-title="sr.titleTip"></button>
+          <select id="ew-sr-algo" class="ew-select ew-sr-algo" data-i18n-title="sr.modelTip"></select>
         </div>
 
         <div class="ew-sep"></div>
@@ -911,6 +913,7 @@ Do you want to save before closing?</p>
         <button type="button" class="settings-tab" role="tab" data-tab="viewer" aria-selected="false" data-i18n="settings.tab.viewer">Viewer &amp; editing</button>
         <button type="button" class="settings-tab" role="tab" data-tab="dicom" aria-selected="false">DICOM</button>
         <button type="button" class="settings-tab" role="tab" data-tab="media" aria-selected="false" data-i18n="settings.tab.media">Media</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="superres" aria-selected="false" data-i18n="sr.tab">Super-resolution</button>
       </div>
       <div class="dialog-body settings-body">
         <div class="settings-panel active" data-panel="general" role="tabpanel">
@@ -1097,6 +1100,17 @@ Do you want to save before closing?</p>
               <label class="settings-check"><input type="checkbox" id="settings-mute"><span data-i18n="settings.mute">Mute</span></label>
             </div>
           </div>
+        </div>
+        <div class="settings-panel" data-panel="superres" role="tabpanel">
+          <div class="settings-hint sr-settings-lead" data-i18n="sr.settingsLead">AI upscaling models (official portable builds). A missing one is downloaded the first time it is used; here you can download, reinstall or remove each one.</div>
+          <div class="sr-settings-defaults">
+            <label class="sr-def"><span data-i18n="sr.defAlgo">Algorithm</span><select id="settings-sr-algo" class="resize-select"></select></label>
+            <label class="sr-def"><span data-i18n="sr.format">File format</span><select id="settings-sr-format" class="resize-select"></select></label>
+            <label class="sr-def"><span data-i18n="sr.quality">Quality</span><span class="sr-def-q"><input type="range" id="settings-sr-quality" min="40" max="100" step="1"><span id="settings-sr-quality-val" class="settings-value">92</span></span></label>
+            <label class="sr-def sr-def-check"><input type="checkbox" id="settings-sr-save"><span data-i18n="sr.saveFile">Save as a new file</span></label>
+            <button type="button" class="settings-btn" id="settings-sr-reset" data-i18n="sr.resetAll">All defaults</button>
+          </div>
+          <div id="settings-sr-engines" class="sr-engines"></div>
         </div>
       </div>
       <div class="dialog-footer settings-footer">
@@ -1754,6 +1768,48 @@ Do you want to save before closing?</p>
   </div>
 
   <!-- One number (feather / grow / shrink / blur / mosaic size) -->
+  <!-- ═══ Super-resolution (Edit window) ═══ -->
+  <div id="superres-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box superres-box" role="dialog" aria-labelledby="sr-title">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="superRes"></span>
+          <span id="sr-title" data-i18n="sr.title">Super-resolution</span>
+        </span>
+        <button class="dialog-close-btn" type="button" id="sr-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body superres-body">
+        <div class="sr-detail">
+          <div class="sr-head">
+            <select id="sr-algo-select" class="resize-select sr-algo-select" data-i18n-title="sr.modelTip"></select>
+            <span class="sr-chip" id="sr-algo-badge"></span>
+          </div>
+          <div class="sr-desc" id="sr-algo-desc"></div>
+          <div class="sr-section-title"><span data-i18n="sr.params">Parameters</span>
+            <button type="button" class="settings-btn sr-reset" id="sr-reset-params" data-i18n="sr.resetParams">Default values</button></div>
+          <div class="dlg-form sr-params" id="sr-params"></div>
+          <div class="sr-section-title"><span data-i18n="sr.output">Result</span>
+            <label class="sr-save-check"><input type="checkbox" id="sr-save" checked><span data-i18n="sr.saveFile">Save as a new file</span></label></div>
+          <div class="dlg-form sr-output">
+            <div class="dlg-row"><span class="dlg-label" data-i18n="sr.size">Size</span><span class="dlg-ctl sr-size" id="sr-size">—</span></div>
+            <div class="dlg-row sr-file-row"><label class="dlg-label" for="sr-name" data-i18n="sr.fileName">File name</label><span class="dlg-ctl"><input type="text" id="sr-name" spellcheck="false" autocomplete="off"><span class="sr-name-ext" id="sr-name-ext">.jpg</span><button type="button" class="settings-btn sr-mini-btn" id="sr-name-auto" data-i18n-title="sr.nameAuto" title="Automatic name">↺</button></span></div>
+            <div class="dlg-row sr-file-row"><label class="dlg-label" for="sr-format" data-i18n="sr.formatQuality">Format · quality</label><span class="dlg-ctl"><select id="sr-format" class="resize-select sr-format"></select><span class="sr-quality" id="sr-quality-row"><input type="range" id="sr-quality" min="40" max="100" step="1" value="92"><span class="sr-range-val" id="sr-quality-val">92</span></span></span></div>
+            <div class="dlg-row sr-file-row"><span class="dlg-label" data-i18n="sr.saveFolder">Folder</span><span class="dlg-ctl"><span class="sr-folder" id="sr-folder">—</span><button type="button" class="settings-btn sr-mini-btn" id="sr-folder-pick" data-i18n="sr.browse">Browse…</button></span></div>
+          </div>
+          <div class="sr-warn" id="sr-warn" role="status"></div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="sr-reset-all" id="sr-reset-all" data-i18n="sr.resetAll">All defaults</button>
+        <span class="settings-footer-spacer"></span>
+        <button type="button" id="sr-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="sr-ok" data-i18n="sr.run">Upscale</button>
+      </div>
+    </div>
+  </div>
+
   <div id="amount-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box amount-box">
       <div class="dialog-header">
@@ -1796,9 +1852,12 @@ Do you want to save before closing?</p>
   <script src="./js/thumbs.js"></script>
   <script src="./js/browse.js"></script>
   <script src="./js/editOps.js"></script>
+  <script src="./js/imageCodec.js"></script>
+  <script src="./js/superRes.js"></script>
   <script src="./js/exifCarry.js"></script>
   <script src="./js/editor.js"></script>
   <script src="./js/editTools.js"></script>
+  <script src="./js/superResUI.js"></script>
   <script src="./js/batch.js"></script>
   <script src="./js/fileTree.js"></script>
   <script src="./js/dragdrop.js"></script>

@@ -347,6 +347,8 @@
 
     onOpenProgress: () => () => {},
     onRembgProgress: () => () => {},
+    // No AI super-resolution engines in the browser (the built-in algorithms still work)
+    onSuperresProgress: () => () => {},
 
     saveFile: async ({ defaultPath, dataUrl }) => {
       const name = (defaultPath || 'image.png').split(/[/\\]/).pop();

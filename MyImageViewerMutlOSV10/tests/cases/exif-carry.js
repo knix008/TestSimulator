@@ -67,7 +67,7 @@ module.exports = {
       assertIncludes(helper, "if (!_prefOn('keepExif') || !window.ExifCarry || !srcPath) return dataUrl;", 'setting');
       assertIncludes(helper, "stripGps: _pref('stripGps') === '1'", 'GPS setting');
       const uses = app.split('await _withPhotoInfo(exported,').length - 1;
-      assert(uses === 4, `save, save as, save selection, resized copy (got ${uses})`);
+      assert(uses === 5, `save, save as, save selection, resized copy, super-resolution result (got ${uses})`);
       assertIncludes(app, "keepExif: '1',", 'on by default');
       assertIncludes(html, 'id="settings-keep-exif"', 'settings row');
       assertIncludes(html, 'id="settings-strip-gps"', 'settings row');

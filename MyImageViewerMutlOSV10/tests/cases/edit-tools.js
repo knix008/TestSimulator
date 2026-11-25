@@ -321,7 +321,8 @@ module.exports = {
     });
 
     test('app.js: menus, adjustment sliders, keys first, pan with any tool', () => {
-      assertIncludes(app, "items: () => EditTools.imageMenuItems() }", 'Image menu');
+      assertIncludes(app, "items: () => _ewImageMenuItems() }", 'Image menu');
+      assertIncludes(app, '...EditTools.imageMenuItems(),', 'Image menu keeps the tools');
       assertIncludes(app, "items: () => _ewSelectMenuItems() }", 'Select menu');
       for (const k of ['exposure', 'highlights', 'shadows']) assertIncludes(app, `{ key:'${k}',`, `${k} slider`);
       const kb = app.slice(app.indexOf('function _initKeyboard()'));

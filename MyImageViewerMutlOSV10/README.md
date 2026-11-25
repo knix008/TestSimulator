@@ -42,6 +42,16 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - A missing AI model is **downloaded automatically** by the app (U2Net ~168 MB, ISNet ~170 MB, RMBG-2.0 ~977 MB) with MB progress and checksum check, into `~/.u2net`. It never waits forever (20 s without a response or 30 s without data = failure; a removal is stopped after 10 min); a failure says why and offers **Retry**, which downloads again from the start (partial files are never kept).
   - Rectangle / lasso / polygon selections: the "selection" method keeps exactly the selection; the other methods remove the background and keep what is inside the selection.
 
+- **Super-resolution / 초고해상도 변환** (Edit window › Image, toolbar, `Ctrl+Shift+U`)
+  - **Built-in** (no download, runs in a Web Worker): nearest neighbour, bilinear, bicubic (sharpness a), Lanczos (2–4 lobes), each with an optional unsharp mask (amount, radius); ×1.5 · 2 · 3 · 4 · 6 · 8
+  - **AI models**: the authors' official portable **ncnn-vulkan** builds (Vulkan GPU; no Python, no CUDA): **Real-ESRGAN** (x4plus, x4plus Anime, AnimeVideo v3), **Real-CUGAN** (SE, Pro), **waifu2x** (CUnet, UpConv7 Photo, UpConv7 Anime). Each shows its own parameters: scale / output scale, denoise level (only the levels a model file exists for), sync gap, tile size, device (GPU, or CPU for Real-CUGAN and waifu2x), TTA, sharpen
+  - **PyTorch models**: **SwinIR** (classical M ×2/3/4/8, real-world M ×2/4 and L ×4, lightweight S), **EDSR** (×2/3/4), **AuraSR v2** (GigaGAN ×4) and **ESPCN** (OpenCV, ×2/3/4), with the authors' model files pinned by SHA-256. They run in the app's **own Python virtual environment** (the system Python is not touched), installed automatically with the PyTorch build that fits the PC: the **CUDA** build the NVIDIA driver supports, the Apple-GPU build on a Mac, else the **CPU** build. Device **Automatic** uses the GPU when there is one and the CPU otherwise (GPU out of memory → smaller tiles → CPU)
+  - Model **drop-down** on the edit-window toolbar and in the popup heading; **Real-ESRGAN x4plus** is the default
+  - A missing engine is **downloaded and installed automatically** on first use, in the progress popup (MB, percent, **Stop**), with a SHA-256 check, a staged unpack and **Retry** on failure; **Settings › Super-resolution** sets the defaults the dialog opens with (algorithm, format, quality; **All defaults** resets them) and downloads, reinstalls or removes each engine
+  - Tuned defaults: Real-ESRGAN x4plus ×4 on the desktop, Lanczos ×2 with 20 % sharpening in a browser; **Default values** (this algorithm) and **All defaults** buttons. The progress popup shows the percent, the sizes, the elapsed time and the time left
+  - **Scale buttons** (2x, 3x, 4x …) up to each model's maximum: built-in 8x, Real-ESRGAN / Real-CUGAN SE 4x, Real-CUGAN Pro 3x, waifu2x 32x
+  - The result replaces the picture as one undo step and is saved as a new file under an **automatic, editable name** (`original_SR_algorithm_xScale`) in the original's folder (or one you pick), never overwriting: **JPG (default)**, PNG, WEBP, AVIF, GIF or BMP, with a quality for the lossy ones
+
 - **Effects & Adjustments / 효과 및 조정**
   - Brightness, Contrast, Saturation, Hue, Blur, Sharpen, Vignette, Warmth, Grayscale, Sepia, Invert, Grain, Posterize, Solarize
   - **Miniature** preset + **Diorama depth** (tilt-shift style shallow DOF)
@@ -250,6 +260,7 @@ Uncomment the script tags in `src/index.html` after downloading.
 | Delete current file | `Delete` |
 | Undo / Redo | `Ctrl+Z` / `Ctrl+Y` |
 | Edit window | `Ctrl+E` |
+| Super-resolution (edit window) | `Ctrl+Shift+U` |
 | Play / Pause (video, audio, GIF) | `Space` |
 | Copy | `Ctrl+C` |
 | Clear Selection | `Esc` |
@@ -279,6 +290,9 @@ MyImageViewer/
 │   ├── js/
 │   │   ├── app.js          # Orchestrator, chrome, info, media transport
 │   │   ├── editor.js       # Canvas, effects, miniature DOF, border caption
+│   │   ├── superRes.js     # Super-resolution catalogue + built-in upscalers (also its worker)
+│   │   ├── superResUI.js   # Super-resolution dialog, run, Settings › Super-resolution
+│   │   ├── imageCodec.js   # PNG / JPG / WEBP / AVIF / GIF / BMP writers
 │   │   ├── themes.js       # Theme registry (40 palettes + swatches)
 │   │   ├── fileTree.js     # Drive-rooted explorer (Up / breadcrumbs, folders-only mode)
 │   │   ├── browse.js       # Thumbnail contact sheet (grid / list / details)
