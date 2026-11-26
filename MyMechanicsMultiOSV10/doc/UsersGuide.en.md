@@ -10,7 +10,7 @@ New to the program? Follow the **tutorial document** first (Help › Tutorial do
 
 | Area | What it holds |
 |---|---|
-| Menu bar | File · Edit · View · Insert · Sketch · Tools · Help. **Start** next to the program name goes back to the start page. On the desktop this row is the window's title bar. |
+| Menu bar | File · Edit · View · Insert · Sketch · Assembly · Tools · Help. Every command is in the menus (the CommandManager’s ▾ families are submenus of the same name). **Start** next to the program name goes back to the start page. On the desktop this row is the window's title bar. |
 | Toolbar | New (a click makes a part; ▾ for an assembly, a drawing or a project part), open, save, print, export, undo, rebuild, view orientation (▾ for front, top, right, isometric …), display style, section view, mass properties, measure, theme, language, settings. |
 | Document tabs | The parts, assemblies and drawings of the project. Click to switch, **+** adds a part. |
 | CommandManager | Command buttons in Features · Sketch · Evaluate · Assembly · Drawing tabs (only the tabs that fit the document). Commands that do the same job (the kinds of fillet, the patterns, the ways to draw a rectangle, section and detail views …) share one button: the **▾** beside it lists them all, and the one you pick stays on the button for next time. Commands the toolbar always shows (rebuild, section view, mass properties, print …) are not repeated in the tabs. |

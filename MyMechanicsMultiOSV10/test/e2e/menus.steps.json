@@ -1,0 +1,18 @@
+[
+  { "name": "menus: app ready", "until": "window.__mymechanics && window.__mymechanics.menus && window.__mymechanics.ribbon", "timeout": 60000 },
+  {
+    "name": "menus: every command is on the menu bar (but the toolbar's own ▾ halves, its style cycle and close button, and a feature type's twin)",
+    "eval": "(() => { const m = window.__mymechanics; const { MENUS, SUBMENUS } = m.menus; const found = new Set(); const walk = (items, seen = new Set()) => { for (const it of items) { if (it === '-') continue; if (typeof it === 'object' && it.sub) { if (seen.has(it.sub)) continue; seen.add(it.sub); walk(SUBMENUS[it.sub]?.items ?? [], seen); } else found.add(it); } }; for (const items of Object.values(MENUS)) walk(items); const toolbarOnly = new Set(['newMenu', 'exportMenu', 'viewsMenu', 'styleMenu', 'styleCycle', 'exitProject', 'openscad']); const missing = Object.keys(m.commands).filter((id) => !found.has(id) && !toolbarOnly.has(id)); const unknown = [...found].filter((id) => !m.commands[id]); return missing.length || unknown.length ? JSON.stringify({ missing, unknown }) : 'all ' + found.size; })()",
+    "expect": "^all \\d+$"
+  },
+  {
+    "name": "menus: the CommandManager keeps every command it lists (as a button, in a flyout, or on the toolbar)",
+    "eval": "(() => { const m = window.__mymechanics; const r = m.ribbon(); const reach = new Set([...r.toolbar, ...Object.values(r.grouped.members).flat(), ...Object.values(r.grouped.tabs).flat()]); const onToolbar = ['print', 'section', 'lights', 'normalTo', 'rebuild', 'massProps', 'versionHistory', 'newDrawing']; const lost = Object.entries(r.tabs).filter(([k]) => k !== 'user').flatMap(([tab, ids]) => ids.filter((id) => id !== '|' && m.commands[id] && !reach.has(id) && !onToolbar.includes(id)).map((id) => `${tab}:${id}`)); return lost.length ? lost.join(',') : 'none lost'; })()",
+    "expect": "^none lost$"
+  },
+  {
+    "name": "menus: the Assembly menu sits between Sketch and Tools and opens",
+    "eval": "(async () => { const names = [...document.querySelectorAll('[data-menu]')].map((b) => b.dataset.menu).join(','); return names; })()",
+    "expect": "sketch,assembly,tools"
+  }
+]

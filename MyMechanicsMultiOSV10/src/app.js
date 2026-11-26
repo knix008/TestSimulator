@@ -60,9 +60,13 @@ import { flatPatternEntities } from './cad/flat-dxf.js';
 import { solarPosition, sunDirection } from './cad/sun.js';
 import { MATERIALS, MATERIAL_FAMILIES, familyOf, materialOf, materialName, massOf } from './cad/materials.js';
 import { SAMPLES, buildSample } from './cad/samples.js';
-import { groupTabs, FLY_OF } from './ui/flyouts.js';
+import { groupTabs, FLY_OF, FLYOUTS, MENU_ONLY } from './ui/flyouts.js';
 /** The CommandManager's tabs folded into flyouts (made once, after every module has added its commands). */
 let groupedTabs = null;
+function ribbonGroups() {
+  groupedTabs ??= groupTabs(Object.fromEntries(Object.entries(COMMAND_TABS).filter(([k]) => k !== 'user')), (id) => Boolean(commands[id]), ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'assembly', 'drawing', 'evaluate', 'stdTools', 'cam', 'plastics', 'inspection']);
+  return groupedTabs;
+}
 import { Viewport, hitKey } from './view/viewport.js';
 import { SketchEditor } from './view/sketcher.js';
 import { treeHtml, featureIcon, MATE_ICONS } from './ui/tree.js';
@@ -4823,6 +4827,42 @@ COMMAND_TABS.evaluate?.splice(COMMAND_TABS.evaluate.indexOf('lights') + 1, 0, 'w
 MENUS.tools.push('-', 'customize');
 MENUS.tools.splice(MENUS.tools.indexOf('interference') + 1, 0, 'holeAlignment', 'replaceComponent', 'copyWithMates', 'envelopeComponent', 'envelopeSelectInside', 'envelopeSelectCrossing');
 
+// ── Every command can be reached from the menu bar too (the CommandManager's flyout families as submenus).
+{
+  const family = (key) => { const ids = FLYOUTS[key] ?? MENU_ONLY[key]; SUBMENUS[key] ??= { icon: commands[ids[0]]?.icon ?? 'dot', items: ids.filter((id) => commands[id]) }; return sub(key); };
+  const drop = (list, ids) => { for (const id of ids) { const i = list.indexOf(id); if (i >= 0) list.splice(i, 1); } };
+  const after = (list, anchorId, ids) => { const i = list.findIndex((x) => x === anchorId || (typeof x === 'object' && x.sub === anchorId)); list.splice(i >= 0 ? i + 1 : list.length, 0, ...ids); };
+  // Assembly: a menu of its own (the commands leave Tools).
+  const ASM = ['insertComponent', 'newPartInContext', 'editInContext', 'openPart', 'newLayout', 'makePartFromBlock', 'updateLayout', 'mate', 'smartMate', 'magneticSnap', 'fixComponent', 'floatComponent', 'flexibleComponent',
+    'moveComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', ...FLYOUTS.compPattern, 'explode', 'explodeEditor', 'explodeAnimate', 'resetExplode', 'motion', 'interference', 'clearanceCheck', 'holeAlignment',
+    'assemblyVisualization', 'assemblyVisualizationOff', 'largeAssemblyMode', 'simplifyOuter', 'simplifyBox', 'simplifyFull', 'asmCut', 'asmHole', 'asmWeldBead', 'beltChain', 'replaceComponent', 'copyWithMates', ...FLYOUTS.envelope];
+  drop(MENUS.tools, ASM);
+  const tools = MENUS.tools;
+  const entries = Object.entries(MENUS);
+  const assembly = ['insertComponent', 'vaultInsert', family('inContext'), family('layout'), '-', family('mates'), family('fixFloat'), family('moveComp'), family('compPattern'), '-', family('explodeFly'), 'motion', '-',
+    family('asmChecks'), family('asmVis'), family('simplify'), '-', family('asmFeat'), family('compTools'), family('envelope')];
+  // Keep the menu bar's order: File, Edit, View, Insert, Sketch, Assembly, Tools, Help.
+  for (const k of Object.keys(MENUS)) delete MENUS[k];
+  for (const [k, v] of entries) { if (k === 'tools') MENUS.assembly = assembly; MENUS[k] = v; }
+  MENU_ICONS.assembly = 'assembly';
+  // Edit: the FeatureManager's folders (also on the tree's right-click menu).
+  after(MENUS.edit, 'unsuppress', ['-', 'newFolder', 'renameFolder', 'dissolveFolder']);
+  // Tools: the analysis displays, the frame study.
+  after(tools, 'measure', [family('analysisMenu')]);
+  after(tools, 'simulation', ['frameStudy']);
+  // View: decals with the lights.
+  after(MENUS.view, 'lights', ['decals']);
+  // Insert: scan to solid, the drawing views, sheets and tables.
+  SUBMENUS.surfaces.items.push('-', 'scanToSolid', 'recognizeFeatures');
+  SUBMENUS.drawingViews.items.push('-', 'removedSection', 'relativeView', 'view3dDrawing', 'brokenOutSection', 'breakView', 'cropView', '-', 'hiddenLines', 'autoDims');
+  SUBMENUS.annotations.items.push('-', 'holeTable', 'revisionTable');
+  after(MENUS.insert, 'drawingViews', [family('drwSheetsMenu')]);
+  // Manufacturing: every operation and result.
+  if (SUBMENUS.mfgCam) SUBMENUS.mfgCam.items = ['camManager', 'camStock', 'camTools', '-', 'camRecognize', 'camPlan', '-', family('cam25'), family('camHoles'), family('cam3d'), family('camMulti'), family('camTurn'), '-', 'camGenerate', 'camSimulate', 'camPost', 'camSetupSheet'];
+  if (SUBMENUS.mfgPlastics) SUBMENUS.mfgPlastics.items = ['plasticsStudy', 'plGate', 'plSuggest', '-', 'plRun', family('plResults'), 'plFiber', 'plCooling', 'plWarp', '-', 'plReport'];
+  if (SUBMENUS.mfgInspection) SUBMENUS.mfgInspection.items = ['inspBalloon', 'inspTable', 'inspRenumber', 'inspClear', '-', 'inspImport', '-', 'inspCsv', 'inspExcel', 'inspReport'];
+}
+
 /** The CommandManager's tabs with the user's choices: hidden ones left out, My tools first when it has commands. */
 function visibleCommandTabs() {
   const base = baseCommandTabs();
@@ -5043,7 +5083,7 @@ function renderCommandManager() {
   if (!tabs.includes(state.cmTab)) state.cmTab = tabs[0];
   // The tab's commands with the families folded into flyouts (My tools stays as the user arranged it).
   const raw = COMMAND_TABS[state.cmTab].filter((id) => id === '|' || commands[id]);
-  groupedTabs ??= groupTabs(Object.fromEntries(Object.entries(COMMAND_TABS).filter(([k]) => k !== 'user')), (id) => Boolean(commands[id]), ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'bodiesCurves', 'assembly', 'drawing', 'evaluate', 'stdTools', 'cam', 'plastics', 'inspection']);
+  ribbonGroups();
   const ids = state.cmTab === 'user' ? raw : (groupedTabs.tabs[state.cmTab] ?? raw);
   const flyMembers = (key) => groupedTabs.members[key] ?? [];
   const button = (id) => {
@@ -6477,9 +6517,12 @@ function anchorBelow(element) { const rect = element.getBoundingClientRect(); co
 const anchorFor = (command) => anchorBelow(root.querySelector(`[data-command="${command}"]`) ?? root.querySelector('#toolbar'));
 function anchorAt(event) { const point = toScreen(event.clientX, event.clientY); return { x: point.x + 1, y: point.y + 1, flipY: point.y }; }
 
+/** A submenu's name (the CommandManager flyout family's name when the submenu is one of those). */
+const subLabel = (key) => t(`submenu.${key}`, null, t(`fly.${key}`));
+
 function menuItems(ids) {
   return ids.map((id) => (id === '-' ? { separator: true } : typeof id === 'object' ? {
-    id: `submenu:${id.sub}`, label: t(`submenu.${id.sub}`), icon: SUBMENUS[id.sub].icon, submenu: true,
+    id: `submenu:${id.sub}`, label: subLabel(id.sub), icon: SUBMENUS[id.sub].icon, submenu: true,
     disabled: !SUBMENUS[id.sub].items.some((item) => item !== '-' && commandEnabled(item)),
   } : { id, label: t(commands[id].label), icon: commands[id].icon, ...(id === 'language' ? { flag: getLanguage() === 'ko' ? 'en' : 'ko' } : {}), shortcut: commands[id].key ? keyLabel(commands[id].key) : '', disabled: !commandEnabled(id), checked: commands[id].checked?.() }));
 }
@@ -6504,7 +6547,7 @@ async function showMenu(items, anchor, name = 'context', context = {}) {
   if (id.startsWith('submenu:')) {
     const key = id.slice('submenu:'.length);
     const at = result.at ?? anchor;
-    return showMenu(menuItems(SUBMENUS[key].items), { x: at.x, y: at.y, flipY: at.flipY ?? at.y }, name, { ...context, header: { icon: SUBMENUS[key].icon, title: t(`submenu.${key}`) } });
+    return showMenu(menuItems(SUBMENUS[key].items), { x: at.x, y: at.y, flipY: at.flipY ?? at.y }, name, { ...context, header: { icon: SUBMENUS[key].icon, title: subLabel(key) } });
   }
   if (id.startsWith('custom:')) return context.handlers?.[id]?.();
   return run(id, context);
@@ -7836,7 +7879,7 @@ window.__mymechanics = {
 };
 window.__mymechanics.sim2 = more.sim2;
 // The CommandManager as written (COMMAND_TABS) and as shown (families folded into flyouts) — for the tests.
-window.__mymechanics.ribbon = () => { if (!groupedTabs) renderCommandManager(); return { tabs: COMMAND_TABS, grouped: groupedTabs, toolbar: [...TOOLBAR.flat(), ...TOOLBAR_RIGHT, ...Object.values(TOOLBAR_MAIN)] }; };
+window.__mymechanics.ribbon = () => { return { tabs: COMMAND_TABS, grouped: ribbonGroups(), toolbar: [...TOOLBAR.flat(), ...TOOLBAR_RIGHT, ...Object.values(TOOLBAR_MAIN)] }; };
 window.__mymechanics.decals = decalTools;
 window.__mymechanics.walk = walkTools.api;
 window.__mymechanics.frame = frameTools.api;

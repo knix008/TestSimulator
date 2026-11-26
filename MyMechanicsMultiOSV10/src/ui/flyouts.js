@@ -123,6 +123,12 @@ export const DUPLICATES = {
   features: ['mbdAnnotations'],
 };
 
+/** Menu-only groups (submenus of Tools and Insert; not CommandManager flyouts). */
+export const MENU_ONLY = {
+  analysisMenu: ['sectionProperties', 'curvature', 'zebraStripes', 'thicknessAnalysis'],
+  drwSheetsMenu: ['addSheet', 'renameSheet', 'deleteSheet'],
+};
+
 /** Family key of every command. */
 export const FLY_OF = new Map(Object.entries(FLYOUTS).flatMap(([key, ids]) => ids.map((id) => [id, key])));
 
