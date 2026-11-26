@@ -4,6 +4,7 @@ import { applyTheme, loadThemeId } from '../theme/themes'
 import { ThemeMenuWindow } from './ThemeMenuWindow'
 import '../styles.css'
 import '../ui.css'
+import '../typography.css'
 
 applyTheme(loadThemeId())
 

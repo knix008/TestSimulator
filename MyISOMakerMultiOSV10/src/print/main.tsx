@@ -6,6 +6,7 @@ import '../styles.css'
 import '../ui.css'
 import '../layout/layout.css'
 import './print.css'
+import '../typography.css'
 
 applyTheme(loadThemeId())
 

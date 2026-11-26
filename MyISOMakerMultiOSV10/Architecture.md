@@ -61,6 +61,16 @@ flowchart TB
 - 시작할 때 필수 패키지가 없고 설정의 "자동 설치"가 켜져 있으면 설치합니다. 진행은 `pkg:progress` → 진행률 팝업(`packages/packages.tsx`).
 - xorriso · unsquashfs를 찾는 순서: 프로그램이 설치한 것 → MSYS2/Cygwin → vendor → PATH.
 
+## 3.1 AppImage (`host/squashfs.ts`, `host/appimage.ts`)
+
+- SquashFS 4.0 리더: gzip · zstd, fragment, 기본/확장 inode. 다른 압축은 unsquashfs로 넘깁니다. 실제 mksquashfs 이미지(`test/fixtures`)로 검증합니다.
+- SquashFS 라이터: 128 KiB 블록(zlib, 이득 없으면 저장), fragment 없음, 메타데이터 비압축, id 1개. unsquashfs로 추출 · diff 검증을 했습니다.
+- AppImage = 공식 type-2 런타임(캐시 또는 연 AppImage의 앞부분) + SquashFS. AppRun · .desktop · 아이콘이 없으면 이미지 안에 기본값을 넣습니다.
+
+## 3.2 ISO 쓰기 (`src/iso9660/writer.ts`)
+
+ECMA-119 + Joliet: 기술자 텍스트는 공백 채움, 날짜 17바이트 형식, 파일 구조 버전 1, M 경로표 위치는 big-endian, 경로표에 모든 디렉터리, 디렉터리 레코드는 섹터 경계를 넘지 않고 식별자 순, 8.3 이름 충돌은 ~N. xorriso 추출과 Windows 마운트로 검증합니다(`test/e2e-iso.test.mjs`).
+
 ## 4. 화면 (`src/`)
 
 | 모듈 | 역할 |
@@ -73,6 +83,9 @@ flowchart TB
 | `settings/` | 일반 · 테마 · 패키지 · 시작 화면 |
 | `help/` | `doc/*.md`를 앱 안에서 보여 주는 도움말(작은 Markdown 렌더러) |
 | `components/IsoTreeView.tsx` | 트리(연결선, 컬러 아이콘), 다중 선택, 드래그 인/아웃 |
+| `tool/` | 도움말 · 설정 · 정보 창 (`tool.html#help`, `#settings[:탭]`, `#about`) |
+| `thememenu/` | 테마 메뉴 창 (`thememenu.html`, 두 열, Rust가 화면 안으로 위치 조정) |
+| `print/` | 공용 인쇄 창 (`print.html`, `printing.rs`로 바로 인쇄 / PDF) |
 
 OS에서 끌어 온 파일: Tauri가 창의 드롭을 받으므로 페이지에는 경로가 든 HTML5 drop이 오지 않습니다. 브리지가 `onDragDropEvent`를 `isomaker-native-drop` 창 이벤트(CSS 좌표)로 넘기고, 트리가 그 위치의 폴더를 찾습니다. 왼쪽 탐색기에서 끄는 것도 같은 이벤트를 씁니다.
 
@@ -106,5 +119,10 @@ NSIS(`src-tauri/windows/hooks.nsh`, UTF-8 BOM): 설치 전에 기존 MyISOMaker�
 
 ## 8. 검증
 
-- `npm test` — 패키지 설치기(로컬 MSYS2의 msys.db와 캐시 패키지로 오프라인 확인), 시작 보드(이름 카드 고정), 테마 수, 배경 24개, 언어 키, 설명서 렌더러
+- `npm test` (35개, 영문 · 정렬 · 컬러 리포터 `test/reporter.mjs`, 파일 단위 순차 실행):
+  - `e2e-iso` — 실제 호스트로 ISO 생성 → 열기 → 개별 파일 수정 → 저장 → 재열기 바이트 비교 → xorriso 추출 → 마운트해 드라이브에서 읽기
+  - `features` — 탐색기, 경로 기억, 트리, 폴더 추가 · 이름 변경 · 다중 삭제, 내보내기, 드래그 임시 파일, 까다로운 이름, IMG, Docker tar, 부팅 ISO, 취소, 패키지, 웹 세션, 기본 이름, Linux 패키지 이름
+  - `appimage` — SquashFS 픽스처 읽기, 라이터 왕복, 폴더 → AppImage, AppImage 열기 · 편집 · 저장 (Linux CI에서는 실제 실행)
+  - `packages`, `ui` — 설치기 파서, 시작 보드 · 테마 · 배경 · 언어 키 · 설명서
+- CI: `.github/workflows/myisomaker.yml` (Windows · macOS · Ubuntu)
 - 데스크톱 확인: 디버그 exe를 `WEBVIEW2_USER_DATA_FOLDER`, `ISOMAKER_CONFIG_DIR`, `ISOMAKER_TOOLS_DIR`(임시 폴더), `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=N`으로 띄워 CDP로 조작합니다. 패키지 실패 경로는 `ISOMAKER_MSYS_REPO=http://127.0.0.1:9`로 내려받기 없이 확인합니다.

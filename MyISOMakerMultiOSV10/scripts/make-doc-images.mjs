@@ -184,7 +184,14 @@ try {
     await sleep(300)
 
     // Settings, Help and About are windows of their own (tool.html)
-    const closeTool = (w, label) => w.evaluate(`window.__TAURI_INTERNALS__.invoke('plugin:window|close', { label: '${label}' }).catch(() => {}); true`).catch(() => {})
+    // Close a window and wait until its page is gone, so the next connect cannot pick it up.
+    const closeTool = async (w, label) => {
+      await w.evaluate(`window.__TAURI_INTERNALS__.invoke('plugin:window|close', { label: '${label}' }).catch(() => {}); true`).catch(() => {})
+      for (let i = 0; i < 50; i++) {
+        if (!(await targets()).some((x) => x.type === 'page' && x.url.includes(label === 'print' ? 'print.html' : `tool.html#${label}`))) break
+        await sleep(100)
+      }
+    }
     await page.evaluate(ui.click('[data-tool="settings"]'))
     const settings = await connect((u) => u.includes('tool.html#settings'))
     await settings.evaluate(ui.wait('[data-settings-tab]'))

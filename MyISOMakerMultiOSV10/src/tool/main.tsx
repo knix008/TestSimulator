@@ -11,6 +11,7 @@ import '../ui.css'
 import '../layout/layout.css'
 import '../print/print.css'
 import './tool.css'
+import '../typography.css'
 
 applyTheme(loadThemeId())
 installTauriBridge()

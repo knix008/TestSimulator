@@ -1,0 +1,57 @@
+/* One type scale for every window, loaded after all other styles.
+ *   13px  regular text and every control (buttons, inputs, selects, labels, lists, trees)
+ *   12px  secondary text (subtitles, paths, sizes, status bar, notes, times)
+ *   14px  card and section titles
+ *   15px  page headings
+ *   26px  the program name on the start screen
+ * The browser default (16px) made every control that inherits its font larger than the rest. */
+
+body { font-size: 13px; }
+button, input, select, textarea, option, label { font-size: 13px; }
+
+/* ── 13px: regular text and controls ── */
+.toolbar-btn, .win-btn, .dock-btn, .dialog-btn, .dialog-btn-label, .settings-seg-btn, .settings-tab,
+.start-tile, .start-btn, .start-hero-btn, .start-link, .start-link .name, .recent-remove, .start-sub-clear,
+.work-empty-btn, .work-empty-btn-text b, .work-empty-lead, .start-hero-text p,
+.field, .field span, .field input, .path-row input, .panel p.hint, .panel label,
+.iso-tree-name, .iso-tree-vol, .iso-tree-filter, .iso-tree-empty,
+.explorer-name, .explorer-check, .explorer-check span, .explorer-tools,
+.info-panel, .info-item dt, .info-item dd, .info-empty, .info-sub,
+.log-msg, .change-log-empty, .dock-title,
+.ctx-menu-item, .theme-select, .theme-select-name, .theme-v-name,
+.bg-card, .bg-card-name, .bg-step, .bg-auto-line, .bg-auto-line select, .bg-step-btn,
+.start-tip, .start-tip-text, .dialog-body, .dialog-message, .dialog-input, .pkg-desc, .settings-hint,
+.help-doc p, .help-doc li, .help-toc button, .help-tab, .help-lang, .print-field select {
+  font-size: 13px !important;
+}
+.bg-step-btn, .num-step button { line-height: 1; }
+
+/* ── 12px: secondary text ── */
+.start-tile small, .work-empty-btn-text small, .action-text small, .task-text small,
+.start-link .path, .start-card-note, .start-tip-more-label, .start-empty,
+.start-foot, .start-foot .grow, .start-foot-copy, .start-foot .start-version, .start-engine-facts dt, .start-engine-facts dd,
+.iso-tree-size, .iso-tree-twist, .iso-tree-drop-hint, .iso-tree-summary,
+.explorer-size, .explorer-status, .explorer-twist, .explorer-note,
+.dock-count, .log-time, .log-kind, .work-empty-tips li, .title-version,
+.app-statusbar, .app-statusbar .sb-item, .pkg-facts, .pkg-badge, .pkg-state, .print-summary, .print-status,
+.help-print-note, .theme-v-head, .theme-group-head {
+  font-size: 12px !important;
+}
+.log-kind { font-size: 11px !important; }
+
+/* ── 14px: card and section titles ── */
+.start-card > h2, .start-card-title, .settings-card-title, .info-sub, .custom-theme h3, .title-name,
+.pkg-name, .work-empty-title small, .start-hero-text h1 small, .about-view h1 small {
+  font-size: 14px !important;
+}
+
+/* ── 15px: page headings ── */
+.panel h2, .panel section > h2, .settings-head h2, .dialog-header h2, .work-empty-title {
+  font-size: 15px !important;
+}
+.work-empty-title { font-size: 20px !important; }
+
+/* ── the program name on the start screen / About ── */
+.start-hero-text h1 > span:first-child, .about-view h1 { font-size: 26px !important; }
+.start-hero-text h1 small { font-size: 14px !important; }
+.help-font-value, .help-font-btn, .print-preview-tools, .print-preview-tools span, .print-zoom, .print-field, .print-note { font-size: 13px !important; }

@@ -8,6 +8,7 @@ import './styles.css'
 import './start/start.css'
 import './ui.css'
 import './layout/layout.css'
+import './typography.css'
 
 applyTheme(loadThemeId())
 installTauriBridge()

@@ -145,9 +145,13 @@ Tool buttons show only their icon; hover for the name. Only the theme button als
 
 The Background card offers 24 moving backgrounds. Disc-themed ones come first (discs, burn, sectors, tracks, folder tree, beams), followed by generic ones such as aurora, waves, starfield and snow.
 
-- Speed slider: how fast the background moves
-- Strength slider: how strongly the background shows
-- Automatic change: switches the background at intervals
+Under the background cards, one line holds:
+
+| Item | Description |
+|---|---|
+| Speed (− slider +) | How fast the background moves; 0 stops it |
+| Strength (− slider +) | How strongly the background shows |
+| Auto change | When on, the background changes at the chosen interval (10 s – 5 min) |
 
 The same settings are in Settings › Start screen.
 
@@ -315,14 +319,19 @@ Settings, Help and About are windows of their own, each with a title row (icon, 
 
 ![Settings › Start screen](images/en/settings-start.png)
 
-Click **Settings** on the toolbar to open the Settings dialog.
+**Settings** on the toolbar opens the Settings window. Pick a tab on the left; on the right come the tab's title, a short description and its items, aligned one per row. The window opens at a size that fits every tab, so it never needs a scrollbar.
 
 | Tab | Contents |
 |---|---|
-| General | Interface language, show the start screen at startup |
-| Theme | Theme grid, custom theme editor (background · panel · text · accent) |
-| Packages | Status of xorriso and squashfs-tools; Install · Reinstall · Remove |
-| Start screen | Background, speed, strength, automatic change |
+| General | Interface language (한국어 · English), start screen at startup, automatic install of required packages |
+| Theme | The 20 dark · 20 light list on the left, the custom theme (background, panel, text, accent) on the right |
+| Packages | State of xorriso and squashfs-tools; Install, Reinstall, Remove |
+| Start screen | Start screen at startup, 24 backgrounds, speed · strength · auto change |
+
+The buttons at the bottom:
+
+- **Reset**: puts every setting back as on a new installation (한국어, Dark theme, default custom colours, start screen on, default background, automatic install on).
+- **OK**: closes the window. Changes are saved as you make them and show in the main window at once.
 
 ### 13.1 Help and printing
 
