@@ -103,7 +103,7 @@ export function createFemTools(ctx) {
     const res = e.result?.connectors?.length ? `<table class="sim2-table"><tr><th>#</th><th>${escapeHtml(t('fem.conn.force'))}</th></tr>${e.result.connectors.map((r, i) => `<tr><td>${i + 1}. ${escapeHtml(t(`fem.conn.${r.type ?? 'bolt'}`))}</td><td>${escapeHtml(r.error ? t('fem.conn.noFaces') : r.axial != null ? `${t('fem.conn.axial')} ${fmt(r.axial, 1)} N · ${t('fem.conn.shear')} ${fmt(r.shear, 1)} N` : r.radial != null ? `${t('fem.conn.radial')} ${fmt(r.radial, 1)} N` : `${fmt(Math.hypot(...(r.force ?? [0, 0, 0])), 1)} N${r.moment ? ` · ${fmt(Math.hypot(...r.moment) / 1000, 2)} N·m` : ''}`)}</td></tr>`).join('')}</table>` : '';
     return pmGroup('femBolt', t('fem.connectors'), `${pmSeg('fem.connType', CONN_KINDS.map(([k, g]) => [k, t(`fem.conn.${k}`), g]), c.type)}
       ${pmList('connA', face(c.a), t(c.type === 'spotWeld' ? 'fem.conn.faceAPoint' : 'fem.conn.faceA'), 'femBolt', e.pick === 'connA')}${pmList('connB', face(c.b), t('fem.conn.faceB'), 'femBolt', e.pick === 'connB')}${vals}
-      <p class="pm-note">${escapeHtml(t(`fem.conn.help.${c.type}`))}</p><div class="pm-row-buttons">${pmButton('fem.connAdd', 'plus', t('fem.conn.add'), c.a && c.b ? '' : 'disabled')}</div>
+      <p class="pm-note">${escapeHtml(t(`fem.conn.help.${c.type}`))}</p><div class="pm-row-buttons">${c.a && c.b ? pmButton('fem.connAdd', 'plus', t('fem.conn.add')) : pmButton('fem.connAdd', 'plus', t('fem.conn.add')).replace('<button ', '<button disabled ')}</div>
       <div class="custom-list">${list}</div>${res}`);
   }
   /** Load kinds that act on the whole body (no faces to pick). */

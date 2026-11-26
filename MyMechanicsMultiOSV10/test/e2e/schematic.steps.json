@@ -44,7 +44,7 @@
   },
   {
     "name": "schematic: the wheel zooms in about the cursor (the fuse stays under it)",
-    "eval": "(() => { const S = window.__mymechanics.schematic; const f = S.schematic().symbols.find((x) => x.kind === 'fuse'); const p = new DOMPoint(f.x, f.y).matrixTransform(document.querySelector('#schematic-host svg').getScreenCTM()); window.__z = [p.x, p.y, f.x, f.y]; return 'ready'; })()",
+    "eval": "(() => { const S = window.__mymechanics.schematic; const f = S.schematic().symbols.find((x) => x.kind === 'fuse'); const ctm = document.querySelector('#schematic-host svg').getScreenCTM(); const p = new DOMPoint(f.x, f.y).matrixTransform(ctm); const px = Math.round(p.x); const py = Math.round(p.y); const at = new DOMPoint(px, py).matrixTransform(ctm.inverse()); window.__z = [px, py, at.x, at.y]; return 'ready'; })()",
     "mouse": [ { "type": "mouseWheel", "x": "window.__z[0]", "y": "window.__z[1]", "deltaX": 0, "deltaY": -600 } ],
     "wait": 200
   },

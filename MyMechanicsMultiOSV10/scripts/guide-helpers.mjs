@@ -89,7 +89,8 @@ export function installHelpers(lang) {
       await m.actions.closeProject({ force: true });
       await g.settle(200);
     },
-    async sample(id) { await g.reset(); await m.actions.openSampleAsk(id); await g.settle(900); },
+    // (the sample's own documents: the scenes work on its part or assembly, not on its motion stage)
+    async sample(id, { stage = false } = {}) { await g.reset(); await m.actions.openSampleAsk(id, { stage }); await g.settle(900); },
     async newPart() { await g.reset(); await m.actions.newDocument('part'); await g.settle(400); },
     /** A sketch added straight to the active part (entities in sketch coordinates). */
     sketch(plane, ents, name) {

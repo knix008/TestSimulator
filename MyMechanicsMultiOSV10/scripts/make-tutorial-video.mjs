@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 import { freeDevPort } from './dev-port.mjs';
 import { installHelpers } from './guide-helpers.mjs';
 import { Page, waitTarget, sleep } from '../test/e2e/cdp.mjs';
+import { LESSONS as PLAN } from './tutorial-plan.mjs';
+import sharp from 'sharp';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -71,6 +73,7 @@ function installVideo(lang) {
     T,
     /** Moves the drawn pointer to a target (selector, element, rect or point) in `ms`. */
     async go(target, ms = 650) {
+      if (v.fast) return true;
       const p = pointOf(target);
       if (!p) return false;
       const from = { ...at }; const t0 = performance.now();
@@ -131,7 +134,153 @@ function installVideo(lang) {
       for (let i = 0; i < steps; i++) { vp.rotateBy(dx / steps, dy / steps); await sleep(33); }
       await g.settle(100);
     },
-    async hold(ms) { await sleep(ms); },
+    async hold(ms) { if (!v.fast) await sleep(ms); },
+
+    // ——— the tutorial robot, replayed step by step (scripts/tutorial-plan.mjs) ———
+    /** Points at a command's button (or the flyout that holds it). */
+    async point(id) {
+      const el = document.querySelector(`#palette-host [data-command="${id}"]`) ?? document.querySelector(`#palette-host [data-fly-items~="${id}"] [data-fly]`) ?? document.querySelector(`[data-command="${id}"]`);
+      if (el) { await v.go(el, 450); v.ripple(); await sleep(150); }
+    },
+    async robotStep(d, view) {
+      const R = (v.robot ??= m.tutorial.robot(lang));
+      const map = (v.map ??= { parts: new Map(), asm: new Map(), drawing: null });
+      const [gripSrc, robotSrc] = R.assemblies;
+      const asmSrc = (key) => (key === 'grip' ? gripSrc : robotSrc);
+      const asmOf = (key) => m.project.assemblies.find((a) => a.id === map.asm.get(asmSrc(key).id));
+      const showDoc = async (kind, id) => { if (m.active()?.id !== id) { m.actions.switchDocument({ kind, id }); await g.settle(700); } };
+      const cmdOf = (f) => ({ extrude: f.op === 'cut' ? 'cutExtrude' : 'extrude', revolve: f.op === 'cut' ? 'cutRevolve' : 'revolve', plane: 'refPlane' }[f.type] ?? f.type);
+      if (d.newPart !== undefined) {
+        const src = R.parts[d.newPart];
+        if (d.newPart === 0) {
+          await g.reset(); m.actions.showStartPage(true); await g.settle(800);
+          await v.click('[data-start="template"][data-value="part"]', () => m.actions.newDocument('part'), 900);
+          if (!m.active() || m.state.showStart) { await m.actions.newDocument('part'); await g.settle(600); }
+        } else {
+          await v.click('#toolbar [data-command="newPart"]', () => m.run('newPart'), 900);
+        }
+        const part = m.active();
+        m.actions.change('op.rename', (p) => { if (d.newPart === 0) p.name = R.name; Object.assign(part, { name: src.name, material: src.material, partNo: src.partNo, description: src.description ?? '', color: src.color ?? null }); });
+        map.parts.set(src.id, part.id);
+        await g.settle(500);
+        const field = document.querySelector('#right-panel [data-prop="name"], #right-panel input');
+        if (field) { await v.go(field); g.mark(field, null, null, { pad: 2 }); await v.hold(1200); g.clear(); }
+        document.querySelector('#palette-host [data-cm-tab="features"]')?.click();
+        if (d.then) await v.robotStep(d.then, view);
+      }
+      if (d.part !== undefined) {
+        const src = R.parts[d.part];
+        await showDoc('part', map.parts.get(src.id));
+        const part = m.active();
+        for (let i = d.from; i <= d.to; i++) {
+          const f = src.features[i];
+          if (f.type === 'sketch') {
+            await v.point(i === 0 || src.features[i - 1]?.type !== 'plane' ? 'sketch' : 'sketch');
+            m.actions.change('op.sketch', () => { part.features.push(structuredClone(f)); });
+            await g.settle(500);
+            m.actions.select([{ kind: 'feat', id: f.id }]); await g.settle(300);
+            const row = g.featureRow(f); if (row) await v.go(row, 400);
+            await v.hold(900);
+            m.actions.select([]);
+          } else {
+            await v.point(cmdOf(f));
+            m.tutorial.begin(f); await g.settle(900);
+            if (i === d.from || f.type !== 'plane') await g.fit();
+            await v.hold(f.type === 'plane' ? 600 : 1100);
+            await v.ok(900);
+          }
+        }
+        if (view) await g.view(view);
+        await g.fit();
+      }
+      if (d.newAssembly) {
+        const src = asmSrc(d.newAssembly);
+        await v.point('newMenu');
+        await m.run('newAssembly'); await g.settle(800);
+        const asm = m.active();
+        m.actions.change('op.rename', () => Object.assign(asm, { name: src.name, partNo: src.partNo ?? '', description: src.description ?? '' }));
+        map.asm.set(src.id, asm.id);
+        document.querySelector('#palette-host [data-cm-tab="assembly"]')?.click();
+        await g.settle(400);
+        if (d.then) await v.robotStep(d.then, view);
+      }
+      if (d.components) {
+        const src = asmSrc(d.components); const asm = asmOf(d.components);
+        await showDoc('assembly', asm.id);
+        for (const i of d.items) {
+          const c = structuredClone(src.components[i]);
+          if (c.part) c.part = map.parts.get(c.part);
+          if (c.sub) c.sub = map.asm.get(c.sub);
+          await v.point('insertComponent');
+          m.actions.change('op.insertComponent', () => { asm.components.push(c); });
+          await g.settle(600); await g.fit(); await v.hold(700);
+        }
+      }
+      if (d.mates) {
+        const src = asmSrc(d.mates); const asm = asmOf(d.mates);
+        await showDoc('assembly', asm.id);
+        for (const i of d.items) {
+          const mate = structuredClone(src.mates[i]);
+          await v.point('mate');
+          m.actions.startMate(); await g.settle(300);
+          const e = m.state.editing;
+          e.mate = mate; e.isNew = true; e.pick = null;
+          m.actions.pmSet('type', mate.type); await g.settle(900);
+          await v.hold(900);
+          await v.ok(900);
+        }
+        await g.fit();
+      }
+      if (d.motors) {
+        const src = asmSrc(d.motors); const asm = asmOf(d.motors);
+        await showDoc('assembly', asm.id);
+        if (d.items.length) {
+          await v.point('motion');
+          m.actions.change('op.motion', () => {
+            asm.motion ??= { duration: src.motion.duration, motors: [] };
+            asm.motion.duration = src.motion.duration;
+            for (const i of d.items) asm.motion.motors.push(structuredClone(src.motion.motors[i]));
+          });
+          await g.settle(500);
+        }
+        if (d.play) {
+          const play = document.querySelector('[data-player="play"]');
+          if (play) { await v.go(play); v.ripple(); play.click(); }
+          await v.hold(d.play * 1000);
+          const stop = document.querySelector('[data-player="stop"]');
+          if (stop) { await v.go(stop, 300); stop.click(); }
+          await g.settle(500);
+        }
+      }
+      if (d.explode) {
+        const asm = asmOf('robot');
+        await v.point('explodeEditor');
+        m.actions.change('op.explode', () => { asm.explode = structuredClone(robotSrc.explode); asm.explode.on = true; });
+        await g.settle(900); await g.fit(); await v.hold(2200);
+        m.actions.change('op.explode', () => { asm.explode.on = false; });
+        await g.settle(600);
+      }
+      if (d.explodeAnimate) {
+        await v.point('explodeAnimate');
+        await m.run('explodeAnimate'); await v.hold(1500);
+        await m.run('explodeAnimate'); await v.hold(1500);
+      }
+      if (d.drawing) {
+        const asm = asmOf('robot');
+        await v.point('newDrawing');
+        const dsrc = structuredClone(R.drawings[0]);
+        dsrc.source = { kind: 'assembly', id: asm.id };
+        m.actions.change('op.newDrawing', (p) => { p.drawings.push(dsrc); });
+        map.drawing = dsrc.id;
+        await showDoc('drawing', dsrc.id);
+        await g.settle(1500); await g.fit(); await v.hold(1500);
+      }
+      if (d.drawingDone) {
+        const bom = document.querySelector('#drawing-host .bom, #drawing-host [data-bom]');
+        if (bom) { await v.go(bom); }
+        await v.hold(2500);
+      }
+    },
     /** The screen point of a model point, for the pointer. */
     at(p) { return g.toPage(p); },
   };
@@ -142,291 +291,13 @@ function installVideo(lang) {
 // ───────────────────────── the lessons (each step runs in the page with g = window.__g, v = window.__v)
 
 const L = (ko, en) => ({ ko, en });
-const lessons = [
-  {
-    title: L('첫 스케치 — 사각형과 치수', 'First sketch — a rectangle and dimensions'),
-    sub: L('모든 부품은 평면 위의 2D 스케치에서 시작합니다.', 'Every part starts from a 2D sketch on a plane.'),
-    steps: [
-      { say: L('시작 화면에서 새 부품을 누릅니다.', 'On the start page, press New Part.'), run: async (g, v) => {
-        await g.reset(); g.m.actions.showStartPage(true); await g.settle(900);
-        await v.click('[data-start="template"][data-value="part"]', () => g.m.actions.newDocument('part'), 900);
-        if (!g.m.active() || g.m.state.showStart) { await g.m.actions.newDocument('part'); await g.settle(600); }
-        await v.hold(1200);
-      } },
-      { say: L('피처 탭에서 스케치를 누르고 윗면을 고릅니다.', 'In the Features tab press Sketch, then pick the Top plane.'), run: async (g, v) => {
-        await v.click('#palette-host [data-cm-tab="features"]');
-        await v.cmd('sketch', 700);
-        await v.hold(700);
-        await v.click('[data-pm="sketchOn:top"]', () => document.querySelector('[data-pm="sketchOn:top"]')?.click(), 1000);
-        await v.hold(600);
-      } },
-      { say: L('중심 사각형을 누르고, 원점을 클릭한 다음 바깥쪽에서 모서리를 클릭합니다.', 'Press Center Rectangle, click the origin, then click a corner outside.'), run: async (g, v) => {
-        await v.cmd('sk:centerRect', 300);
-        const o = g.toPage([0, 0, 0]); window.__pt = [o.x, o.y];
-      }, mouse: [[0, 0, 'click'], [150, -90, 'click'], [260, -160]] },
-      { say: L('지능형 치수로 가로선에 80, 세로선에 50을 넣습니다. 선이 검게 바뀌면 완전 정의입니다.', 'With Smart Dimension give the horizontal line 80 and the vertical line 50. Black lines: fully defined.'), run: async (g, v) => {
-        const { m } = g;
-        await v.cmd('sk:dimension', 300);
-        const ed = m.state.editing.editor;
-        m.actions.updateSettings({ editDimOnCreate: false }, { quiet: true });
-        const pt = (id) => ed.sketch.entities.find((e) => e.id === id);
-        const lines = ed.sketch.entities.filter((e) => e.type === 'line' && !e.construction);
-        const horizontal = lines.find((l) => Math.abs(pt(l.p1).y - pt(l.p2).y) < 1e-6);
-        const vertical = lines.find((l) => Math.abs(pt(l.p1).x - pt(l.p2).x) < 1e-6);
-        for (const [line, value] of [[horizontal, 80], [vertical, 50]]) {
-          const a = pt(line.p1); const b = pt(line.p2);
-          await v.go(v.at([(a.x + b.x) / 2, (a.y + b.y) / 2, 0])); v.ripple();
-          ed.selection = [line.id]; await ed.createDimension();
-          const dim = ed.sketch.constraints.filter((c) => c.type === 'distance').find((d) => d.a === line.id);
-          if (dim) { dim.value = value; ed.solve(); }
-          ed.selection = []; ed.render(); await g.settle(900);
-        }
-        m.actions.updateSettings({ editDimOnCreate: true }, { quiet: true });
-        const status = [...document.querySelectorAll('#statusbar .status-item')].find((s) => /정의|defined/i.test(s.textContent));
-        if (status) { await v.go(status); g.mark(status, null, v.T('완전 정의', 'Fully defined'), { at: 'above', pad: 3 }); }
-        await v.hold(2200); g.clear();
-      } },
-      { say: L('스케치 종료를 누르면 트리에 스케치1이 생깁니다.', 'Press Exit Sketch: Sketch1 appears in the tree.'), run: async (g, v) => {
-        await v.cmd('exitSketch', 800);
-        await v.hold(1500);
-      } },
-    ],
-  },
-  {
-    title: L('돌출 — 스케치를 입체로', 'Extrude — from sketch to solid'),
-    sub: L('스케치를 깊이만큼 밀어내 블록을 만듭니다.', 'Push the sketch out by a depth to make a block.'),
-    steps: [
-      { say: L('돌출 보스를 누르고 깊이에 20을 넣습니다. 노란 미리보기가 나옵니다.', 'Press Extruded Boss and type 20 for the depth: a yellow preview appears.'), run: async (g, v) => {
-        await v.click('#palette-host [data-cm-tab="features"]');
-        await v.cmd('extrude', 700);
-        await g.view('iso'); await g.fit();
-        await v.type('depth', '20');
-        await v.hold(1800);
-      } },
-      { say: L('✔를 누르면 보스-돌출1이 생깁니다. 왼쪽 끌기로 보기를 돌립니다.', 'Press ✔: Boss-Extrude1 is made. Drag with the left button to turn the view.'), run: async (g, v) => {
-        await v.ok(1200);
-        await v.orbit(260, 2600, 30); await v.orbit(-260, 2000, -30);
-        await v.hold(800);
-      } },
-    ],
-  },
-  {
-    title: L('필렛과 구멍', 'Fillets and holes'),
-    sub: L('세로 모서리를 둥글게 하고 카운터보어 구멍을 냅니다.', 'Round the vertical edges and add a counterbored hole.'),
-    steps: [
-      { say: L('필렛을 누르고 세로 모서리 네 개를 클릭한 뒤 반지름 5를 넣습니다.', 'Press Fillet, click the four vertical edges and type 5 for the radius.'), run: async (g, v) => {
-        const { m } = g;
-        await v.cmd('fillet', 600);
-        const vp = m.viewport; const r = vp.canvas.getBoundingClientRect();
-        for (const ed of m.state.partEntry.edgeList) {
-          const d = ed.tangentAt(0.5);
-          if (Math.abs(d.z) <= 0.9 * Math.hypot(d.x, d.y, d.z)) continue;
-          const p = ed.pointAt(0.5); const s = vp.toScreen([p.x, p.y, p.z]);
-          const hit = vp.pick(s.x + r.left, s.y + r.top, { kinds: ['edge'] });
-          if (!hit) continue;
-          await v.go({ x: s.x + r.left, y: s.y + r.top }, 500); v.ripple();
-          vp.options.onPick(hit, { clientX: s.x + r.left, clientY: s.y + r.top }); await g.settle(400);
-        }
-        await v.type('radius', '5');
-        await v.hold(1200);
-        await v.ok(1400);
-      } },
-      { say: L('구멍 가공 마법사에서 카운터보어를 고르고, 윗면을 클릭해 위치를 정합니다.', 'In the Hole Wizard pick Counterbore and click the top face to place it.'), run: async (g, v) => {
-        const { m } = g;
-        await v.cmd('hole', 700);
-        const kind = document.querySelector('#left-panel [data-pm-set="kind"][data-value="counterbore"]') ?? document.querySelector('#left-panel [data-pm-set="kind"]');
-        if (kind) { await v.go(kind); v.ripple(); }
-        m.actions.pmSet('kind', 'counterbore'); await g.settle(700);
-        await v.go(v.at([15, 0, 20])); v.ripple();
-        g.clickAt([15, 0, 20]); await g.settle(1200);
-        await v.hold(1500);
-        await v.ok(1500);
-      } },
-    ],
-  },
-  {
-    title: L('패턴 — 구멍 네 개', 'Pattern — four holes'),
-    sub: L('원본 구멍을 고치면 복사본도 함께 바뀝니다.', 'Change the original hole and the copies follow.'),
-    steps: [
-      { say: L('구멍을 고르고 원형 패턴을 누릅니다. 축은 Z, 개수는 4입니다.', 'Select the hole and press Circular Pattern: axis Z, 4 copies.'), run: async (g, v) => {
-        const { m } = g;
-        const hole = g.featureOf('hole');
-        const row = g.featureRow(hole);
-        if (row) { await v.go(row); v.ripple(); }
-        m.actions.select([{ kind: 'feat', id: hole.id }]); await g.settle(400);
-        await v.cmd('circularPattern', 600);
-        const axis = document.querySelector('#left-panel [data-pm-set="axisKind"][data-value="z"]');
-        if (axis) { await v.go(axis); v.ripple(); }
-        m.actions.pmSet('axisKind', 'z'); await g.settle(500);
-        await v.type('count', '4', 'number');
-        await v.hold(1600);
-        await v.ok(1500);
-      } },
-      { say: L('완성된 부품입니다. 트리에는 만든 순서대로 피처가 쌓입니다.', 'The finished part. The tree keeps the features in the order you made them.'), run: async (g, v) => {
-        g.m.actions.select([]); await g.fit();
-        await v.go('#left-panel .tree'); g.mark('#left-panel .tree', null, null, { pad: -1 });
-        await v.orbit(720, 5000); g.clear();
-      } },
-    ],
-  },
-  {
-    title: L('스윕 — 경로를 따라 관 만들기', 'Sweep — a tube along a path'),
-    sub: L('윤곽을 경로를 따라 쓸어 관을 만듭니다.', 'Sweep a profile along a path to make a tube.'),
-    steps: [
-      { say: L('윗면에 원 두 개(관의 바깥과 안), 정면에 열린 경로를 그려 둡니다.', 'Two circles on Top (the tube wall) and an open path on Front.'), run: async (g, v) => {
-        await g.newPart(); await v.click('#palette-host [data-cm-tab="features"]');
-        g.sketch({ kind: 'std', name: 'top' }, [{ id: 'pc', type: 'point', x: 0, y: 0 }, { id: 'c1', type: 'circle', c: 'pc', r: 8 }, { id: 'c2', type: 'circle', c: 'pc', r: 6 }], v.T('윤곽', 'Profile'));
-        g.sketch({ kind: 'std', name: 'front' }, [{ id: 'q1', type: 'point', x: 0, y: 0 }, { id: 'q2', type: 'point', x: 0, y: 60 }, { id: 'q3', type: 'point', x: 50, y: 100 }, { id: 'q4', type: 'point', x: 110, y: 100 }, { id: 'm1', type: 'line', p1: 'q1', p2: 'q2' }, { id: 'm2', type: 'line', p1: 'q2', p2: 'q3' }, { id: 'm3', type: 'line', p1: 'q3', p2: 'q4' }], v.T('경로', 'Path'));
-        await g.settle(800); await g.view('iso'); await g.fit();
-        for (const name of [v.T('윤곽', 'Profile'), v.T('경로', 'Path')]) { const row = g.treeRow(name); if (row) { await v.go(row); g.mark(row, null, null, { pad: 1 }); await v.hold(900); } }
-        await v.hold(800); g.clear();
-      } },
-      { say: L('스윕을 누르면 윤곽과 경로가 들어갑니다. ✔를 누릅니다.', 'Press Sweep: the profile and the path are filled in. Press ✔.'), run: async (g, v) => {
-        await v.cmd('sweep', 1500);
-        await v.hold(1600);
-        await v.ok(1500); g.m.actions.select([]); await g.fit();
-        await v.orbit(500, 4000);
-      } },
-    ],
-  },
-  {
-    title: L('판금 — 플랜지와 전개도', 'Sheet metal — flanges and the flat pattern'),
-    sub: L('판을 만들고 모서리 플랜지를 세운 뒤 펼쳐 봅니다.', 'Make a sheet, raise an edge flange, then flatten it.'),
-    steps: [
-      { say: L('사각형 스케치로 베이스 플랜지를 만듭니다. 두께·굽힘 반지름·K 계수를 정합니다.', 'A Base Flange from a rectangle sketch: thickness, bend radius and K-factor.'), run: async (g, v) => {
-        const { m } = g;
-        await g.newPart();
-        g.sketch({ kind: 'std', name: 'top' }, g.rect(0, 0, 120, 70), v.T('판', 'Plate'));
-        await g.settle(500);
-        await v.click('#palette-host [data-cm-tab="sheetMetal"]');
-        await v.cmd('baseFlange', 900);
-        await g.view('iso'); await g.fit(); await v.hold(1800);
-        await v.ok(1200);
-      } },
-      { say: L('판 윗면의 모서리를 고르고 모서리 플랜지를 누릅니다. 길이 35.', 'Pick a top edge of the sheet and press Edge Flange: length 35.'), run: async (g, v) => {
-        const { m } = g;
-        const entry = m.state.partEntry;
-        const i = entry.edgeList.findIndex((ed) => ed.geomType === 'LINE' && ed.startPoint.x > 119.9 && ed.endPoint.x > 119.9 && ed.startPoint.z > 0.5 && ed.endPoint.z > 0.5);
-        if (i >= 0) { const p = entry.edgeList[i].pointAt(0.5); await v.go(v.at([p.x, p.y, p.z])); v.ripple(); }
-        m.actions.select([{ kind: 'edge', bodyKey: 'body', index: i, key: `edge:body:${i}` }]); await g.settle(400);
-        await v.cmd('edgeFlange', 800);
-        await v.type('length', '35');
-        await v.hold(1500);
-        await v.ok(1400);
-        await v.orbit(300, 2500);
-      } },
-      { say: L('전개를 누르면 굽힘 여유를 넣은 전개도가 나옵니다.', 'Press Flatten: the flat pattern, bend allowance included.'), run: async (g, v) => {
-        await v.cmd('flatten', 900);
-        await g.view('top'); await g.fit(); await v.hold(2500);
-        await v.cmd('flatten', 900);
-        await g.view('iso'); await g.fit(); await v.hold(1000);
-      } },
-    ],
-  },
-  {
-    title: L('어셈블리와 메이트', 'Assemblies and mates'),
-    sub: L('부품을 넣고 메이트로 서로의 위치를 묶습니다.', 'Insert parts and tie their positions together with mates.'),
-    steps: [
-      { say: L('축 어셈블리 예제입니다. 왼쪽 트리에 부품과 메이트가 있습니다.', 'The shaft assembly sample: the components and mates are in the tree.'), run: async (g, v) => {
-        await g.sample('shaftAssembly'); await g.view('iso'); await g.fit();
-        await v.go('#left-panel .tree'); await v.hold(1500);
-        await v.orbit(400, 3500);
-      } },
-      { say: L('메이트를 누르고 원통면 두 개를 고르면 동심 메이트가 됩니다.', 'Press Mate and pick two cylindrical faces: a concentric mate.'), run: async (g, v) => {
-        const { m } = g;
-        const asm = m.active();
-        const mate = asm.mates.find((x) => x.type === 'concentric') ?? asm.mates[0];
-        await v.cmd('mate', 600);
-        const e = m.state.editing;
-        e.mate = JSON.parse(JSON.stringify(mate)); e.pick = null; e.isNew = false;
-        m.actions.pmSet('type', mate.type); await g.settle(1000);
-        const picks = document.querySelector('#left-panel .pm-pick');
-        if (picks) { await v.go(picks); g.mark(picks, null, v.T('원통면 두 개', 'Two cylindrical faces'), { at: 'below' }); }
-        await v.hold(2600); g.clear();
-        await v.click('#left-panel .pm-cancel', () => m.actions.cancelEditing({ quiet: true }), 700);
-      } },
-    ],
-  },
-  {
-    title: L('모션 스터디', 'Motion study'),
-    sub: L('모터를 달아 기구가 움직이는 모습을 봅니다.', 'Add a motor and watch the mechanism move.'),
-    steps: [
-      { say: L('감속기 예제를 열고 단면 보기를 켭니다. 하우징 앞쪽이 잘려 안쪽의 기어가 보입니다.', 'Open the gear reducer and turn on the section view: the front of the housing is cut away and the gears show.'), run: async (g, v) => {
-        await g.sample('asmGearReducer'); await g.view('iso'); await g.fit();
-        await v.cmd('section', 900);
-        await v.hold(1800);
-      } },
-      { say: L('모션 스터디를 열고 재생합니다. 입력축의 회전 모터가 기어를 돌립니다.', 'Open the motion study and play it: the motor on the input shaft turns the gears.'), run: async (g, v) => {
-        const { m } = g;
-        await v.cmd('motion', 700);
-        await v.click('#left-panel [data-pm="playMotion"]', () => m.actions.pmCommand('playMotion'), 300);
-        await v.hold(8000);
-        await v.click('#left-panel [data-pm="stopMotion"]', () => m.actions.pmCommand('stopMotion'), 500);
-        await v.click('#left-panel .pm-cancel', () => m.actions.cancelEditing({ quiet: true }), 600);
-        if (m.state.section) await m.run('section');
-      } },
-      { say: L('부품 예제도 모두 움직입니다. 커넥팅 로드 예제를 열고 그래픽 영역 위의 ▶ 를 누르면 크랭크·크로스헤드와 함께 슬라이더 크랭크로 돕니다.', 'Every part sample moves too: open the connecting rod and press ▶ over the graphics area — it runs as a slider-crank with a crank and a crosshead.'), run: async (g, v) => {
-        await g.sample('basConRod'); await g.view('iso'); await g.fit();
-        await v.hold(900);
-        await v.click('[data-player="play"]', () => document.querySelector('[data-player="play"]')?.click(), 300);
-        await v.hold(7000);
-        await v.click('[data-player="stop"]', () => document.querySelector('[data-player="stop"]')?.click(), 600);
-      } },
-    ],
-  },
-  {
-    title: L('도면 — 단면도와 부품표', 'Drawings — section views and a BOM'),
-    sub: L('모델에서 도면을 만들고 단면도·상세도·부품표를 넣습니다.', 'Make a drawing of the model with section, detail and BOM.'),
-    steps: [
-      { say: L('어셈블리를 연 채 새 도면을 만들면 표준 3면도가 들어갑니다.', 'With the assembly open, a new drawing gets the three standard views.'), run: async (g, v) => {
-        const { m } = g;
-        await g.sample('shaftAssembly'); await g.settle(500);
-        await m.actions.newDrawing(); await g.settle(1800);
-        await v.hold(1500);
-      } },
-      { say: L('정면도를 고르고 단면도와 상세도를 누릅니다.', 'Select the front view and press Section View, then Detail View.'), run: async (g, v) => {
-        const { m } = g;
-        const front = document.querySelector('.drawing-paper svg .view');
-        if (front) { await v.go(front); v.ripple(); if (front.dataset?.view) m.actions.select([{ kind: 'view', id: front.dataset.view }]); }
-        await g.settle(400);
-        await v.cmd('sectionView', 1200); await v.hold(1200);
-        await v.cmd('detailView', 1500); await v.hold(1500);
-      } },
-      { say: L('부품표를 누르면 부품 번호·이름·수량 표가 들어갑니다.', 'Press Bill of Materials: a table of item numbers, names and quantities.'), run: async (g, v) => {
-        await v.cmd('bom', 1400);
-        const bom = document.querySelector('.drawing-paper svg .bom');
-        if (bom) { await v.go(bom); g.mark(bom, null, null, { pad: 4 }); }
-        await v.hold(2600); g.clear();
-      } },
-    ],
-  },
-  {
-    title: L('정적 해석', 'Static analysis'),
-    sub: L('고정 면과 하중을 정하고 응력과 안전율을 봅니다.', 'Fix a face, load another and look at the stress and the factor of safety.'),
-    steps: [
-      { say: L('외팔보를 열고 평가 › 해석을 누릅니다. 왼쪽 끝을 고정하고 오른쪽 끝에 200 N을 아래로 줍니다.', 'Open a cantilever and press Evaluate › Simulation. Fix the left end, push 200 N down on the right end.'), run: async (g, v) => {
-        const { m } = g;
-        const { e, fix, load } = await g.cantilever();
-        for (const [face, list] of [[fix, 'fixtures'], [load, 'loads']]) {
-          await v.go(v.at([face.c.x, face.c.y, face.c.z])); v.ripple(); await g.settle(300);
-          e[list] = [{ index: face.i, faceId: face.f.hashCode, type: 'PLANE' }];
-          m.viewport.setSelection([...(e.fixtures ?? []), ...(e.loads ?? [])].map((x) => ({ kind: 'face', bodyKey: 'body', index: x.index })));
-          await g.settle(500);
-        }
-        e.magnitude = 200; e.resolution = 60;
-        m.actions.pmSet('dir', '-z'); await g.settle(900);
-        await v.hold(1500);
-      } },
-      { say: L('해석 실행을 누르면 von Mises 응력(파랑 → 빨강)과 최대 변위, 최소 안전율이 나옵니다.', 'Press Run: von Mises stress (blue → red), the largest displacement and the smallest factor of safety.'), run: async (g, v) => {
-        const { m } = g;
-        await v.click('#left-panel [data-pm="runSim"]', () => m.actions.pmCommand('runSim'), 2500);
-        await g.fit(); await v.hold(1500);
-        await v.orbit(300, 3000);
-        await g.pmEnd(); await v.hold(2500);
-      } },
-    ],
-  },
-];
+// The lessons come from the tutorial plan (scripts/tutorial-plan.mjs): every step replays its part of the finished
+// tutorial robot (v.robotStep, in the page) — sketches drawn, features made in their own PropertyManagers,
+// components inserted, mates and motors added — so the video builds the same robot as the documents and samples.
+const lessons = PLAN.map((lesson) => ({
+  ...lesson,
+  steps: lesson.steps.map((step) => ({ say: step.say, run: `async (g, v) => { await v.robotStep(${JSON.stringify(step.do)}, ${JSON.stringify(step.view ?? null)}); }` })),
+}));
 
 // ───────────────────────── run
 
@@ -505,9 +376,17 @@ try {
   await evaluate('window.__g.reset()');
   await evaluate('(async () => { window.__mymechanics.actions.showStartPage(true); await window.__g.settle(1200); return 1; })()');
 
+  // A partial run (--only) first builds the lessons before it quickly, unrecorded (each lesson goes on from the last).
+  const first = only ? Math.min(...only) : 1;
+  if (first > 1) {
+    await evaluate('window.__v.fast = true');
+    for (const lesson of lessons.slice(0, first - 1)) for (const step of lesson.steps) await evaluate(`(async () => { const g = window.__g; const v = window.__v; await (${step.run})(g, v); return 'ok'; })()`);
+    await evaluate('window.__v.fast = false');
+    console.log(`(lessons 1–${first - 1} built without recording)`);
+  }
   startRecording();
   const T = (x) => x[lang];
-  await evaluate(`window.__v.card('', 'MyMechanics', ${JSON.stringify(T(L('튜토리얼 — 스케치에서 해석까지, 10과', 'Tutorial — from a sketch to analysis, in ten lessons')))}, 3200)`);
+  await evaluate(`window.__v.card('', 'MyMechanics', ${JSON.stringify(T(L(`튜토리얼 — 6축 다관절 로봇 만들기, ${PLAN.length}과`, `Tutorial — building a six-axis robot, in ${PLAN.length} lessons`)))}, 3200)`);
   for (const [n, lesson] of lessons.entries()) {
     if (only && !only.has(n + 1)) continue;
     const chip = lang === 'en' ? `Lesson ${n + 1}` : `${n + 1}과`;
@@ -549,9 +428,18 @@ try {
     }
     await evaluate('window.__v.hideCaption()');
     await sleep(500);
+    // The model so far against the tutorial robot: every part's feature count, and anything that did not build.
+    const state = await evaluate(`(async () => { const m = window.__mymechanics; const out = []; for (const p of m.project.parts) { const e = await m.actions.buildPart(p); const bad = p.features.filter((f) => e?.results?.get?.(f.id) && !e.results.get(f.id).ok).map((f) => f.name); out.push(p.name + ' ' + p.features.length + ${process.env.TUT_NAMES ? "' [' + p.features.map((f) => f.type).join(',') + ']'" : "''"} + (bad.length ? ' FAILED ' + bad.join(',') : '')); } for (const a of m.project.assemblies) out.push(a.name + ' comps ' + a.components.length + ' mates ' + a.mates.length + ' motors ' + (a.motion?.motors?.length ?? 0)); return out.join(' | '); })()`).catch((e) => String(e.message));
+    console.log(`  model: ${state}`);
+    if (/FAILED/.test(state)) problems++;
+    // The lesson's picture for the documents (doc/images/<lang>/tut-robot-NN.png).
+    await evaluate('(async () => { const v = window.__v; const c = document.getElementById("tv-cursor"); if (c) c.style.opacity = "0"; await window.__g.settle(300); return 1; })()');
+    const pic = await page.send('Page.captureScreenshot', { format: 'png' }, 30000).catch(() => null);
+    await evaluate('(() => { const c = document.getElementById("tv-cursor"); if (c) c.style.opacity = "1"; return 1; })()');
+    if (pic?.result?.data) await sharp(Buffer.from(pic.result.data, 'base64')).resize({ width: 1400, withoutEnlargement: true }).png({ palette: true, quality: 90 }).toFile(path.join(root, 'doc', 'images', lang, `tut-robot-${String(n + 1).padStart(2, '0')}.png`));
   }
   await evaluate(`(async () => { const g = window.__g; await g.reset(); window.__mymechanics.actions.showStartPage(true); await g.settle(600); })()`);
-  await evaluate(`window.__v.card('', ${JSON.stringify(T(L('마치며', 'That is it')))}, ${JSON.stringify(T(L('시작 화면의 예제 75개와 사용 설명서(F1)에서 모든 기능을 더 볼 수 있습니다.', 'The 75 samples on the start page and the user guide (F1) show every feature.')))}, 3500)`);
+  await evaluate(`window.__v.card('', ${JSON.stringify(T(L('마치며', 'That is it')))}, ${JSON.stringify(T(L('각 과의 결과는 시작 화면 › 예제 › 튜토리얼에 있습니다. 사용 설명서(F1)에서 모든 기능을 더 볼 수 있습니다.', 'Each lesson\'s result is on the start page under Samples › Tutorial. The user guide (F1) shows every feature.')))}, 3500)`);
   await sleep(400);
   recording = false;
   await recorder;

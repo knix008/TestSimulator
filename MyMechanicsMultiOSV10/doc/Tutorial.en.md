@@ -1,180 +1,217 @@
-# MyMechanics Tutorial
+# MyMechanics tutorial — building a six-axis articulated robot
 
-This tutorial is a hands-on walk-through for your first session with MyMechanics. Starting from an empty window you will build a first part — sketch, dimensions, extrude, fillet, hole and pattern — and then try a sweep, sheet metal, an assembly with mates, a motion study, a drawing with a section view and a bill of materials, and a static simulation. Every step has a picture of the screen at that moment; the red numbers show where to click or what to look at.
+This tutorial builds a six-axis articulated robot from start to finish. You model nine parts (base, waist J1, upper arm J2, forearm J3, wrist yoke J4, wrist pitch J5, tool flange J6, gripper body, gripper finger) from sketches and features, assemble a gripper sub-assembly and the robot with mates, give every joint a motor and watch it move, and finish with an exploded view and an assembly drawing with a bill of materials. Units are millimetres. Each lesson's result is on the start page under Samples › **Tutorial — six-axis robot**, so you can pick up at any lesson.
 
-The whole tutorial takes about an hour. The lessons stand on their own, except that lessons 1–4 build the same part and lesson 9 makes its drawing. The **user's guide** (F1) explains every command in detail.
+A video of the same steps: `doc/video/MyMechanics-Tutorial.en.mp4` (Help › Tutorial).
 
-## Lesson 1. A first sketch — a rectangle and its dimensions
+## Lesson 1. Base — the revolved body
 
-Every part starts from a 2D sketch on a plane: draw the lines, then fix their size and position with relations and dimensions.
+Turn one section round to make the base body.
 
-1. Click **New part** on the start page, or press Ctrl+N. An empty part opens with the Front, Top and Right planes and the origin in the tree.
-2. On the **Features** tab of the CommandManager, click **Sketch**. When the sketch PropertyManager appears on the left, choose **Top Plane**. Clicking the plane in the graphics area works too.
+1. On the start page make a new part; in the task pane name it "Robot base", material cast iron, part number RB-100.
+2. Sketch on the Front plane and draw half the body's section as a closed outline: (0, 0) → (110, 0) → (110, 18) → (78, 18) → (72, 140) → (0, 140). Add a vertical centreline through the origin.
+3. Press Revolved Boss: the centreline becomes the axis and the section turns 360°, giving a Ø220 flange and a tapered column. Press ✔.
 
-   ![Picking the plane to sketch on](images/en/part-sketch-plane.png)
+   ![Base — the revolved body](images/en/tut-robot-01.png)
 
-3. The view turns to face the Top plane and the CommandManager switches to the **Sketch** tab. Click **Center Rectangle**, click the origin first, then click a corner further out. When the pointer snaps to the origin an orange ring appears and a coincident relation is added by itself.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 1**
 
-   ![A center rectangle started at the origin](images/en/part-sketch-rect.png)
+## Lesson 2. Base — ribs and a circular pattern
 
-4. The lines are still blue: their size is not fixed yet, so they can move. Click **Smart Dimension** (D), click the horizontal line and enter `80`, then the vertical line and enter `50`. When every line turns black and the status bar says **Fully defined**, you are done.
+Draw one rib and repeat it six times round.
 
-   ![The sketch fully defined by two dimensions](images/en/part-sketch-dims.png)
+1. On the Front plane draw the rib's section as a triangle: (76, 18), (106, 18), (73, 90).
+2. Extruded Boss with end condition Mid Plane, thickness 10: the rib grows 5 to each side of the sketch.
+3. Circular Pattern: the rib as the seed, the Z axis (vertical), 6 instances — six ribs, 60° apart.
 
-5. Click **Exit Sketch**. **Sketch1** appears in the tree.
+   ![Base — ribs and a circular pattern](images/en/tut-robot-02.png)
 
-> Double-click a dimension's text to change its value. Number boxes accept arithmetic and units, such as `100/3` or `25.4in`.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 2**
 
-## Lesson 2. Extrude — from sketch to solid
+## Lesson 3. Base — holes and the bearing seat
 
-1. With Sketch1 selected, click **Features › Extruded Boss**.
-2. Enter `20` for the depth in the PropertyManager. A yellow preview shows in the graphics area; tick the reverse box to flip it.
-3. Press ✔ (Enter). **Boss-Extrude1** appears in the tree with Sketch1 under it.
+Holes on offset planes, and the J1 bearing seat cut in the top.
 
-   ![The extrude PropertyManager and its preview](images/en/part-extrude.png)
+1. Reference plane: 18 above the Top plane (the flange's top). On it put a point at (82.3, 47.5) — radius 95, at 30°.
+2. Hole Wizard: counterbore, Ø13, counterbore Ø20 × 4 deep, through all. A Circular Pattern (Z axis, 6) gives six anchor holes.
+3. A plane 140 above Top, a Ø60 circle on it, cut 32 deep: the bearing seat for the J1 shaft.
+4. On a plane 80 from Front put a point at (0, 60) and make a Ø30 × 40 hole for the cable entry. Chamfer the flange and the column top edges by 2.
 
-> Turn the view with a left drag, move it with a right drag and zoom with the wheel. F fits everything on the screen; Ctrl+7 is the isometric view.
+   ![Base — holes and the bearing seat](images/en/tut-robot-03.png)
 
-## Lesson 3. Fillets and a hole
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 3**
 
-### Rounding the edges
+## Lesson 4. Waist (J1) — turntable and column
 
-1. Click **Fillet**.
-2. Click the vertical edges of the block one by one. The picked edges collect in the pink selection box; turn the view to reach the one at the back. Clicking a face adds all of its edges at once.
-3. Enter a radius of `5` and press ✔.
+Extrude up and down, then raise a square column.
 
-   ![Fillet — the picked edges and the radius](images/en/part-fillet.png)
+1. New part "Waist (J1)", aluminium 6061, RB-110.
+2. On Top a Ø160 circle → extrude 25 (the turntable). On Top again a Ø60 circle → extrude 30 the other way (the J1 shaft).
+3. On a plane 25 up draw a centre rectangle 110 × 100 → extrude 205 for the column; fillet its four vertical edges with radius 20.
 
-### A counterbored hole
+   ![Waist (J1) — turntable and column](images/en/tut-robot-04.png)
 
-1. Click **Hole Wizard**.
-2. Choose **Counterbore** as the hole type and **M8** as the size. The clearance diameter and the counterbore for the screw head are filled in from the standard table.
-3. Click the top face of the block to the right of the origin (about 15 mm along X). The red preview is the hole. Leave the end condition at **Through All**.
-4. Press ✔. The hole position is kept in a **Hole position** sketch, so you can add dimensions to it later to place it exactly.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 4**
 
-   ![Hole Wizard — counterbore M8](images/en/part-hole.png)
+## Lesson 5. Waist (J1) — J2 housing and holes
 
-## Lesson 4. Patterns — four holes
+The housing and bearing bore of the shoulder joint J2.
 
-Instead of drawing more holes, copy the first one with a pattern: when you change the original, the copies follow.
+1. On a plane 50 from Front (the column's side) a Ø120 circle centred at (0, 180) → extrude 12: the J2 housing.
+2. On the housing's face (62) a Ø50 × 45 hole (the J2 bearing), then a Ø6.8 × 12 screw hole at radius 48, patterned 8 times round the bearing axis.
+3. On the Right plane a Ø36 circle at (0, 100), cut through both ways (the cable passage). On the turntable's top a counterbored hole Ø9 / Ø15 × 5 at (72, 0), patterned 4 times.
 
-1. Click **Hole1** in the tree to select it.
-2. Click **Circular Pattern**. Hole1 is already in the list of features to pattern.
-3. Set the axis to **Y**, the total angle to `360`, the number of instances to `4`, and tick **Equal spacing**.
-4. Press ✔: four holes now sit around the origin.
+   ![Waist (J1) — J2 housing and holes](images/en/tut-robot-05.png)
 
-   ![Circular pattern — axis Y, 4 instances](images/en/part-pattern.png)
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 5**
 
-5. Save with Ctrl+S. Parts, assemblies and drawings all go into one `.mymech` file.
+## Lesson 6. Upper arm (J2)
 
-The tree lists the features in the order they were made. Double-click one to edit it again; change a dimension early in the tree and the fillets, hole and pattern after it are all rebuilt on the new shape. Drag the blue **rollback bar** at the bottom of the tree upwards to leave out the features below it for a while.
+The arm between two joints: web, hubs, lightening pockets.
 
-![The finished first part and its FeatureManager tree](images/en/part-done.png)
+1. New part "Upper arm (J2)", aluminium 7075, RB-120. On Front a Ø50 circle → extrude 40 backwards (the J2 shaft).
+2. On Front a rectangle (-40, 0)–(40, 400) → extrude 40 (the web); two circles — Ø120 at (0, 0), Ø100 at (0, 400) — → extrude 40 (the joint hubs).
+3. On the web's face (40) two slots (x = ±17, y 90–310, radius 12) → cut 25 deep: pockets that leave a centre rib.
+4. At (0, 400) a Ø90 × 10 J3 housing, a Ø40 × 45 bearing bore, six Ø5 screw holes at radius 36 (circular pattern), a Ø16 cable hole from the Right plane, a 1.5 chamfer on the housing's rim.
 
-## Lesson 5. Sweep — a tube along a path
+   ![Upper arm (J2)](images/en/tut-robot-06.png)
 
-A sweep moves a closed profile along a path. Use it for bent tubes, handles and springs.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 6**
 
-1. Open a new part (Ctrl+N).
-2. Open a sketch on the **Top Plane** and draw two circles centred on the origin. Diameters `16` and `12` make the section of a tube with a 2 mm wall. Exit the sketch and rename it **Profile** (F2).
-3. Open a sketch on the **Front Plane** and draw **lines** from the origin: 60 mm up, then up and to the right at a slant, then level. An open chain is fine. Exit the sketch and rename it **Path**.
+## Lesson 7. Forearm (J3)
 
-   ![The profile (two circles on Top) and the path (open lines on Front)](images/en/tut-sweep-sketches.png)
+A tube from the joint hub to the wrist, and the motor housing.
 
-4. Click **Swept Boss**. Pick the **Profile** sketch as the profile and the **Path** sketch as the path. The profile must lie at the start of the path, square to it.
+1. New part "Forearm (J3)", aluminium 7075, RB-130. On Front Ø40 → 40 backwards (the J3 shaft), Ø100 → 80 (the hub).
+2. On the Right plane a Ø70 circle at the hub's mid-height (40) → extrude 300: the arm tube.
+3. On a plane 10 from Front a rectangle (-35, 30)–(35, 75) → extrude 60 (the wrist motor housing); fillet its four top edges, radius 6.
+4. At the tube's end (300 from Right) a Ø40 × 30 J4 bearing bore and six Ø4.2 screw holes (circular pattern); a Ø16 cable hole in the housing's top.
 
-   ![The sweep PropertyManager — profile and path](images/en/tut-sweep.png)
+   ![Forearm (J3)](images/en/tut-robot-07.png)
 
-5. Press ✔: the tube follows the bends of the path.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 7**
 
-   ![The finished swept tube](images/en/tut-sweep-done.png)
+## Lesson 8. Wrist yoke (J4)
 
-> With a **Helix** (Features › Helix) as the path and **Frenet orientation** turned on, the same command makes a spring. Open the **Compression spring** sample to see one.
+Draw the yoke plate with lines and an arc, then mirror it.
 
-## Lesson 6. Sheet metal — flanges and the flat pattern
+1. New part "Wrist yoke (J4)", aluminium 7075, RB-140. On Right Ø40 → 30 backwards (the J4 shaft), Ø70 → 40 (the roll housing).
+2. On a plane 20 from Front the yoke plate: lines (80, 30)→(30, 30)→(0, 0)→(30, -30)→(80, -30), closed by an arc centred at (80, 0), radius 30. Extrude 12.
+3. Mirror: copy the plate about the Front plane for the second prong; on Front a Ø20 circle at (80, 0) → cut through both ways (the J5 bore); chamfer the shaft end by 1.5.
 
-A sheet metal part is a plate of constant thickness bent into shape. You can switch between the formed part and its flat pattern.
+   ![Wrist yoke (J4)](images/en/tut-robot-08.png)
 
-1. Open a new part, sketch a 120 × 70 rectangle on the **Top Plane** and exit the sketch.
-2. On the CommandManager's **Sheet Metal** tab, click **Base Flange**. Check the thickness, bend radius and K-factor, then press ✔.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 8**
 
-   ![Base flange — thickness, bend radius and K-factor](images/en/tut-sm-base.png)
+## Lesson 9. Wrist pitch (J5) and tool flange (J6)
 
-3. Click the short edge on the right of the sheet's top face to select it, then click **Edge Flange**. With an angle of `90` and a length of `35` the preview appears. ✔.
+Mid-plane extrudes and the ISO 9409 flange holes.
 
-   ![Edge flange — standing up 90° from the picked edge](images/en/tut-sm-edge.png)
+1. New part "Wrist pitch (J5)", steel 4340, RB-150. On Front Ø56 → mid plane 40 (the hub), Ø20 → mid plane 64 (the J5 trunnion).
+2. On Right Ø36 → extrude 70 (the nose); in its end a Ø25 × 25 J6 bearing bore; a 1 chamfer on the trunnion rims.
+3. New part "Tool flange (J6)", steel 4340, RB-160. On Right Ø25 → 20 backwards (the J6 shaft), Ø63 → 12 (the flange).
+4. On the flange face a Ø31.5 × 6 locating bore, a Ø6.6 through hole at (0, 25) patterned 4 times round X (ISO 9409-1-50-4-M6), a 1 chamfer.
 
-4. Click **Flatten**. The flat pattern appears, worked out with the bend allowance (angle × (radius + K × thickness)). Click it again to fold the part back.
+   ![Wrist pitch (J5) and tool flange (J6)](images/en/tut-robot-09.png)
 
-   ![The flat pattern](images/en/tut-sm-flat.png)
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 9**
 
-> Hems, sketched bends and jogs are on the same tab. The **Sheet metal chassis** sample uses all of them.
+## Lesson 10. Gripper body and finger
 
-## Lesson 7. An assembly with mates
+The gripper's two parts.
 
-An assembly holds parts that are placed by **mates** — relations between their faces.
+1. New part "Gripper body", aluminium 6061, RB-210. On Right Ø31.5 → 6 backwards (the spigot), Ø63 → 8 (the mount plate).
+2. On a plane 8 out a centre rectangle 40 × 76 → extrude 50 (the actuator body); fillet the four long edges, radius 4; on the end face (58) a rectangle (-8, -34)–(8, 34) → cut 6 deep (the finger slot).
+3. Four Ø6.6 × 8 screw holes in the mount plate (circular pattern); two Ø5 × 12 air ports on a plane 38 above Top.
+4. New part "Gripper finger", steel 4340, RB-220. On Front (0, 0)–(6, 12) → mid plane 16 (the slide), (6, 0)–(70, 8) → mid plane 20 (the finger), a V-jaw triangle cut through both ways, a 1.5 chamfer on the tip.
 
-1. Click **New assembly**. The left panel lists the project's parts and the sample parts; click one to put it into the graphics area. The first part is fixed at the origin (`(f)`).
+   ![Gripper body and finger](images/en/tut-robot-10.png)
 
-   ![A new assembly — picking the parts to insert](images/en/tut-asm-new.png)
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 10**
 
-2. Insert a second part with **Assembly › Insert Components**. A component that has no mates yet can move freely and gets a `(-)`.
-3. Click **Mate** and click a cylindrical face on each part. For two cylinders **Concentric** is suggested first, and the part moves into place at once. Press ✔. Pick two flat faces next and **Coincident** is suggested.
+## Lesson 11. Gripper sub-assembly
 
-   ![Mate — two cylindrical faces made concentric](images/en/tut-asm-mate.png)
+Two fingers that open and close together about the centre.
 
-4. The mates collect in the **Mates** folder of the tree. Components whose position is fully set lose their `(-)`; mates that cannot all be met turn red.
+1. Make a new assembly "Two-finger gripper"; insert the gripper body (fixed at the origin) and two fingers, the second turned 180° about X.
+2. For each finger: its slide's end face coincident with the body's end face (52), and a width mate centring its sides between the slot's sides.
+3. A width mate between the fingers' outer faces and the body's upper and lower faces makes them move together; limit the distance between their inner faces to 12–50.
+4. Motion study: a linear motor on the first finger (amplitude 6, period 2 s); play it — the other finger follows through the width mate.
 
-   ![The assembly tree and the Mates folder](images/en/assembly-tree.png)
+   ![Gripper sub-assembly](images/en/tut-robot-11.png)
 
-> Open the **Shaft assembly** and **Two-stage gear reducer** samples to see finished mates. The **Advanced** and **Mechanical** buttons of the mate PropertyManager hold width and limit mates, and gear, rack-and-pinion, screw and hinge mates.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 11**
 
-## Lesson 8. A motion study
+## Lesson 12. Robot assembly — J1
 
-Components linked by gear, screw or rack-and-pinion mates move together, driven by a single motor.
+Fix the base and turn the waist on a hinge.
 
-1. Open the **Two-stage gear reducer** sample (start page › Samples › Assemblies).
-2. Click **Assembly › Motion Study**. This sample already has a rotary motor on its input shaft; to add a motor, click a cylindrical face of a component (rotary motors in rpm, linear motors in mm/s).
-3. Press **Play**, or drag the time slider to any moment. As the input shaft turns, the intermediate and output shafts follow through the gear mates at the gear ratio.
+1. In a new assembly "Six-axis articulated robot" insert the base (fixed at the origin) and the waist.
+2. Hinge mate: the base's seat and the waist's J1 shaft (cylinders), the base's top and the turntable's underside (faces). One freedom is left: turning about J1.
+3. Put a rotary motor on the J1 shaft (amplitude 45°, period 6 s) and play.
 
-   ![Motion study — the motor and the time slider](images/en/tut-motion.png)
+   ![Robot assembly — J1](images/en/tut-robot-12.png)
 
-4. **Exploded View** spreads the components outward; click it again to put them back.
-5. Every part sample moves too. Open the sample **Connecting rod** (Basic parts): it opens on a scene with a crank and a crosshead, and **▶** (play) over the graphics area runs it as a slider-crank. The connecting rod part itself is in the document tabs, ready to edit.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 12**
 
-   ![The six-axis robot sample, exploded](images/en/assembly-explode.png)
+## Lesson 13. Robot assembly — J2 and J3
 
-## Lesson 9. Drawings — a section view and a bill of materials
+Raise the arm and set its range with limit angles.
 
-1. Go back to the tab of the part from lessons 1–4 and click **Drawing › Make drawing**. The front, top and right views and an isometric view are placed on an A3 sheet at a scale chosen to fit. Change the sheet size, scale and projection in the task pane on the right.
+1. Insert the upper arm and the forearm.
+2. J2: a hinge between the waist's bearing bore and the upper arm's shaft, the angle between the column's top and the arm's web limited to 30–150°. J3: a hinge at the upper arm's end bearing and the forearm's shaft, angle 20–160°.
+3. Motors on J2 (20°, 6 s) and J3 (25°, 3 s). Each is mounted on the link below it (the waist, the upper arm), so it turns wherever the joints below have taken it.
 
-   ![A new drawing — the standard three views and an isometric view](images/en/tut-drawing-views.png)
+   ![Robot assembly — J2 and J3](images/en/tut-robot-13.png)
 
-2. Click the front view to select it and click **Section View**. Section **A-A**, cut through the middle and hatched, is placed on the sheet, and the cutting line and arrows are drawn on the front view.
-3. **Detail View** adds detail **B**, the chosen area at twice the scale. Drag views to move them.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 13**
 
-   ![Section A-A and detail B](images/en/tut-drawing-section.png)
+## Lesson 14. Robot assembly — wrist J4, J5, J6
 
-4. Make a drawing of an assembly and click **BOM**: a table of item numbers, names, materials and quantities is placed above the title block.
+Join the wrist's three axes.
 
-   ![The bill of materials of an assembly drawing](images/en/tut-drawing-bom.png)
+1. Insert the wrist yoke, the wrist pitch and the tool flange.
+2. J4: a hinge at the forearm's end bearing and the yoke's shaft. J5: a hinge at the yoke's bore and the pitch trunnion, angle 0–110°. J6: a hinge at the nose bearing and the flange's shaft.
+3. Swinging motors on J4 (60°, 4 s) and J5 (30°, 3 s), and a motor turning J6 round at 20 rpm.
 
-5. Export to **DXF** or **SVG**, or print with Ctrl+P. Geometric tolerances, datums, surface finish symbols and balloons are added with the annotation buttons of the Drawing tab.
+   ![Robot assembly — wrist J4, J5, J6](images/en/tut-robot-14.png)
 
-## Lesson 10. A static simulation
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 14**
 
-1. Open the part to analyse and click **Evaluate › Simulation**. The study type is **Static**; the material's elastic modulus and yield strength are shown in the PropertyManager.
-2. Click the **Fixed faces** box and click the face to hold (the one against the wall). Then click the **Loaded faces** box and click the face that takes the force.
-3. Enter a force of `200` N and choose the direction **−Y**. A higher resolution is more accurate but takes longer.
+## Lesson 15. The gripper on, and the whole motion
 
-   ![Setting up — fixed face, load face and force](images/en/sim-setup.png)
+Insert the sub-assembly like one component.
 
-4. Click **Run**. The body is colored by von Mises stress (blue → red), and the maximum stress, maximum displacement and minimum factor of safety are listed. A factor of safety below 1 means the part yields. Turn on **Show deformed shape** to see the bending, exaggerated.
+1. Insert Component: the "Two-finger gripper" sub-assembly.
+2. The gripper's mount plate coincident with the flange face, the spigot concentric with the locating bore, and one screw hole concentric with one of the flange's.
+3. Play the motion study: all six joints move together, and the gripper plays its own motion (the fingers opening and closing).
 
-   ![Static results — stress distribution and factor of safety](images/en/sim-static.png)
+   ![The gripper on, and the whole motion](images/en/tut-robot-15.png)
 
-> Switch the study type to **Thermal** for a temperature distribution, or to **Frequency** for natural frequencies and mode shapes. See chapter 8 of the user's guide.
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 15**
 
-## Where next
+## Lesson 16. Exploded view
 
-You have now been through the main workflow of MyMechanics. Open the 75 **samples** on the start page (basic parts, machine elements, housings, advanced, assemblies and drawings) and double-click their features in the tree one by one to see how each command was used. Every command and option is described in the **user's guide**.
+Spread the parts out in assembly order.
+
+1. In the explode editor make seven steps: gripper → flange → pitch → yoke (towards +X), forearm → upper arm (forwards), then everything above J1 upwards.
+2. Explode Animation plays the steps out one after the other, and back.
+
+   ![Exploded view](images/en/tut-robot-16.png)
+
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 16**
+
+## Lesson 17. Assembly drawing
+
+An assembly drawing with a bill of materials and balloons.
+
+1. Make Drawing from the assembly: a front view and an isometric view on an A2 sheet.
+2. Turn the bill of materials on, place item balloons round the isometric view and write the notes (reducers, tool flange standard, cable routing). Export DXF, DWG or PDF, or print.
+
+   ![Assembly drawing](images/en/tut-robot-17.png)
+
+> This lesson's result: start page › Samples › Tutorial — six-axis robot › **Lesson 17**
+
+## Wrapping up
+
+Done. Open one of the robot's parts and change a dimension: the assembly and the drawing follow. Try other amplitudes and periods in the motion study, or run Interference Detection (Assembly menu) to check that nothing collides as the joints move.

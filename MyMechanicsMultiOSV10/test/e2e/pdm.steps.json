@@ -8,7 +8,7 @@
   {
     "name": "pdm: the explorer opens with the connect page, then a browser vault is created",
     "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; p.state.location = null; p.state.vault = null; p.openExplorer(); await new Promise((r) => setTimeout(r, 200)); const host = document.querySelector('#pdm-explorer'); if (!host || host.hidden) return 'no panel'; if (!host.querySelector('[data-pdm=\"createWeb\"]')) return 'no create button'; await p.connect({ kind: 'web', root: `e2e-${Date.now()}` }, { create: true, name: 'E2E vault', user: 'e2e-admin', password: 'e2e-pass' }); p.openExplorer('files'); await new Promise((r) => setTimeout(r, 150)); return `${p.vault().index.name}|${p.vault().role}|${host.querySelectorAll('[data-pdm^=\"tab:\"]').length}`; })()",
-    "expect": "^E2E vault\\|admin\\|3$",
+    "expect": "^E2E vault\\|admin\\|4$",
     "shot": "pdm-empty"
   },
   {

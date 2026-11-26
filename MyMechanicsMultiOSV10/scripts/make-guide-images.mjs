@@ -180,18 +180,6 @@ scene('tut-drawing-views', async (g) => {
   g.mark('#right-panel', 5, g.T('시트 · 척도 · 뷰', 'Sheet · scale · views'), { at: 'bl', pad: -1 });
   return null;
 });
-scene('tut-drawing-section', async (g) => {
-  const { m } = g;
-  const front = document.querySelector('.drawing-paper svg .view');
-  if (front?.dataset?.view) m.actions.select([{ kind: 'view', id: front.dataset.view }]);
-  await m.run('sectionView'); await g.settle(800);
-  await m.run('detailView'); await g.settle(1200);
-  const svg = document.querySelector('.drawing-paper svg');
-  g.mark(svg.querySelector('.view-section .view-box'), 1, g.T('단면도 A-A', 'Section A-A'), { pad: 4, at: 'above' });
-  g.mark(svg.querySelector('.view-detail .view-box'), 2, g.T('상세도 B', 'Detail B'), { pad: 4, at: 'above' });
-  return g.clip(['.drawing-paper']);
-});
-
 // 4 · sketch relations
 scene('sketch-relations', async (g) => {
   const { m } = g;
@@ -448,40 +436,6 @@ scene('assembly-motion', async (g) => {
   if (motors) g.mark(motors, 2, g.T('모터 (J4 · J6)', 'Motors (J4 · J6)'), { at: 'below' });
   return null;
 });
-scene('tut-asm-new', async (g) => {
-  const { m } = g;
-  await g.reset(); await m.actions.newDocument('assembly'); await g.settle(1200);
-  g.mark('#left-panel', 1, g.T('넣을 부품 고르기', 'Pick the parts to insert'), { at: 'br', pad: -1 });
-  return null;
-});
-scene('tut-asm-mate', async (g) => {
-  const { m } = g;
-  await g.sample('shaftAssembly'); await g.view('iso'); await g.fit();
-  const asm = m.active();
-  const mate = asm.mates.find((x) => x.type === 'concentric') ?? asm.mates[0];
-  await m.run('mate'); await g.settle(300);
-  const e = m.state.editing;
-  e.mate = JSON.parse(JSON.stringify(mate)); e.pick = null; e.isNew = false;
-  m.actions.pmSet('type', mate.type); await g.settle(1200);
-  const picks = [...document.querySelectorAll('#left-panel .pm-pick')];
-  if (picks[0]) g.mark(picks[0], 1, g.T('원통면 두 개', 'Two cylindrical faces'), { at: 'below' });
-  const types = document.querySelector('#left-panel [data-pm-set="type"]')?.parentElement;
-  if (types) g.mark(types, 2, g.T('동심', 'Concentric'), { at: 'below' });
-  return null;
-});
-scene('tut-motion', async (g) => {
-  const { m } = g;
-  await g.sample('asmGearReducer'); await g.view('iso'); await g.fit();
-  await m.run('motion'); await g.settle(500);
-  const slider = document.querySelector('[data-motion-time]');
-  if (slider) { slider.value = String(Number(slider.max) * 0.5); slider.dispatchEvent(new Event('input', { bubbles: true })); }
-  await g.settle(1200);
-  if (slider) g.mark(slider.closest('.pm-group') ?? slider, 1, g.T('시간 막대 · 재생', 'Time slider · play'), { at: 'below' });
-  const motor = document.querySelector('#left-panel .pm-pick, #left-panel .pm-relations');
-  if (motor) g.mark(motor, 2, g.T('입력축 회전 모터', 'Rotary motor on the input shaft'), { at: 'below' });
-  return null;
-});
-
 // 11 · drawings
 scene('drawing-section-detail', async (g) => {
   await g.sample('asmShaftDrawing'); await g.settle(1500);
@@ -620,70 +574,6 @@ scene('tools-markup', async (g) => {
 });
 
 // The tutorial's sweep and sheet metal lessons (built step by step)
-scene('tut-sweep-sketches', async (g) => {
-  const { m } = g;
-  await m.popups.closeAll(); await g.settle(300);
-  await g.newPart();
-  await g.cm('features');
-  g.sketch({ kind: 'std', name: 'top' }, [{ id: 'pc', type: 'point', x: 0, y: 0 }, { id: 'c1', type: 'circle', c: 'pc', r: 8 }, { id: 'c2', type: 'circle', c: 'pc', r: 6 }], g.T('윤곽', 'Profile'));
-  g.sketch({ kind: 'std', name: 'front' }, [{ id: 'q1', type: 'point', x: 0, y: 0 }, { id: 'q2', type: 'point', x: 0, y: 60 }, { id: 'q3', type: 'point', x: 50, y: 100 }, { id: 'q4', type: 'point', x: 110, y: 100 }, { id: 'm1', type: 'line', p1: 'q1', p2: 'q2' }, { id: 'm2', type: 'line', p1: 'q2', p2: 'q3' }, { id: 'm3', type: 'line', p1: 'q3', p2: 'q4' }], g.T('경로', 'Path'));
-  await g.settle(800); await g.view('iso'); await g.fit();
-  const rows = [g.treeRow(g.T('윤곽', 'Profile')), g.treeRow(g.T('경로', 'Path'))];
-  rows.forEach((r, i) => r && g.mark(r, i + 1, i ? g.T('정면의 열린 선', 'Open lines on Front') : g.T('윗면의 두 원 (관)', 'Two circles on Top (a tube)'), { at: 'right', dx: -190 }));
-  return null;
-});
-scene('tut-sweep', async (g) => {
-  const { m } = g;
-  await m.run('sweep'); await g.settle(1500);
-  const picks = [...document.querySelectorAll('#left-panel .pm-pick')];
-  if (picks[0]) g.mark(picks[0], 1, g.T('윤곽', 'Profile'), { at: 'below' });
-  if (picks[1]) g.mark(picks[1], 2, g.T('경로', 'Path'), { at: 'below' });
-  return null;
-});
-scene('tut-sweep-done', async (g) => {
-  const { m } = g;
-  m.actions.acceptEditing(); await g.settle(1200); await g.fit(); m.actions.select([]); await g.settle(300);
-  return g.clip(['#left-panel', '#view-host'], 0);
-});
-scene('tut-sm-base', async (g) => {
-  const { m } = g;
-  await g.newPart();
-  g.sketch({ kind: 'std', name: 'top' }, g.rect(0, 0, 120, 70), g.T('판', 'Plate'));
-  await g.settle(500);
-  await g.cm('sheetMetal');
-  await m.run('baseFlange'); await g.view('iso'); await g.fit(); await g.settle(1000);
-  g.mark('#left-panel', 1, g.T('두께 · 굽힘 반지름 · K 계수', 'Thickness · bend radius · K-factor'), { at: 'br', pad: -1 });
-  return null;
-});
-scene('tut-sm-edge', async (g) => {
-  const { m } = g;
-  m.actions.acceptEditing(); await g.settle(800);
-  const entry = m.state.partEntry;
-  const i = entry.edgeList.findIndex((ed) => ed.geomType === 'LINE' && ed.startPoint.x > 119.9 && ed.endPoint.x > 119.9 && ed.startPoint.y > 1 && ed.endPoint.y > 1);
-  m.actions.select([{ kind: 'edge', bodyKey: 'body', index: i, key: `edge:body:${i}` }]);
-  await m.run('edgeFlange'); m.actions.pmFieldChanged('length', '35', 'length'); await g.settle(1200);
-  const pick = document.querySelector('#left-panel .pm-pick');
-  if (pick) g.mark(pick, 1, g.T('판 윗면의 직선 모서리', 'A straight top edge of the sheet'), { at: 'below' });
-  return null;
-});
-scene('tut-sm-flat', async (g) => {
-  const { m } = g;
-  m.actions.acceptEditing(); await g.settle(800);
-  await m.run('flatten'); await g.view('top'); await g.fit(); await g.settle(800);
-  g.mark('#view-host', 1, g.T('전개도 (굽힘 여유 포함)', 'Flat pattern (bend allowance included)'), { at: 'tl', pad: -1, dy: 26 });
-  return null;
-});
-scene('tut-drawing-bom', async (g) => {
-  const { m } = g;
-  await m.run('flatten');
-  await g.sample('shaftAssembly'); await g.settle(500);
-  await m.actions.newDrawing(); await g.settle(1500);
-  await m.run('bom'); await g.settle(1200);
-  const bom = document.querySelector('.drawing-paper svg .bom');
-  if (bom) g.mark(bom, 1, g.T('부품표 (BOM)', 'Bill of materials'), { pad: 4, at: 'above' });
-  return g.clip(['.drawing-paper']);
-});
-
 // ───────────────────────── run
 
 if (until && scenes.some((s) => s.name === until)) scenes.splice(scenes.findIndex((s) => s.name === until) + 1);

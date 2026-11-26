@@ -31,7 +31,7 @@ New to the program? Follow the **tutorial document** first (Help › Tutorial do
 
 ## 2. Start page
 
-Cards can be dragged and resized from their lower-right corner (**Arrange** puts them back). They hold **Quick actions** (open, import STEP, continue the last work, settings …), **Recent items**, **New project** (part in mm or inches, assembly, drawing), 75 **samples** (five groups of 15) and the **moving background**. Whether the page shows at start is set by the check box at the top left or in Settings › Start page.
+Cards can be dragged and resized from their lower-right corner (**Arrange** puts them back). They hold **Quick actions** (open, import STEP, continue the last work, settings …), **Recent items**, **New project** (part in mm or inches, assembly, drawing), 92 **samples** (five groups of 15, and the tutorial's 17 lesson results) and the **moving background**. Whether the page shows at start is set by the check box at the top left or in Settings › Start page.
 
 ![The start page: program information (guide and tutorial buttons), shortcuts, recent items, new project and sample cards](images/en/start-page.png)
 
@@ -426,7 +426,7 @@ From a part or an assembly, **Drawing › Make drawing** (or Standard 3 View) pu
 
    ![The lights PropertyManager](images/en/lights.png)
 * **Collapsing panels**: the left, bottom and right panels collapse with the button in their header and open again from the expand button of the collapsed bar (the View › Show menu and the shortcuts do the same).
-* **Start page**: the program information at the top is fixed (it cannot be moved or resized). The cards below are dragged to move and resized from their corner; **Arrange** lines them up in rows and columns keeping their sizes. There are 15 samples in each group.
+* **Start page**: the program information at the top is fixed (it cannot be moved or resized). The cards below are dragged to move and resized from their corner; **Arrange** lines them up in rows and columns keeping their sizes. There are 15 samples in each group; the Tutorial group holds the result of each lesson of the six-axis robot tutorial (17).
 
 ## 12. Files
 

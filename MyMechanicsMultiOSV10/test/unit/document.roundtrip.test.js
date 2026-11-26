@@ -110,7 +110,7 @@ for (const sample of SAMPLES) {
 // ───────────────────────── geometry of the reopened projects (a representative subset)
 
 /** Two quick samples per group (found by timing every sample's rebuild). */
-const GEOMETRY = ['basMotorMount', 'basCastleNut', 'mchUJointYoke', 'mchSteppedShaft', 'hsgDinRail', 'hsgLBracket', 'asmShaftDrawing', 'asmDoorHinge', 'advParamBracket', 'advSheetEnclosure'];
+const GEOMETRY = ['basMotorMount', 'basCastleNut', 'mchUJointYoke', 'mchSteppedShaft', 'hsgDinRail', 'hsgLBracket', 'asmShaftDrawing', 'asmDoorHinge', 'advParamBracket', 'advSheetEnclosure', 'tut01', 'tut12'];
 const shapeFacts = (body) => {
   if (!body) return null;
   const [lo, hi] = body.boundingBox.bounds;

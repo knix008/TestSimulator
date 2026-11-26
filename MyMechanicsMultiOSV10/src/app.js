@@ -2946,7 +2946,8 @@ function animateExplode() {
       if (k < 1) { requestAnimationFrame(frame); return; }
       state.explodeProgress = null;
       state.explodeCentersNow = null;
-      change('op.explode', () => { asm.explode.on = out; });
+      // Another command may have removed the explode meanwhile.
+      if (asm.explode) change('op.explode', () => { asm.explode.on = out; });
       notify('info', t(out ? 'notice.exploded' : 'notice.collapsed'));
       resolve(true);
     };
@@ -7880,7 +7881,8 @@ window.__mymechanics = {
 window.__mymechanics.sim2 = more.sim2;
 // The tutorial video's replay (scripts/make-tutorial-video.mjs): the finished tutorial robot (without its stage) and
 // a feature opened in its own PropertyManager, ready to accept.
-window.__mymechanics.tutorial = { robot: (lang) => buildSample('tut17', lang ?? state.settings.language, { stage: false }), begin: (feature) => beginFeature(structuredClone(feature)) };
+// (A hole there refers to its point sketch, already made: its points count as placed, no new sketch is made.)
+window.__mymechanics.tutorial = { robot: (lang) => buildSample('tut17', lang ?? state.settings.language, { stage: false }), begin: (feature) => beginFeature(structuredClone(feature), feature.type === 'hole' ? { holeSketch: { plane: null, points: [[0, 0]] } } : {}) };
 // The CommandManager as written (COMMAND_TABS) and as shown (families folded into flyouts) — for the tests.
 window.__mymechanics.ribbon = () => { return { tabs: COMMAND_TABS, grouped: ribbonGroups(), toolbar: [...TOOLBAR.flat(), ...TOOLBAR_RIGHT, ...Object.values(TOOLBAR_MAIN)] }; };
 window.__mymechanics.decals = decalTools;
