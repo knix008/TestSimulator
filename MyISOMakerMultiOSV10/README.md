@@ -50,7 +50,7 @@ npm test             # 엔진(isomaker-host, 프로그램과 같은 Rust 코드)
                      #   cargo test 결과도 한 줄씩 (영문 · 정렬 · 컬러 출력, 테스트별 시간, 요약)
 npm run test:rust    # cargo test (프로그램 + 엔진)
 npm run typecheck
-npm run clean        # 빌드 · 시험 결과물 지우기 (dist/, dist-web/ …; 소스와 설치 파일은 그대로)
+npm run clean        # 빌드 · 시험 결과물 지우기 (dist/, dist-web/, 설치 파일 MyISOMaker_*.exe …, target/release/bundle/)
 npm run clean:all    # 위 + node_modules/ · src-tauri/target/ · src-tauri/gen/ (다음에 npm install 부터)
 npm run build:debug  # 시험용 exe (src-tauri/target/debug/MyISOMaker.exe, 설치 파일 없음)
 npm run build:win    # Windows 설치 파일 (NSIS) → 프로젝트 루트로 복사
