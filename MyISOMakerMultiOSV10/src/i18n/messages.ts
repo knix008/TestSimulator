@@ -469,6 +469,17 @@ const ko = {
   settingsThemeList: "테마 목록",
   settingsReset: "초기화",
   settingsResetTip: "모든 설정을 처음 설치했을 때로 되돌립니다 (언어 · 테마 · 사용자 테마 · 시작 화면 · 배경 · 자동 설치)",
+  aboutSectionProgram: "프로그램",
+  aboutSectionFormats: "지원 형식",
+  aboutSectionBuild: "빌드 정보",
+  aboutCopyrightLabel: "저작권",
+  aboutFormatsOpen: "열기 · 편집 · 저장",
+  aboutFormatsMake: "만들기",
+  aboutFormatsMakeValue: "ISO 9660 + Joliet · 부팅 ISO (BIOS · UEFI) · AppImage",
+  aboutRuntimeLabel: "런타임",
+  aboutBuildLabel: "빌드 종류",
+  aboutBuildDebug: "개발용 (debug)",
+  aboutBuildRelease: "배포용 (release)",
 } as const
 
 const en: Record<MessageKey, string> = {
@@ -934,6 +945,17 @@ const en: Record<MessageKey, string> = {
   settingsThemeList: "Themes",
   settingsReset: "Reset",
   settingsResetTip: "Put every setting back as on a new installation (language, theme, custom theme, start screen, background, automatic install)",
+  aboutSectionProgram: "Program",
+  aboutSectionFormats: "Formats",
+  aboutSectionBuild: "Build",
+  aboutCopyrightLabel: "Copyright",
+  aboutFormatsOpen: "Open · edit · save",
+  aboutFormatsMake: "Create",
+  aboutFormatsMakeValue: "ISO 9660 + Joliet · bootable ISO (BIOS · UEFI) · AppImage",
+  aboutRuntimeLabel: "Runtime",
+  aboutBuildLabel: "Build type",
+  aboutBuildDebug: "Development (debug)",
+  aboutBuildRelease: "Release",
 }
 
 export const messages = { ko, en } as const

@@ -525,7 +525,8 @@ async fn open_tool_window(app: AppHandle, kind: String, route: Option<String>) -
         "help" => (1100.0, 820.0, 760.0, 520.0, true),
         // A fixed size every tab fits into: Settings never needs a scrollbar.
         "settings" => (1040.0, 720.0, 1040.0, 720.0, false),
-        "about" => (520.0, 600.0, 520.0, 600.0, false),
+        // Sized to its content by the page (fit_tool_window).
+        "about" => (560.0, 460.0, 560.0, 300.0, false),
         _ => return Err(format!("unknown window: {kind}")),
     };
     let route = route.unwrap_or_else(|| kind.clone());
@@ -562,6 +563,19 @@ fn fit_tool_window(window: WebviewWindow, height: f64) -> Result<(), String> {
     window.set_min_size(Some(tauri::LogicalSize::new(width, height))).map_err(|e| e.to_string())?;
     window.set_size(tauri::LogicalSize::new(width, height)).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// About window: what the program runs on.
+#[tauri::command]
+fn app_info(app: AppHandle) -> Value {
+    json!({
+        "version": app.package_info().version.to_string(),
+        "tauri": tauri::VERSION,
+        "webview": tauri::webview_version().unwrap_or_default(),
+        "os": std::env::consts::OS,
+        "arch": std::env::consts::ARCH,
+        "debug": cfg!(debug_assertions),
+    })
 }
 
 #[tauri::command]
@@ -642,6 +656,7 @@ pub fn run() {
             print_content,
             open_tool_window,
             fit_tool_window,
+            app_info,
             show_theme_menu,
             hide_theme_menu,
             fit_theme_menu,

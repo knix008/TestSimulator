@@ -194,9 +194,12 @@ try {
     }
     await page.evaluate(ui.click('[data-tool="settings"]'))
     const settings = await connect((u) => u.includes('tool.html#settings'))
-    await settings.evaluate(ui.wait('[data-settings-tab]'))
+    await settings.evaluate(ui.wait('.settings-tabs [data-settings-tab="general"]')).catch(async (err) => {
+      console.error('settings page:', await settings.evaluate('location.href + " " + document.body.innerText.slice(0, 200)').catch(() => '?'))
+      throw err
+    })
     for (const tab of ['general', 'theme', 'packages', 'start']) {
-      await settings.evaluate(ui.click(`[data-settings-tab="${tab}"]`))
+      await settings.evaluate(ui.click(`.settings-tabs [data-settings-tab="${tab}"]`))
       await sleep(tab === 'packages' ? 1500 : 600)
       await settings.shot(out(`settings-${tab}`))
     }

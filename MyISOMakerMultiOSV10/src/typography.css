@@ -41,7 +41,7 @@ button, input, select, textarea, option, label { font-size: 13px; }
 
 /* ── 14px: card and section titles ── */
 .start-card > h2, .start-card-title, .settings-card-title, .info-sub, .custom-theme h3, .title-name,
-.pkg-name, .work-empty-title small, .start-hero-text h1 small, .about-view h1 small {
+.pkg-name, .work-empty-title small, .start-hero-text h1 small {
   font-size: 14px !important;
 }
 
@@ -52,6 +52,6 @@ button, input, select, textarea, option, label { font-size: 13px; }
 .work-empty-title { font-size: 20px !important; }
 
 /* ── the program name on the start screen / About ── */
-.start-hero-text h1 > span:first-child, .about-view h1 { font-size: 26px !important; }
+.start-hero-text h1 > span:first-child { font-size: 26px !important; }
 .start-hero-text h1 small { font-size: 14px !important; }
 .help-font-value, .help-font-btn, .print-preview-tools, .print-preview-tools span, .print-zoom, .print-field, .print-note { font-size: 13px !important; }

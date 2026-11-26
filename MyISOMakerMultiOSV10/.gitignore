@@ -1,9 +1,40 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 dist-web/
+# The Node host bundle (scripts/build-host.mjs); -release also holds node.exe for the installer
 dist-sidecar/
+dist-sidecar-release/
 src-tauri/target/
 src-tauri/gen/
 release/
+
+# Installers copied to the project root (npm run build:win / mac / linux)
+/*.exe
+/*.msi
+/*.dmg
+/*.pkg
+/*.AppImage
+/*.deb
+/*.rpm
+*.blockmap
+
+# Half-written files (an AppImage being assembled, the host bundle being renamed)
+*.part
+host.*.tmp.mjs
+
+# Test and tool output
+test-results/
+*.tsbuildinfo
+.vite/
+
+# Logs
 *.log
-dist-sidecar-release/
+npm-debug.log*
+
+# OS and editors
+.DS_Store
+Thumbs.db
+desktop.ini
