@@ -1,0 +1,44 @@
+{
+  "name": "my-iso-maker-multi-os",
+  "version": "1.0.2",
+  "description": "ISO create/extract/edit/mount (desktop, Tauri) and ISO view/edit (web)",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "tauri dev",
+    "tauri": "tauri",
+    "dev:renderer": "vite",
+    "build:host": "node scripts/build-host.mjs",
+    "start:web": "vite --config vite.config.web.ts",
+    "dev:web": "vite --config vite.config.web.ts",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build:web": "vite build --config vite.config.web.ts",
+    "build:debug": "node scripts/build.mjs debug",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "icons": "tauri icon assets/icon-master.png -o src-tauri/icons",
+    "preview:web": "vite preview --config vite.config.web.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.9.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "@vitejs/plugin-react": "^4.5.2",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "@tauri-apps/cli": "^2.9.0",
+    "esbuild": "^0.25.0"
+  },
+  "productName": "MyISOMaker"
+}

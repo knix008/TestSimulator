@@ -1,0 +1,297 @@
+/* Dialog title bar icon, theme split button + menu, Settings, Help, package progress, About icon. */
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.dialog-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+.dialog-title-icon img,
+.dialog-title-icon svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* Coloured icons keep their colour on hover; disabled buttons fade as before. */
+.icon-color { flex: none; }
+
+/* ── Theme split button ── */
+.theme-split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+.theme-split-main {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  padding-right: 6px !important;
+}
+.theme-split-caret {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  padding-left: 4px !important;
+  padding-right: 6px !important;
+  border-left: 1px solid color-mix(in srgb, var(--line) 80%, transparent) !important;
+}
+.theme-split-swatch {
+  display: inline-flex !important;
+  width: 18px !important;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+}
+.theme-split-swatch i { flex: 1; display: block; }
+.theme-split-name { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.theme-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 900;
+  width: min(840px, calc(100vw - 48px));
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg1);
+  box-shadow: 0 16px 40px color-mix(in srgb, #000 35%, transparent);
+}
+.theme-menu-top {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.theme-menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.theme-menu-item:hover,
+.theme-menu-item.on { background: var(--bg2); border-color: var(--line); color: var(--accent); }
+.theme-swatch-mini {
+  display: inline-flex;
+  width: 18px;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+.theme-swatch-mini i { flex: 1; display: block; }
+.theme-group-head {
+  margin: 8px 2px 4px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+}
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+}
+.theme-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
+.theme-chip:hover { background: var(--bg2); border-color: var(--line); }
+.theme-chip.on { border-color: var(--accent); background: var(--bg2); box-shadow: inset 0 0 0 1px var(--accent); }
+.theme-chip-bars { display: flex; height: 18px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+.theme-chip-bars i { flex: 1; display: block; }
+.theme-chip-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.theme-chip.on .theme-chip-name { color: var(--text); font-weight: 600; }
+
+/* ── Settings ── */
+.dialog-panel.dialog-panel--settings {
+  width: min(960px, 100%);
+  height: min(720px, 90vh);
+  max-height: none;
+}
+.dialog-panel--settings .dialog-body { flex: 1 1 auto; min-height: 0; padding: 0; overflow: hidden; }
+.settings-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); height: 100%; min-height: 0; }
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg0) 40%, var(--bg1));
+}
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.settings-tab:hover { background: var(--bg2); }
+.settings-tab.on { background: var(--bg2); border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); font-weight: 600; }
+.settings-tab-icon { display: inline-flex; }
+.settings-tab-icon svg { width: 18px; height: 18px; }
+.settings-page { min-height: 0; overflow-y: auto; padding: 16px 18px; }
+.settings-rows { display: flex; flex-direction: column; gap: 14px; }
+.settings-row { display: flex; align-items: center; gap: 14px; }
+.settings-label { display: inline-flex; align-items: center; gap: 8px; min-width: 120px; font-weight: 600; }
+.settings-label svg, .settings-sub svg, .custom-theme h3 svg { width: 18px; height: 18px; }
+.settings-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.settings-seg-btn { padding: 6px 14px; border: 0; background: transparent; color: var(--text); cursor: pointer; }
+.settings-seg-btn + .settings-seg-btn { border-left: 1px solid var(--line); }
+.settings-seg-btn.on { background: var(--accent); color: var(--accent-fg, #fff); font-weight: 600; }
+.settings-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.settings-check input[type='checkbox'],
+.bg-control input[type='checkbox'],
+.custom-color input[type='color'] { width: auto; padding: 0; flex: none; }
+.settings-check input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--accent); }
+.settings-hint { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.settings-sub { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-size: 14px; }
+.settings-theme { display: flex; flex-direction: column; gap: 6px; }
+.custom-theme {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg2) 50%, transparent);
+}
+.custom-theme.on { border-color: var(--accent); }
+.custom-theme h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 14px; }
+.custom-theme-colors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.custom-color { display: grid; grid-template-columns: 42px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; align-items: center; }
+.custom-color input[type='color'] { grid-row: span 2; width: 42px; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: transparent; cursor: pointer; }
+.custom-color code { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.custom-theme-actions { display: flex; gap: 8px; }
+
+/* Packages */
+.pkg-panel { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.pkg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.pkg-row { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--bg2) 45%, transparent); }
+.pkg-row.state-missing { border-color: color-mix(in srgb, var(--accent-2) 60%, var(--line)); }
+.pkg-head { display: flex; align-items: center; gap: 8px; }
+.pkg-icon svg { width: 18px; height: 18px; display: block; }
+.pkg-name { font-size: 14px; }
+.pkg-badge { padding: 1px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--line); color: var(--muted); }
+.pkg-badge.req { border-color: var(--accent); color: var(--accent); }
+.pkg-state { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+.state-app .pkg-state, .state-system .pkg-state { color: var(--accent); }
+.state-missing .pkg-state { color: var(--accent-2); font-weight: 600; }
+.pkg-desc { margin: 4px 0 8px; color: var(--muted); font-size: 12.5px; }
+.pkg-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; margin: 0 0 10px; font-size: 12px; }
+.pkg-facts dt { color: var(--muted); }
+.pkg-facts dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.pkg-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pkg-actions .dialog-btn svg, .pkg-panel > .dialog-btn svg, .custom-theme-actions .dialog-btn svg { width: 16px; height: 16px; }
+
+/* Package progress popup */
+.dialog-panel.dialog-panel--progress { width: min(480px, 100%); }
+.pkg-progress { display: flex; flex-direction: column; gap: 8px; }
+.pkg-progress-note { margin: 0; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pkg-progress-phase { margin: 0; font-weight: 600; }
+.pkg-progress-phase b { color: var(--accent); }
+.pkg-bar { position: relative; height: 10px; border-radius: 999px; overflow: hidden; background: var(--bg2); border: 1px solid var(--line); }
+.pkg-bar > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.2s ease; }
+.pkg-bar.indeterminate > span { width: 35% !important; animation: pkg-slide 1.2s ease-in-out infinite; }
+@keyframes pkg-slide { 0% { left: -35%; } 100% { left: 100%; } }
+.pkg-progress-msg { margin: 0; min-height: 1.4em; font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pkg-progress-msg.error { color: var(--danger); white-space: pre-wrap; }
+
+/* Background controls (start card and Settings) */
+.bg-panel { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.bg-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; font-size: 12.5px; }
+.bg-control { display: inline-flex; align-items: center; gap: 8px; color: var(--text); }
+.bg-control input[type='range'] { width: 140px; padding: 0; accent-color: var(--accent); }
+.bg-control output { min-width: 44px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bg-control select { padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg0); color: var(--text); }
+.bg-auto input[type='checkbox'] { width: 15px; height: 15px; accent-color: var(--accent); }
+.panel.home > .start-bg-canvas { z-index: 0; }
+.panel.home > .start-scroll { z-index: 1; }
+
+/* ── Help ── */
+.dialog-panel.dialog-panel--help { width: min(1040px, 100%); height: min(820px, 92vh); max-height: none; }
+.dialog-panel--help .dialog-body { flex: 1 1 auto; min-height: 0; padding: 0; overflow: hidden; }
+.help-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); height: 100%; min-height: 0; }
+.help-nav { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: color-mix(in srgb, var(--bg0) 40%, var(--bg1)); }
+.help-tabs { display: flex; gap: 4px; padding: 10px 8px 8px; border-bottom: 1px solid var(--line); }
+.help-tab { flex: 1; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); cursor: pointer; }
+.help-tab.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg, #fff); font-weight: 600; }
+.help-toc { list-style: none; margin: 0; padding: 6px; overflow-y: auto; min-height: 0; }
+.help-toc button { width: 100%; padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); text-align: left; font-size: 12.5px; cursor: pointer; }
+.help-toc button:hover { background: var(--bg2); color: var(--accent); }
+.help-toc .lv3 button { padding-left: 20px; color: var(--muted); font-size: 12px; }
+.help-doc { min-height: 0; overflow-y: auto; padding: 18px 26px 30px; line-height: 1.65; font-size: 14px; }
+.help-doc h1 { margin: 0 0 12px; font-size: 1.55rem; }
+.help-doc h2 { margin: 26px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); font-size: 1.2rem; color: var(--accent); }
+.help-doc h3 { margin: 18px 0 8px; font-size: 1.02rem; }
+.help-doc p { margin: 0 0 10px; }
+.help-doc ul, .help-doc ol { margin: 0 0 12px; padding-left: 22px; }
+.help-doc li { margin: 3px 0; }
+.help-doc code { padding: 1px 5px; border-radius: 5px; background: var(--bg2); font-family: var(--font-mono); font-size: 0.9em; }
+.help-doc pre { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--bg0); border: 1px solid var(--line); overflow-x: auto; }
+.help-doc pre code { padding: 0; background: none; }
+.help-doc table { width: 100%; margin: 0 0 14px; border-collapse: collapse; font-size: 13px; }
+.help-doc th, .help-doc td { padding: 6px 9px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.help-doc th { background: var(--bg2); }
+.help-doc blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+/* About: the program icon */
+.dialog-about { text-align: center; }
+.dialog-about .about-icon { width: 96px; height: 96px; margin: 0 auto 8px; display: block; filter: drop-shadow(0 8px 14px rgb(0 0 0 / 0.3)); }
+
+@media print {
+  body * { visibility: hidden; }
+  .help-doc, .help-doc * { visibility: visible; }
+  .help-doc { position: absolute; inset: 0; overflow: visible; height: auto; color: #000; background: #fff; }
+}
+
+/* Coloured icons on accent-filled (primary) buttons are drawn white. */
+.toolbar-btn.primary svg.icon-color,
+.start-hero-btn.primary svg.icon-color,
+.dialog-btn.primary svg.icon-color,
+.settings-seg-btn.on svg.icon-color { stroke: #fff; }
+.toolbar-btn.primary svg.icon-color[fill]:not([fill='none']) { fill: #fff; }
+
+/* Settings: same compact type as the rest of the app (tabs and buttons were 16px). */
+.dialog-panel--settings .settings-tab,
+.dialog-panel--settings .settings-seg-btn,
+.dialog-panel--settings .settings-check,
+.dialog-panel--settings .settings-label,
+.dialog-panel--settings .dialog-btn {
+  font-size: 13px;
+}
+.dialog-panel--settings .settings-tab { padding: 6px 10px; }
+.dialog-panel--settings .dialog-btn { padding: 5px 12px; gap: 6px; }
+.dialog-panel--settings .dialog-btn svg { width: 15px; height: 15px; }
+.dialog-panel--settings .custom-theme h3,
+.dialog-panel--settings .settings-sub { font-size: 13px; }
+.dialog-panel--help .help-tab,
+.dialog-panel--help .dialog-btn,
+.dialog-panel--progress .dialog-btn { font-size: 13px; }
+.settings-seg-btn { display: inline-flex; align-items: center; gap: 7px; }
+.settings-seg-btn .flag { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.15); }

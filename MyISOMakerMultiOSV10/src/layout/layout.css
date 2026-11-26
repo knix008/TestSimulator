@@ -1,0 +1,316 @@
+/* Frameless window: the toolbar row is the title bar; workspace with three dock panels. */
+
+.app {
+  padding: 0 0 6px !important;
+  gap: 6px !important;
+}
+
+/* ── Title row = toolbar ── */
+.toolbar {
+  border-radius: 0 !important;
+  border-width: 0 0 1px 0 !important;
+  padding: 3px 0 3px 10px !important;
+  min-height: 42px;
+  user-select: none;
+}
+.title-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding-right: 10px;
+  margin-right: 2px;
+  border-right: 1px solid var(--line);
+  cursor: default;
+}
+.title-icon { width: 24px; height: 24px; flex: none; }
+.title-name { font-weight: 700; font-size: 14px; color: var(--text); white-space: nowrap; }
+.title-version { font-size: 12px; font-weight: 650; color: var(--accent); white-space: nowrap; }
+
+.toolbar-btn.icon-only { padding: 6px 7px; }
+.toolbar-btn.icon-only .toolbar-icon { width: 20px; }
+.toolbar-btn .flag { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12); }
+
+.window-controls { display: flex; align-self: stretch; margin: -3px 0 -3px 6px; }
+.win-btn {
+  width: 46px;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.win-btn:hover { background: var(--bg2); }
+.win-btn.close:hover { background: #e81123; }
+.win-btn.close:hover svg { stroke: #fff; }
+
+/* ── Workspace ── */
+.workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 6px;
+  padding: 0 8px;
+}
+.workspace-center {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.workspace-center > .panel { flex: 1 1 auto; min-height: 0; }
+.app-statusbar { margin: 0 8px; }
+
+.dock {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg1) 94%, transparent);
+  overflow: hidden;
+}
+.dock-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 34px;
+  padding: 0 6px 0 10px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg2) 55%, transparent);
+}
+.dock-icon { display: inline-flex; }
+.dock-icon svg { width: 16px; height: 16px; }
+.dock-title { margin: 0; font-size: 13px; font-weight: 650; color: var(--text); letter-spacing: normal; text-transform: none; }
+.dock-grow { flex: 1; }
+.dock-count { font-size: 11.5px; color: var(--muted); margin-right: 2px; }
+.dock-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.dock-btn svg { width: 16px; height: 16px; }
+.dock-btn:hover:not(:disabled) { background: var(--bg2); border-color: var(--line); }
+.dock-btn:disabled { opacity: 0.4; cursor: default; }
+.dock-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
+.dock-splitter { position: absolute; z-index: 5; background: transparent; }
+.dock-splitter:hover { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.dock-splitter-left { top: 0; bottom: 0; right: 0; width: 5px; cursor: col-resize; }
+.dock-splitter-right { top: 0; bottom: 0; left: 0; width: 5px; cursor: col-resize; }
+.dock-splitter-bottom { left: 0; right: 0; top: 0; height: 5px; cursor: row-resize; }
+body.resizing-col, body.resizing-col * { cursor: col-resize !important; user-select: none !important; }
+body.resizing-row, body.resizing-row * { cursor: row-resize !important; user-select: none !important; }
+
+/* Collapsed: a rail with the expand chevron and the title */
+.dock-rail {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg1) 94%, transparent);
+  padding: 4px;
+}
+.dock-rail-left, .dock-rail-right { flex-direction: column; width: 34px; }
+.dock-rail-bottom { flex-direction: row; height: 34px; }
+.dock-rail-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 4px;
+  white-space: nowrap;
+}
+.dock-rail-left .dock-rail-label, .dock-rail-right .dock-rail-label { writing-mode: vertical-rl; }
+.dock-rail-label:hover { color: var(--accent); }
+.dock-rail-icon svg { width: 15px; height: 15px; }
+
+/* ── Explorer ── */
+.explorer { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.explorer-tools { display: flex; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.explorer-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--muted); }
+.explorer-check input { width: 14px; height: 14px; padding: 0; accent-color: var(--accent); }
+.explorer-tree { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 0; font-size: 12.5px; }
+.explorer-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding-right: 8px;
+  cursor: default;
+  white-space: nowrap;
+  user-select: none;
+}
+.explorer-row:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.explorer-row.selected { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.explorer-row.image .explorer-name { color: var(--accent); font-weight: 600; }
+.explorer-twist { width: 12px; flex: none; color: var(--muted); font-size: 11px; text-align: center; }
+.explorer-icon { display: inline-flex; flex: none; }
+.explorer-icon svg { width: 16px; height: 16px; }
+.explorer-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.explorer-size { flex: none; color: var(--muted); font-size: 11px; }
+.explorer-note { padding: 3px 8px; color: var(--muted); font-size: 12px; }
+.explorer-note.error { color: var(--danger); }
+.explorer-status { flex: none; padding: 5px 10px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.explorer-ghost {
+  position: fixed;
+  z-index: 3000;
+  pointer-events: none;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-fg, #fff);
+  font-size: 12px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.3);
+}
+
+/* ── Info ── */
+.info-panel { padding: 8px 12px 14px; font-size: 12.5px; }
+.info-sub { display: flex; align-items: center; gap: 6px; margin: 10px 0 6px; font-size: 12.5px; font-weight: 650; color: var(--text); }
+.info-sub:first-child { margin-top: 2px; }
+.info-sub svg { width: 15px; height: 15px; }
+.info-grid { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.info-item { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 8px; padding: 3px 6px; border-radius: 6px; }
+.info-item:hover { background: var(--bg2); }
+.info-item dt { color: var(--muted); }
+.info-item dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.info-item dd.ok { color: var(--accent); }
+.info-item dd.warn { color: var(--accent-2); }
+.info-empty { margin: 0; padding: 4px 6px; color: var(--muted); }
+
+/* ── Log ── */
+.log-panel { height: 100%; min-height: 0; overflow: auto; font-family: var(--font-mono); font-size: 12px; }
+.log-list { list-style: none; margin: 0; padding: 4px 0; }
+.log-item { display: grid; grid-template-columns: 64px 44px minmax(0, 1fr); gap: 8px; padding: 2px 10px; }
+.log-item:hover { background: var(--bg2); }
+.log-time { color: var(--muted); }
+.log-kind { font-size: 10.5px; text-transform: uppercase; color: var(--muted); }
+.log-kind.kind-add { color: #22c55e; }
+.log-kind.kind-out { color: #0ea5e9; }
+.log-kind.kind-save { color: #3b82f6; }
+.log-kind.kind-error { color: var(--danger); }
+.log-kind.kind-job { color: #f59e0b; }
+.log-msg { white-space: pre-wrap; word-break: break-word; color: var(--text); }
+.log-panel .change-log-empty { padding: 10px 12px; font-family: var(--font-body); color: var(--muted); }
+
+/* context menu icons keep their colour */
+.ctx-menu svg, .context-menu svg { flex: none; }
+
+/* Panel toggles in the panel headers / rails: the toolbar's own buttons */
+.dock-toggle { padding: 3px 5px !important; }
+.dock-toggle .toolbar-icon { width: 20px; }
+.dock-rail .dock-toggle { margin: 0; }
+
+/* Start screen is its own screen: the center takes the whole width */
+.panel.home { margin: 0; }
+
+/* Main window with no image */
+.panel section.work-empty-section { display: grid; place-items: center; overflow: auto; }
+.work-empty { max-width: 760px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 18px 0; }
+.work-empty-icon { width: 112px; height: 112px; filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.28)); user-select: none; }
+.work-empty-title { margin: 4px 0 0; font-size: 1.5rem; color: var(--text); letter-spacing: normal; text-transform: none; }
+.work-empty-title small { font-size: 0.85rem; color: var(--accent); font-weight: 650; }
+.work-empty-lead { margin: 0 0 8px; color: var(--muted); line-height: 1.55; max-width: 640px; }
+.work-empty-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.work-empty-btn {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg1);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.work-empty-btn:hover:not(:disabled) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg1)); }
+.work-empty-btn.primary { border-color: var(--accent); }
+.work-empty-btn:disabled { opacity: 0.5; cursor: default; }
+.work-empty-btn-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: var(--bg2); }
+.work-empty-btn-icon svg { width: 20px; height: 20px; }
+.work-empty-btn-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.work-empty-btn-text b { font-size: 13.5px; }
+.work-empty-btn-text small { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.work-empty-tips { margin: 10px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 12.5px; line-height: 1.8; }
+.work-empty-tips li::before { content: '• '; color: var(--accent); }
+
+/* ISO tree: coloured icons and the lines that join a folder to its entries */
+.iso-tree-row { grid-template-columns: 14px 16px 1fr auto !important; }
+.iso-tree-icon,
+.iso-tree-icon.dir { width: 16px !important; height: 16px !important; background: none !important; border-radius: 0 !important; display: inline-flex; }
+.iso-tree-icon svg { width: 16px; height: 16px; display: block; }
+.iso-tree-branch { position: relative; }
+.iso-tree-branch.has-line::before {
+  content: '';
+  position: absolute;
+  left: var(--tree-line-x);
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid color-mix(in srgb, var(--muted) 55%, transparent);
+  pointer-events: none;
+}
+.iso-tree-branch.has-line:last-child::before { bottom: auto; height: 14px; }
+.iso-tree-branch.has-line::after {
+  content: '';
+  position: absolute;
+  left: var(--tree-line-x);
+  top: 14px;
+  width: 9px;
+  border-top: 1px solid color-mix(in srgb, var(--muted) 55%, transparent);
+  pointer-events: none;
+}
+
+/* The toolbar is one row, always: nothing wraps; the window's minimum width fits it. */
+.toolbar,
+.toolbar-main,
+.toolbar-group { flex-wrap: nowrap !important; }
+.toolbar { overflow: hidden !important; }
+.toolbar-main { flex: 1 1 auto; min-width: max-content; }
+
+/* ── Two rows: title row (brand · Start · … · view/theme/language/settings/help/about · window buttons)
+      and the tool row under it ── */
+.titlebar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 40px;
+  padding: 0 0 0 10px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg1) 96%, transparent);
+  user-select: none;
+  overflow: hidden;
+}
+.titlebar-drag { flex: 1 1 auto; align-self: stretch; min-width: 24px; }
+.titlebar .toolbar-group { display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; flex-shrink: 0; }
+.titlebar .toolbar-end { margin-left: 0; }
+.titlebar .window-controls { margin: 0 0 0 6px; align-self: stretch; }
+.toolbar-endlead { display: inline-flex; align-items: center; }
+.app > .toolbar {
+  min-height: 0;
+  padding: 3px 10px !important;
+  border-width: 0 0 1px 0 !important;
+  margin-top: -6px;
+}
+.app > .toolbar .toolbar-main { justify-content: flex-start; }
