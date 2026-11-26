@@ -21,7 +21,7 @@
     "icons": "tauri icon assets/icon-master.png -o src-tauri/icons",
     "preview:web": "vite preview --config vite.config.web.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test --test-reporter=./test/reporter.mjs --test-reporter-destination=stdout test/*.test.mjs",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "smoke": "node scripts/smoke.mjs"
   },

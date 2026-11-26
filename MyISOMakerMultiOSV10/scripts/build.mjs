@@ -31,6 +31,8 @@ function run(args) {
 }
 
 if (target === 'debug') {
+  // The debug program runs dist-sidecar/host.mjs with the Node on PATH.
+  run([path.join(root, 'scripts', 'build-host.mjs')])
   run([cli, "build", "--debug", "--no-bundle", "--features", "tauri/custom-protocol"])
   process.exit(0)
 }

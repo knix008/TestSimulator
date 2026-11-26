@@ -68,8 +68,8 @@ The window has no system title bar. The top two rows are the title bar and the t
 
 | Area | Description |
 |---|---|
-| Title row (first row) | Program icon, name, version and the **Start** button on the left; at the right end the Explorer / Log / Info panel buttons, the theme button (▾), the flag (language), Settings, Help, About, then minimize, maximize and close. Drag an empty spot to move the window; double-click the name to maximize |
-| Tool row (second row) | Open, close and save the image, editing tools, work tabs, Run, Stop, Open folder, Check the engine. Always one row |
+| Title row (first row) | Program icon, name and version on the left; at the right end the Explorer / Log / Info panel buttons, then minimize, maximize and close. Drag an empty spot to move the window; double-click the name to maximize |
+| Tool row (second row) | **Start** at the far left, open / close / save the image, editing tools, work tabs, Run, Stop, Open folder, Check the engine; at the right end the theme button (▾), the flag (language), Settings, Help and About. Always one row |
 | Explorer (left) | The computer's folders and files. Double-click an image to open it; drag files onto the tree in the middle to add them |
 | Work area (middle) | The image tree (Contents tab) or the fields of each tab. With no image open it shows the program icon, a description and buttons to start |
 | Info (right) | The open image (file, format, volume, entries, size, state), the entries picked in the tree, the engine status |

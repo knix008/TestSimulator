@@ -314,3 +314,10 @@ body.resizing-row, body.resizing-row * { cursor: row-resize !important; user-sel
   margin-top: -6px;
 }
 .app > .toolbar .toolbar-main { justify-content: flex-start; }
+.titlebar-actions { gap: 2px; }
+.app > .toolbar .toolbar-end { margin-left: auto; padding-left: 12px; display: flex; align-items: center; gap: 2px; }
+.app > .toolbar .toolbar-main { flex: 0 0 auto; min-width: 0; }
+.work-empty-btn.primary { background: var(--accent); color: var(--accent-fg, #fff); }
+.work-empty-btn.primary .work-empty-btn-text small { color: color-mix(in srgb, var(--accent-fg, #fff) 82%, transparent); }
+.work-empty-btn.primary .work-empty-btn-icon { background: color-mix(in srgb, #000 18%, transparent); }
+.work-empty-btn.primary svg.icon-color { stroke: #fff; }

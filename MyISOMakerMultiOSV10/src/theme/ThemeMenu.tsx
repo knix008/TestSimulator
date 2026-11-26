@@ -45,6 +45,22 @@ export function ThemeChips({ onPick }: { onPick?: (id: string) => void }) {
   )
 }
 
+/** The theme button's icon: a painter's palette with coloured paint. */
+export const PALETTE = (
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path
+      d="M12 3a9 9 0 0 0 0 18c1.3 0 2-.8 2-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"
+      fill="#f3d9a4"
+      stroke="#b7791f"
+      strokeWidth="1.2"
+    />
+    <circle cx="7.5" cy="11" r="1.6" fill="#ef4444" />
+    <circle cx="9.5" cy="7" r="1.6" fill="#f59e0b" />
+    <circle cx="14" cy="6.5" r="1.6" fill="#22c55e" />
+    <circle cx="17.5" cy="9.5" r="1.6" fill="#3b82f6" />
+  </svg>
+)
+
 export function ThemeSplitButton({ onEditCustom }: { onEditCustom: () => void }) {
   const { themeId, cycleTheme, setThemeId, themeName, t, customColors } = usePrefs()
   const [open, setOpen] = useState(false)
@@ -66,7 +82,6 @@ export function ThemeSplitButton({ onEditCustom }: { onEditCustom: () => void })
     }
   }, [open])
 
-  const current = themeById(themeId) as { bars: string[] } | null
   const custom = themeById(CUSTOM_ID) as { bars: string[] }
   void customColors // re-render when the custom colours change
 
@@ -74,22 +89,19 @@ export function ThemeSplitButton({ onEditCustom }: { onEditCustom: () => void })
     <div className="theme-split" ref={box}>
       <button
         type="button"
-        className="toolbar-btn theme-split-main"
+        className="toolbar-btn icon-only theme-cycle"
         data-testid="theme-cycle"
         title={t('tipThemeCycle', themeName(themeId))}
         aria-label={t('tipThemeCycle', themeName(themeId))}
         onClick={cycleTheme}
       >
-        <span className="toolbar-icon theme-split-swatch" aria-hidden="true">
-          {(current?.bars ?? []).map((c, i) => (
-            <i key={i} style={{ background: c }} />
-          ))}
+        <span className="toolbar-icon" aria-hidden="true">
+          {PALETTE}
         </span>
-        <span className="toolbar-label theme-split-name">{themeName(themeId)}</span>
       </button>
       <button
         type="button"
-        className={`toolbar-btn theme-split-caret${open ? ' active' : ''}`}
+        className={`theme-select${open ? ' open' : ''}`}
         data-testid="theme-menu"
         title={t('tipThemeMenu')}
         aria-label={t('tipThemeMenu')}
@@ -97,7 +109,8 @@ export function ThemeSplitButton({ onEditCustom }: { onEditCustom: () => void })
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+        <span className="theme-select-name">{themeName(themeId)}</span>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>

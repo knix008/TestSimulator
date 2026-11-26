@@ -53,8 +53,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../dist-sidecar/": "sidecar/",
-      "../vendor/xorriso/": "vendor/xorriso/"
+      "../vendor/xorriso/": "vendor/xorriso/",
+      "../dist-sidecar-release/": "sidecar/"
     },
     "windows": {
       "nsis": {

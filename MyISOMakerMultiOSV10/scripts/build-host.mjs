@@ -1,10 +1,10 @@
 /**
  * The Node host as one file: host/host.ts (+ src/iso9660) → dist-sidecar/host.mjs.
- * With --release the Node runtime that runs this script is copied next to it
- * (node.exe / node), so the installed program does not need Node.js.
+ * With --release it goes to dist-sidecar-release/ with the Node runtime that runs this
+ * script copied next to it (node.exe / node), so the installed program does not need Node.js.
  *
  * tauri.conf.json runs this before `tauri dev` / `tauri build`; the release
- * bundle ships dist-sidecar/ as resources/sidecar.
+ * bundle ships dist-sidecar-release/ as resources/sidecar.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -13,7 +13,9 @@ import * as esbuild from 'esbuild'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const release = process.argv.includes('--release')
-const out = path.join(root, 'dist-sidecar')
+// Release output has its own folder: a `tauri dev` started meanwhile rebuilds
+// dist-sidecar/ (without Node) and must not empty what the installer bundles.
+const out = path.join(root, release ? 'dist-sidecar-release' : 'dist-sidecar')
 
 fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })

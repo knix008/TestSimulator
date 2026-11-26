@@ -102,7 +102,20 @@ export default function App() {
 
   const [isoPath, setIsoPath] = useState('')
   const [sourceDir, setSourceDir] = useState('')
-  const [outputIso, setOutputIso] = useState('')
+  const [outputIso, setOutputIsoState] = useState('')
+  /** The output name still follows the source (the user has not typed or picked one). */
+  const outputAuto = useRef(true)
+  const volumeAuto = useRef(true)
+  const setOutputIso = (p: string) => {
+    outputAuto.current = !p
+    setOutputIsoState(p)
+  }
+  /** Source folder (or file) for Create / Bootable: the output ISO and volume label follow its name until changed. */
+  const chooseSource = (dir: string) => {
+    setSourceDir(dir)
+    if (outputAuto.current) setOutputIsoState(defaultIsoFor(dir))
+    if (volumeAuto.current) setVolumeLabel(volumeLabelFor(dir))
+  }
   const [volumeLabel, setVolumeLabel] = useState('ISOMAKER')
   const [biosBootImage, setBiosBootImage] = useState('boot/grub/i386-pc/eltorito.img')
   const [efiBootImage, setEfiBootImage] = useState('EFI/BOOT/efiboot.img')
@@ -1247,7 +1260,7 @@ export default function App() {
               },
               addToImage: session && !busy ? (paths) => void onDropPaths(addDestDir, paths) : null,
               useAsSource: (dir) => {
-                setSourceDir(dir)
+                chooseSource(dir)
                 setTab('create')
               },
               extractHere: session && selectedFiles.length ? (dir) => void extractSelectedTo(dir) : null,
@@ -1359,16 +1372,19 @@ export default function App() {
                 browseLabel={t('browse')}
                 onBrowse={async () => {
                   const p = await getApi().openDirectory(sourceDir || parentDir(isoPath), t('dlgOpenDir'))
-                  if (p) setSourceDir(p)
+                  if (p) chooseSource(p)
                 }}
-                onChange={setSourceDir}
+                onChange={chooseSource}
                 placeholder={t('placeholderSource')}
               />
             </Field>
             <Field label={t('volumeLabel')}>
               <input
                 value={volumeLabel}
-                onChange={(e) => setVolumeLabel(e.target.value)}
+                onChange={(e) => {
+                  volumeAuto.current = !e.target.value
+                  setVolumeLabel(e.target.value)
+                }}
                 maxLength={32}
               />
             </Field>
@@ -1417,16 +1433,19 @@ export default function App() {
                 browseLabel={t('browse')}
                 onBrowse={async () => {
                   const p = await getApi().openDirectory(sourceDir || parentDir(isoPath), t('dlgOpenDir'))
-                  if (p) setSourceDir(p)
+                  if (p) chooseSource(p)
                 }}
-                onChange={setSourceDir}
+                onChange={chooseSource}
                 placeholder={t('placeholderBootSource')}
               />
             </Field>
             <Field label={t('volumeLabel')}>
               <input
                 value={volumeLabel}
-                onChange={(e) => setVolumeLabel(e.target.value)}
+                onChange={(e) => {
+                  volumeAuto.current = !e.target.value
+                  setVolumeLabel(e.target.value)
+                }}
                 maxLength={32}
               />
             </Field>
@@ -2013,4 +2032,25 @@ function processPlatform(): string {
   if (ua.includes('Windows')) return 'win32'
   if (ua.includes('Mac')) return 'darwin'
   return 'linux'
+}
+
+/** D:\work\mydisc → D:\work\mydisc.iso; a file source drops its extension. */
+function defaultIsoFor(source: string): string {
+  const trimmed = source.trim().replace(/[\\/]+$/, '')
+  if (!trimmed) return ''
+  const sep = trimmed.includes('\\') ? '\\' : '/'
+  const idx = Math.max(trimmed.lastIndexOf('\\'), trimmed.lastIndexOf('/'))
+  const parent = idx >= 0 ? trimmed.slice(0, idx) : ''
+  let name = idx >= 0 ? trimmed.slice(idx + 1) : trimmed
+  if (/^[a-zA-Z]:$/.test(trimmed)) return `${trimmed}${sep}disc.iso`
+  const dot = name.lastIndexOf('.')
+  if (dot > 0 && name.length - dot <= 6) name = name.slice(0, dot)
+  return parent ? `${parent}${sep}${name}.iso` : `${name}.iso`
+}
+
+/** ISO9660 volume label from the source name: A–Z 0–9 _ , 32 characters. */
+function volumeLabelFor(source: string): string {
+  const name = source.trim().replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? ''
+  const label = name.replace(/\.[^.]{1,5}$/, '').toUpperCase().replace(/[^A-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32)
+  return label || 'ISOMAKER'
 }
