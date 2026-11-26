@@ -51,6 +51,9 @@ export function resolveXorrisoPath(): string | null {
     resolveResource(...vendorRel) ?? '',
     path.join(__dirname, '..', '..', ...vendorRel),
     path.join(__dirname, '..', '..', '..', ...vendorRel),
+    // macOS / Linux: a program started from the Finder, Dock or a desktop menu gets a short
+    // PATH without Homebrew's folders, so look there by name too.
+    ...unixToolCandidates('xorriso'),
   ].filter(Boolean)
 
   for (const candidate of candidates) {
@@ -455,4 +458,10 @@ function sanitizeVolumeLabel(label: string): string {
 function formatXorrisoError(action: string, detail: string): string {
   const trimmed = detail.trim().slice(-2000)
   return `xorriso ${action} failed:\n${trimmed || 'Unknown error'}`
+}
+
+/** Where Homebrew / the system put command-line tools (macOS, Linux). */
+export function unixToolCandidates(name: string): string[] {
+  if (process.platform === 'win32') return []
+  return ['/opt/homebrew/bin', '/opt/homebrew/sbin', '/usr/local/bin', '/usr/local/sbin', '/usr/bin', '/usr/sbin', '/bin', '/sbin'].map((d) => path.join(d, name))
 }

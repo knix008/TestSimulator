@@ -20,5 +20,14 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     target: 'es2022',
+    // The main window and the shared print window
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        print: path.resolve(__dirname, 'print.html'),
+        thememenu: path.resolve(__dirname, 'thememenu.html'),
+        tool: path.resolve(__dirname, 'tool.html'),
+      },
+    },
   },
 })

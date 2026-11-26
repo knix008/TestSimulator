@@ -11,7 +11,7 @@ MyISOMaker is a desktop program for disc images. It opens ISO, IMG, AppImage and
 - Opening and saving AppImages use squashfs-tools (unsquashfs / mksquashfs).
 - Mounting uses the operating system (Mount-DiskImage on Windows, hdiutil on macOS, mount or fuseiso on Linux).
 
-The program is a Tauri 2 window with a React interface; a bundled Node host does the image work. The minimum window size is 1480 × 700. The interface language is Korean or English; Korean is the default.
+The program is a Tauri 2 window with a React interface; a bundled Node host does the image work. The minimum window width is worked out so that both toolbar rows fit, each on one line. The interface language is Korean or English; Korean is the default.
 
 ## 2. Installation and first start
 
@@ -66,6 +66,10 @@ It opens in the browser on port 5174. You can open an image, browse and edit the
 
 The window has no system title bar. The top two rows are the title bar and the toolbar.
 
+![The work view with no image open](images/en/main-empty.png)
+
+![An image open — explorer, tree, info and log](images/en/tree.png)
+
 | Area | Description |
 |---|---|
 | Title row (first row) | Program icon, name and version on the left; at the right end the Explorer / Log / Info panel buttons, then minimize, maximize and close. Drag an empty spot to move the window; double-click the name to maximize |
@@ -111,9 +115,13 @@ Tool buttons show only their icon; hover for the name. Only the theme button als
 | Log | Copy this line, Copy the whole log, Clear the log, Collapse panel |
 | Recent image on the start screen | Open image, Open on the Mount tab, Open folder, Copy path, Remove from the list |
 
+![Right-click menu of a tree entry](images/en/tree-menu.png)
+
 ## 4. Start screen
 
 **Start** on the toolbar opens the start screen over the whole window (the Explorer, Info and Log panels are hidden). Press **Start** again and the work view is drawn again. A tip banner sits at the top; **More** shows the longer text. Below it is the card board.
+
+![The start screen](images/en/start.png)
 
 | Card | Contents |
 |---|---|
@@ -222,17 +230,32 @@ If you open another image or close the window with unsaved changes, the Unsaved 
 - Don't save: discard the changes and continue.
 - Cancel: go back without doing anything.
 
-## 9. Creating an ISO (folder → ISO)
+## 9. Create an ISO or AppImage (folder → image)
+
+![Create ISO — the output name follows the source folder](images/en/create.png)
 
 1. Open the **Create** tab on the toolbar.
-2. Choose the folder in **Source directory** (Browse).
-3. Enter a **Volume label**. The default is `ISOMAKER`.
-4. Choose the file name in **Output ISO**.
-5. Click **Create ISO**, or **Run create** on the toolbar (Ctrl+Enter).
+2. Pick **ISO** or **AppImage** under **Output format**.
+3. Choose the folder in **Source directory** (Browse, or right-click a folder in the explorer › **Create an ISO from this folder**).
+4. The output file name and the volume label (ISO) / app name (AppImage) follow the folder's name; anything you type yourself is kept.
+5. Click **Create ISO** / **Create AppImage**, or press Ctrl+Enter.
 
-The result is an ISO9660 + Joliet (long names) image. xorriso is required; **Stop** halts a running job.
+The ISO is an ISO9660 + Joliet (long names) image and needs xorriso. **Stop** cancels a running job.
+
+### 9.1 Making and opening AppImages
+
+![Create AppImage](images/en/create-appimage.png)
+
+An AppImage is a Linux app in a single file. MyISOMaker makes it without squashfs-tools: the official AppImage runtime (type 2) followed by a SquashFS image the program writes itself.
+
+- When the folder (AppDir) has no **AppRun**, **.desktop** file or icon at its top, defaults are put inside the image; the folder itself is not changed. The default AppRun starts the program in `usr/bin`.
+- The runtime is downloaded once and kept in the program's folder. Saving an opened AppImage again reuses that file's runtime.
+- Opening AppImages needs no squashfs-tools either (gzip and zstd compression); only AppImages with other compressions (xz, lz4 …) use unsquashfs.
+- An opened AppImage is edited in the tree like an ISO and **Save** makes an AppImage again.
 
 ## 10. Bootable ISO
+
+![Bootable ISO](images/en/bootable.png)
 
 The source folder must contain the bootloader images. The usual flow is to extract an existing bootable ISO to a folder, change it, and rebuild it here.
 
@@ -269,15 +292,28 @@ Mounts are read-only. To change an image, edit it on the Contents tab and save.
 
 ## 12. Themes and the custom theme
 
+![The theme menu — custom theme, 20 dark, 20 light](images/en/theme-menu.png)
+
+![Settings › Theme and the custom theme](images/en/settings-theme.png)
+
 There are 20 dark themes, 20 light themes and one custom theme.
 
-- Clicking the theme button switches to the next theme of the same family: dark stays dark, light stays light.
-- The ▾ dropdown to its right shows all themes as colour chips, grouped Dark / Light, followed by Custom and **Edit custom theme…**.
-- The custom theme is made in Settings › Theme by picking four colours: background, panel, text and accent.
+- The palette button on the toolbar switches at once to the next theme of the same family.
+- The theme name (▾) right of it opens the theme menu: **Custom theme** and **Edit custom theme…** on top, then 20 dark themes on the left and 20 light themes on the right. The menu is a window of its own, so it may reach past the main window, but never past the screen.
+- The custom theme is made in Settings › Theme from four colours: background, panel, text and accent.
+- A new theme reaches every window at once: Help, Settings, About and the print window too.
 
-The chosen theme and language are kept for the next start.
+The theme and language are kept for the next start.
 
 ## 13. Settings
+
+Settings, Help and About are windows of their own, each with a title row (icon, title, minimize, maximize, close); they can be moved and resized apart from the main window. What you change in Settings shows in the main window at once.
+
+![The About window](images/en/about.png)
+
+![Settings › General](images/en/settings-general.png)
+
+![Settings › Start screen](images/en/settings-start.png)
 
 Click **Settings** on the toolbar to open the Settings dialog.
 
@@ -288,20 +324,45 @@ Click **Settings** on the toolbar to open the Settings dialog.
 | Packages | Status of xorriso and squashfs-tools; Install · Reinstall · Remove |
 | Start screen | Background, speed, strength, automatic change |
 
+### 13.1 Help and printing
+
+**Help** on the toolbar shows this manual and the tutorial inside the program. The bar at the top picks the manual's language (flags), the text size (A− · current px · A+; click the number for the default size) and **Print**.
+
+![Help — language, text size, print](images/en/help.png)
+
+**Print** opens the print window. Everything that prints uses this same window. It is a window of its own, so it can be moved outside the main window, and it takes the new theme as soon as the theme changes.
+
+| Item | Description |
+|---|---|
+| Printer | The installed printers; the default one is marked |
+| Copies · paper · orientation · margins · scale · colour | Page setup, remembered for the next time |
+| Preview | The pages as they will print; zoom in, out or fit |
+| Print | Prints straight to the chosen printer without the system dialog. Printers that write a file (Microsoft Print to PDF …) ask where to save first |
+| Save as PDF | Saves the same pages as a PDF file |
+
+![The print window — page setup, printer, preview](images/en/print.png)
+
 ## 14. Packages
+
+![Settings › Packages](images/en/settings-packages.png)
 
 | Package | Used for |
 |---|---|
-| xorriso | Create ISO, Bootable ISO, full extraction |
-| squashfs-tools (unsquashfs / mksquashfs) | Opening AppImages and saving as AppImage |
+| xorriso | Creating ISOs, bootable ISOs, full extraction (required) |
+| squashfs-tools (unsquashfs / mksquashfs) | Opening AppImages compressed with xz, lz4 …; smaller AppImages when saving (optional) |
 
-Settings › Packages shows for each package:
+Packages are installed the way each operating system does it.
 
-- Status: installed by the app / found on the system / missing
-- Path and version
-- Buttons: **Install**, **Reinstall**, **Remove**
+| System | How | xorriso | squashfs-tools |
+|---|---|---|---|
+| Windows | MSYS2 packages unpacked into the program's folder `%LOCALAPPDATA%\MyISOMaker\tools` (no administrator rights, no MSYS2 install) | xorriso | squashfs-tools |
+| macOS | Homebrew (`brew install`) | xorriso | squashfs |
+| Linux (Debian · Ubuntu) | apt-get (pkexec asks for the password) | xorriso | squashfs-tools |
+| Linux (Fedora) | dnf | xorriso | squashfs-tools |
+| Linux (Arch) | pacman | libisoburn | squashfs-tools |
+| Linux (openSUSE) | zypper | xorriso | squashfs |
 
-Installing shows the same progress popup as on first start and can be cancelled. On Windows the files go into `%LOCALAPPDATA%\MyISOMaker\tools`, and Remove deletes them from there. macOS uses Homebrew; Linux uses the system package manager (pkexec asks for the password).
+Settings › Packages shows each package's state (installed by the program / found on the system / missing), path and version, with **Install**, **Reinstall** and **Remove**. Installing shows a progress popup and can be cancelled. On Windows, packages the program installed are removed with the program. On macOS without Homebrew, install it first (see brew.sh).
 
 ## 15. Keyboard shortcuts
 

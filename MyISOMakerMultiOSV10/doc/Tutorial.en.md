@@ -4,12 +4,16 @@ This tutorial walks a first-time user through the basic tasks in order. See the 
 
 ## 0. Preparation
 
+![The start screen](images/en/start.png)
+
 1. Start MyISOMaker.
 2. If xorriso is missing, the automatic installation popup appears. Wait until it finishes.
 3. When the **Engine (xorriso)** card on the start screen shows **Available**, you are ready.
 4. Have one practice ISO file and one small folder to turn into an ISO.
 
 ## 1. Open an image
+
+![An image open](images/en/tree.png)
 
 1. Click **Open image** on the toolbar or press Ctrl+O.
 2. Choose the practice `.iso` file.
@@ -34,6 +38,8 @@ This tutorial walks a first-time user through the basic tasks in order. See the 
 
 ## 4. Create an ISO from a folder
 
+![The Create tab](images/en/create.png)
+
 1. Open the **Create** tab on the toolbar.
 2. Use **Browse** next to **Source directory** to choose your folder.
 3. Enter a name in **Volume label** (for example `MYDATA`).
@@ -42,6 +48,8 @@ This tutorial walks a first-time user through the basic tasks in order. See the 
 6. When it is done, open the new ISO with **Open image** to check it.
 
 ## 5. Make a bootable ISO
+
+![The Bootable ISO tab](images/en/bootable.png)
 
 1. Unpack a bootable ISO (for example a Linux live ISO) into a folder. You can export entries from the tree with right-click › **Save outside…**.
 2. Open the **Bootable** tab.

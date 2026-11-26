@@ -21,9 +21,10 @@
     "icons": "tauri icon assets/icon-master.png -o src-tauri/icons",
     "preview:web": "vite preview --config vite.config.web.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
-    "test": "node --test --test-reporter=./test/reporter.mjs --test-reporter-destination=stdout test/*.test.mjs",
+    "test": "node --test --test-concurrency=1 --test-reporter=./test/reporter.mjs --test-reporter-destination=stdout test/*.test.mjs",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "doc:images": "node scripts/make-doc-images.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",

@@ -10,6 +10,12 @@ function inline(s: string): string {
 
 export type Heading = { id: string; level: number; text: string }
 
+/** Turns a manual's image path (images/ko/x.png) into the URL the page can load. */
+let resolveImage: (src: string) => string = (src) => src
+export function setImageResolver(fn: (src: string) => string): void {
+  resolveImage = fn
+}
+
 /** The subset the manuals use: # headings, paragraphs, - / 1. lists, tables, ``` code, > notes. */
 export function renderMarkdown(md: string): { html: string; headings: Heading[] } {
   const lines = md.replace(/\r\n/g, '\n').split('\n')
@@ -40,6 +46,14 @@ export function renderMarkdown(md: string): { html: string; headings: Heading[] 
       const id = `h-${headings.length}`
       headings.push({ id, level, text: h[2]! })
       out.push(`<h${level} id="${id}">${inline(h[2]!)}</h${level}>`)
+      i += 1
+      continue
+    }
+    const img = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(trimmed)
+    if (img) {
+      flush()
+      const alt = esc(img[1]!)
+      out.push(`<figure class="doc-figure"><img src="${esc(resolveImage(img[2]!))}" alt="${alt}" loading="lazy" /><figcaption>${alt}</figcaption></figure>`)
       i += 1
       continue
     }

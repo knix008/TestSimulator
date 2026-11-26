@@ -40,6 +40,7 @@ export type IsoMakerApi = {
   extractIso: (options: ExtractOptions) => Promise<{ ok: true }>
   createIso: (options: CreateIsoOptions) => Promise<{ ok: true }>
   createBootableIso: (options: CreateBootableIsoOptions) => Promise<{ ok: true }>
+  createAppImage?: (options: { sourceDir: string; output: string; name?: string; arch?: 'x86_64' | 'aarch64' }) => Promise<{ ok: true; size: number; offset: number }>
   cancelJob: () => Promise<{ ok: true; canceled: boolean }>
   mountIso: (isoPath: string) => Promise<MountResult>
   unmountIso: (target: string) => Promise<MountResult>

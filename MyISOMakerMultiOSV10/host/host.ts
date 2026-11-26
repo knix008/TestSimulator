@@ -35,6 +35,7 @@ import { listIsoTree } from './iso/list-tree'
 import { dialogDefaultPath, rememberPath } from './last-path'
 import { mountIso, unmountIso } from './mount'
 import { cancelPackageJob, missingRequired, packageStatus, runPackageJob, type PackageId } from './packages'
+import { createAppImage, type CreateAppImageOptions } from './appimage'
 import { fsList, fsPlaces, fsStat } from './fsx'
 import { emit, handle, serve } from './rpc'
 
@@ -78,6 +79,17 @@ handle('iso:create', async (options: CreateIsoOptions) => {
 handle('iso:createBootable', async (options: CreateBootableIsoOptions) => {
   await runCancelableJob((signal) => createBootableIso(options, sendProgress, signal))
   return { ok: true }
+})
+// Folder → AppImage (runtime + built-in SquashFS writer)
+handle('iso:createAppImage', async (options: CreateAppImageOptions) => {
+  sendProgress({ phase: 'appimage', percent: 5, message: 'AppImage runtime…' })
+  let n = 0
+  const result = await createAppImage(options, (p) => {
+    n += 1
+    if (n % 20 === 0) sendProgress({ phase: 'appimage', percent: null, message: p })
+  })
+  sendProgress({ phase: 'appimage', percent: 100, message: options.output })
+  return { ok: true, ...result }
 })
 handle('iso:cancel', async () => {
   if (!currentJobAbort) return { ok: true, canceled: false }

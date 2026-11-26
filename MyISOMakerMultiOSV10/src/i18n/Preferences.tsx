@@ -89,6 +89,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     applyTheme(themeId)
   }, [themeId, customColors])
 
+  // Another window (the theme menu) changed the shared settings: follow at once.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === 'isomaker.themeId') setThemeIdState(loadThemeId())
+      if (!e.key || e.key === 'isomaker.customTheme') setCustomState(loadCustomTheme())
+      if (!e.key || e.key === STORAGE_LOCALE) setLocaleState(loadLocale())
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   useEffect(() => {
     document.documentElement.lang = locale === 'ko' ? 'ko' : 'en'
     void window.isoMaker?.setLocale?.(locale)

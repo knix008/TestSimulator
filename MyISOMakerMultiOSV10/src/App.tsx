@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -19,12 +20,15 @@ import {
 } from './iso9660/image-formats'
 import type { IsoTreeNode } from './iso9660/tree-types'
 import { END_LEAD, Icons, Toolbar, type ToolbarAction } from './Toolbar'
-import { APP_VERSION, APP_YEAR } from './version'
+import { APP_VERSION } from './version'
 import type { EditSessionSnapshot, IsoMakerApi } from './vite-env'
 import { StartScreen } from './start/StartScreen'
+import { invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { isTauri } from './platform/tauri-bridge'
+import { defaultOutputFor, volumeLabelFor } from './lib/names'
 import { loadBgPrefs, saveBgPrefs, type BgPrefs } from './start/bgPrefs'
-import { SettingsDialog, type SettingsTab } from './settings/SettingsDialog'
-import { HelpDialog } from './help/HelpDialog'
+import type { SettingsTab } from './settings/SettingsView'
 import { ThemeSplitButton } from './theme/ThemeMenu'
 import { DockPanel, loadDock, saveDock, type DockState } from './layout/Panel'
 import { Explorer } from './layout/Explorer'
@@ -34,7 +38,6 @@ import { WorkEmpty } from './layout/WorkEmpty'
 import {
   loadAutoInstall,
   PackageProgressDialog,
-  saveAutoInstall,
   usePackageStatus,
   type PackageAction,
   type PackageId,
@@ -73,20 +76,18 @@ function getApi(): IsoMakerApi {
 type Tab = 'home' | 'extract' | 'create' | 'bootable' | 'mount'
 
 export default function App() {
-  const { t, locale, theme, setLocale } = usePrefs()
+  const { t, locale, theme, setLocale, themeId, themeName } = usePrefs()
   const [bg, setBgState] = useState<BgPrefs>(() => loadBgPrefs())
   const setBg = useCallback((next: BgPrefs) => {
     setBgState(next)
     saveBgPrefs(next)
   }, [])
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
-  const [helpOpen, setHelpOpen] = useState(false)
   const [autoInstall, setAutoInstallState] = useState(() => loadAutoInstall())
   const pkgs = usePackageStatus()
   const [pkgProgress, setPkgProgress] = useState<PackageProgress | null>(null)
   const [pkgRunning, setPkgRunning] = useState(false)
   const [pkgNote, setPkgNote] = useState('')
+  const ownPkgRun = useRef(false)
   const [tab, setTab] = useState<Tab>(() => (loadShowOnStart() ? 'home' : 'extract'))
   const [recent, setRecent] = useState(() => loadRecent())
   const [showOnStart, setShowOnStart] = useState(() => loadShowOnStart())
@@ -97,7 +98,6 @@ export default function App() {
   const [statusNote, setStatusNote] = useState('')
   const [error, setError] = useState<string>('')
   const [errorOpen, setErrorOpen] = useState(false)
-  const [aboutOpen, setAboutOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const [isoPath, setIsoPath] = useState('')
@@ -111,10 +111,32 @@ export default function App() {
     setOutputIsoState(p)
   }
   /** Source folder (or file) for Create / Bootable: the output ISO and volume label follow its name until changed. */
+  // Create tab: ISO or AppImage (remembered)
+  const [createFormat, setCreateFormatState] = useState<'iso' | 'appimage'>(() => {
+    try {
+      return localStorage.getItem('isomaker.createFormat') === 'appimage' ? 'appimage' : 'iso'
+    } catch {
+      return 'iso'
+    }
+  })
+  const [appName, setAppName] = useState('')
+  const appNameAuto = useRef(true)
+  const extFor = (f: 'iso' | 'appimage') => (f === 'appimage' ? 'AppImage' : 'iso')
   const chooseSource = (dir: string) => {
     setSourceDir(dir)
-    if (outputAuto.current) setOutputIsoState(defaultIsoFor(dir))
+    if (outputAuto.current) setOutputIsoState(defaultOutputFor(dir, extFor(createFormat)))
     if (volumeAuto.current) setVolumeLabel(volumeLabelFor(dir))
+    if (appNameAuto.current) setAppName(dir.trim().replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '')
+  }
+  const setCreateFormat = (f: 'iso' | 'appimage') => {
+    setCreateFormatState(f)
+    try {
+      localStorage.setItem('isomaker.createFormat', f)
+    } catch {
+      /* no storage */
+    }
+    if (outputAuto.current && sourceDir) setOutputIsoState(defaultOutputFor(sourceDir, extFor(f)))
+    else setOutputIsoState((cur) => cur.replace(/\.(iso|AppImage)$/i, `.${extFor(f)}`))
   }
   const [volumeLabel, setVolumeLabel] = useState('ISOMAKER')
   const [biosBootImage, setBiosBootImage] = useState('boot/grub/i386-pc/eltorito.img')
@@ -140,6 +162,7 @@ export default function App() {
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null)
   const openMenu = useCallback((x: number, y: number, items: ContextMenuItem[]) => setMenu({ x, y, items }), [])
   const [explorerReload, setExplorerReload] = useState(0)
+  const measuredMin = useRef(0)
   const lastWorkTab = useRef<Exclude<Tab, 'home'>>('extract')
   const [selectedPaths, setSelectedPaths] = useState<string[]>([])
   const [treeReveal, setTreeReveal] = useState<{ paths: string[]; nonce: number } | null>(
@@ -208,7 +231,10 @@ export default function App() {
 
   useEffect(() => {
     const api = window.isoMaker
-    return api?.onPackageProgress?.((p) => setPkgProgress(p))
+    return api?.onPackageProgress?.((p) => {
+      if (ownPkgRun.current) setPkgProgress(p)
+      if (p.phase === 'done') void api.getEngineInfo().then(setEngine, () => {})
+    })
   }, [])
 
   async function runPackage(id: PackageId, action: PackageAction, note = '') {
@@ -217,6 +243,7 @@ export default function App() {
     setPkgNote(note)
     setPkgProgress({ id, action, phase: 'index', percent: null, message: '' })
     setPkgRunning(true)
+    ownPkgRun.current = true
     const name = t(`pkg_${id}` as MessageKey)
     try {
       pkgs.setList(await api.runPackage(id, action))
@@ -228,10 +255,42 @@ export default function App() {
       void pkgs.refresh()
     } finally {
       setPkgRunning(false)
+      ownPkgRun.current = false
     }
   }
 
+  // The Settings window saved something: follow at once.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === 'isomaker.showStartOnLaunch') setShowOnStart(loadShowOnStart())
+      if (!e.key || e.key === 'isomaker.autoInstallPackages') setAutoInstallState(loadAutoInstall())
+      if (!e.key || e.key === 'isomaker.startBackground') setBgState(loadBgPrefs())
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   // Required packages that are missing are installed at startup (Settings > General).
+  // The window's minimum width: both toolbar rows fit on one line, nothing hidden.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const w = (sel: string) => document.querySelector<HTMLElement>(sel)?.getBoundingClientRect().width ?? 0
+      const sw = (sel: string) => document.querySelector<HTMLElement>(sel)?.scrollWidth ?? 0
+      // Title row: icon·name·version, a little drag room, the panel buttons, the window buttons.
+      const title = w('.titlebar .title-brand') + 40 + w('.titlebar .titlebar-actions') + w('.titlebar .window-controls') + 10 + 16
+      // Tool row: every tool group (natural width), a gap, the right-hand group.
+      const tools = sw('.app > .toolbar .toolbar-main') + 24 + w('.app > .toolbar .toolbar-end') + 20
+      const need = Math.ceil(Math.max(title, tools) + 8)
+      if (need > 300 && need !== measuredMin.current) {
+        measuredMin.current = need
+        if (isTauri()) void invoke('set_min_width', { width: need }).catch(() => {})
+      }
+    }
+    measure()
+    const timer = window.setTimeout(measure, 400)
+    return () => window.clearTimeout(timer)
+  }, [locale, themeId, tab, Boolean(session), dirty])
+
   const autoInstallDone = useRef(false)
   useEffect(() => {
     if (autoInstallDone.current || !autoInstall) return
@@ -251,11 +310,16 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function openSettings(tab: SettingsTab = 'general') {
-    setSettingsTab(tab)
-    setSettingsOpen(true)
-    void pkgs.refresh()
+  /** Help, Settings and About are windows of their own (tool.html). */
+  function openTool(kind: 'help' | 'settings' | 'about', route?: string) {
+    if (!isTauri()) return
+    void invoke('open_tool_window', { kind, route: route ?? kind }).catch((err) => showError(String(err)))
   }
+  function openSettings(tab: SettingsTab = 'general') {
+    openTool('settings', `settings:${tab}`)
+  }
+  const setHelpOpen = (open: boolean) => open && openTool('help')
+  const setAboutOpen = (open: boolean) => open && openTool('about')
 
   useEffect(() => {
     document.title = dirty ? `${t('brand')} *` : t('brand')
@@ -798,7 +862,7 @@ export default function App() {
   }, [engine, t])
 
   async function runJob(
-    labelKey: 'jobCreate' | 'jobBootable' | 'jobMount' | 'jobUnmount',
+    labelKey: 'jobCreate' | 'jobCreateAppImage' | 'jobBootable' | 'jobMount' | 'jobUnmount',
     fn: () => Promise<unknown>,
     options: { cancelable?: boolean } = {},
   ) {
@@ -863,15 +927,23 @@ export default function App() {
     }
   }
 
+  function runCreate() {
+    if (!sourceDir || !outputIso) return
+    if (createFormat === 'appimage') {
+      void runJob('jobCreateAppImage', async () => {
+        const r = await getApi().createAppImage!({ sourceDir, output: outputIso, name: appName || undefined })
+        appendChangeLog('save', t('logAppImageMade', outputIso, formatBytes(r.size)))
+      })
+      return
+    }
+    void runJob('jobCreate', () => getApi().createIso({ sourceDir, outputIso, volumeLabel }), { cancelable: true })
+  }
+
   function runCurrentAction() {
     if (tab === 'extract') return
     if (tab === 'create') {
       if (!sourceDir || !outputIso) return
-      void runJob(
-        'jobCreate',
-        () => getApi().createIso({ sourceDir, outputIso, volumeLabel }),
-        { cancelable: true },
-      )
+      runCreate()
       return
     }
     if (tab === 'bootable') {
@@ -988,7 +1060,6 @@ export default function App() {
         label: t('openIso'),
         tooltip: t('tipOpenIso'),
         icon: Icons.openIso,
-        primary: true,
         disabled: busy,
         onClick: () => void openIsoFile(),
       },
@@ -1364,8 +1435,21 @@ export default function App() {
 
         {tab === 'create' && (
           <section>
-            <h2>{t('createTitle')}</h2>
-            <p className="hint">{t('createHint')}</p>
+            <h2>{createFormat === 'appimage' ? t('createAppImageTitle') : t('createTitle')}</h2>
+            <p className="hint">{createFormat === 'appimage' ? t('createAppImageHint') : t('createHint')}</p>
+            <div className="field">
+              <span>{t('createFormat')}</span>
+              <div className="settings-seg" role="radiogroup" data-create-format={createFormat}>
+                <button type="button" role="radio" aria-checked={createFormat === 'iso'} className={`settings-seg-btn${createFormat === 'iso' ? ' on' : ''}`} onClick={() => setCreateFormat('iso')}>
+                  {Icons.disc}
+                  <span>ISO (ISO 9660 + Joliet)</span>
+                </button>
+                <button type="button" role="radio" aria-checked={createFormat === 'appimage'} className={`settings-seg-btn${createFormat === 'appimage' ? ' on' : ''}`} onClick={() => setCreateFormat('appimage')}>
+                  {Icons.bootable}
+                  <span>AppImage (Linux)</span>
+                </button>
+              </div>
+            </div>
             <Field label={t('sourceDir')}>
               <PathRow
                 value={sourceDir}
@@ -1378,25 +1462,39 @@ export default function App() {
                 placeholder={t('placeholderSource')}
               />
             </Field>
-            <Field label={t('volumeLabel')}>
-              <input
-                value={volumeLabel}
-                onChange={(e) => {
-                  volumeAuto.current = !e.target.value
-                  setVolumeLabel(e.target.value)
-                }}
-                maxLength={32}
-              />
-            </Field>
-            <Field label={t('outputIso')}>
+            {createFormat === 'appimage' ? (
+              <Field label={t('appImageName')}>
+                <input
+                  value={appName}
+                  onChange={(e) => {
+                    appNameAuto.current = !e.target.value
+                    setAppName(e.target.value)
+                  }}
+                  maxLength={64}
+                />
+              </Field>
+            ) : (
+              <Field label={t('volumeLabel')}>
+                <input
+                  value={volumeLabel}
+                  onChange={(e) => {
+                    volumeAuto.current = !e.target.value
+                    setVolumeLabel(e.target.value)
+                  }}
+                  maxLength={32}
+                />
+              </Field>
+            )}
+            <Field label={createFormat === 'appimage' ? t('outputAppImage') : t('outputIso')}>
               <PathRow
                 value={outputIso}
                 browseLabel={t('browse')}
                 onBrowse={async () => {
                   const p = await getApi().saveFile(
-                    outputIso || 'output.iso',
+                    outputIso || `output.${extFor(createFormat)}`,
                     outputIso || sourceDir,
                     t('dlgSaveIso'),
+                    createFormat === 'appimage' ? [{ name: 'AppImage', extensions: ['AppImage'] }] : undefined,
                   )
                   if (p) setOutputIso(p)
                 }}
@@ -1407,17 +1505,11 @@ export default function App() {
             <div className="actions">
               <DialogButton
                 id="create-iso"
-                label={t('createIso')}
+                label={createFormat === 'appimage' ? t('createAppImage') : t('createIso')}
                 icon={Icons.create}
                 primary
                 disabled={busy || !sourceDir || !outputIso}
-                onClick={() =>
-                  void runJob(
-                    'jobCreate',
-                    () => getApi().createIso({ sourceDir, outputIso, volumeLabel }),
-                    { cancelable: true },
-                  )
-                }
+                onClick={runCreate}
               />
             </div>
           </section>
@@ -1730,6 +1822,41 @@ export default function App() {
             style={{ width: `${progress?.percent ?? (busy ? 18 : 0)}%` }}
           />
         </span>
+        <span className="sb-sep" aria-hidden="true" />
+        <span className="sb-item sb-tab" title={t('statusTab')}>
+          {tab === 'home' ? t('tabHome') : tab === 'extract' ? t('tabExtract') : tab === 'create' ? t('tabCreate') : tab === 'bootable' ? t('tabBootable') : t('tabMount')}
+        </span>
+        {session ? (
+          <span className="sb-item" title={t('infoSelection')}>
+            {t('statusSelected', String(selectedPaths.length))}
+          </span>
+        ) : null}
+        <span className="sb-item" title={t('settingsTabTheme')}>
+          {themeName(themeId)}
+        </span>
+        <span className="sb-item sb-lang" title={t('settingsLanguage')}>
+          <Flag locale={locale} />
+          {locale === 'ko' ? '한국어' : 'English'}
+        </span>
+        <span
+          className="sb-grip"
+          title={t('statusResize')}
+          aria-hidden="true"
+          onPointerDown={(e) => {
+            if (e.button !== 0) return
+            e.preventDefault()
+            if (isTauri()) void getCurrentWindow().startResizeDragging('SouthEast').catch(() => {})
+          }}
+        >
+          <svg viewBox="0 0 12 12" width="12" height="12">
+            <circle cx="10" cy="10" r="1.2" />
+            <circle cx="6" cy="10" r="1.2" />
+            <circle cx="10" cy="6" r="1.2" />
+            <circle cx="2" cy="10" r="1.2" />
+            <circle cx="6" cy="6" r="1.2" />
+            <circle cx="10" cy="2" r="1.2" />
+          </svg>
+        </span>
       </footer>
 
       <Dialog
@@ -1758,30 +1885,6 @@ export default function App() {
         <pre className="dialog-error-box">{error}</pre>
       </Dialog>
 
-      <Dialog
-        open={aboutOpen}
-        title={t('aboutTitle')}
-        icon={Icons.info}
-        onClose={() => setAboutOpen(false)}
-        buttons={[
-          {
-            id: 'ok',
-            label: t('dialogOk'),
-            icon: Icons.check,
-            primary: true,
-            onClick: () => setAboutOpen(false),
-          },
-        ]}
-      >
-        <div className="dialog-about">
-          <img className="about-icon" src="/icon-256.png" alt="" draggable={false} />
-          <p className="about-title">{t('brand')}</p>
-          <p>{t('aboutVersion', APP_VERSION)}</p>
-          <p style={{ whiteSpace: 'pre-line' }}>{t('aboutDetail')}</p>
-          <p>{t('aboutAuthor')}</p>
-          <p className="about-copy">{t('aboutCopyright', APP_YEAR)}</p>
-        </div>
-      </Dialog>
 
       <Dialog
         open={Boolean(unsavedReason)}
@@ -1895,30 +1998,6 @@ export default function App() {
         }}
       />
 
-      <SettingsDialog
-        open={settingsOpen}
-        tab={settingsTab}
-        onTab={setSettingsTab}
-        onClose={() => setSettingsOpen(false)}
-        showOnStart={showOnStart}
-        onShowOnStart={(on) => {
-          setShowOnStart(on)
-          saveShowOnStart(on)
-        }}
-        packages={pkgs.list}
-        pkgBusy={pkgRunning}
-        onRunPackage={(id, action) => void runPackage(id, action)}
-        onRefreshPackages={() => void pkgs.refresh()}
-        autoInstall={autoInstall}
-        onAutoInstall={(on) => {
-          setAutoInstallState(on)
-          saveAutoInstall(on)
-        }}
-        bg={bg}
-        onBg={setBg}
-      />
-
-      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} t={t} locale={locale} />
 
       <PackageProgressDialog
         t={t}
@@ -2032,25 +2111,4 @@ function processPlatform(): string {
   if (ua.includes('Windows')) return 'win32'
   if (ua.includes('Mac')) return 'darwin'
   return 'linux'
-}
-
-/** D:\work\mydisc → D:\work\mydisc.iso; a file source drops its extension. */
-function defaultIsoFor(source: string): string {
-  const trimmed = source.trim().replace(/[\\/]+$/, '')
-  if (!trimmed) return ''
-  const sep = trimmed.includes('\\') ? '\\' : '/'
-  const idx = Math.max(trimmed.lastIndexOf('\\'), trimmed.lastIndexOf('/'))
-  const parent = idx >= 0 ? trimmed.slice(0, idx) : ''
-  let name = idx >= 0 ? trimmed.slice(idx + 1) : trimmed
-  if (/^[a-zA-Z]:$/.test(trimmed)) return `${trimmed}${sep}disc.iso`
-  const dot = name.lastIndexOf('.')
-  if (dot > 0 && name.length - dot <= 6) name = name.slice(0, dot)
-  return parent ? `${parent}${sep}${name}.iso` : `${name}.iso`
-}
-
-/** ISO9660 volume label from the source name: A–Z 0–9 _ , 32 characters. */
-function volumeLabelFor(source: string): string {
-  const name = source.trim().replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? ''
-  const label = name.replace(/\.[^.]{1,5}$/, '').toUpperCase().replace(/[^A-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32)
-  return label || 'ISOMAKER'
 }

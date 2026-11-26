@@ -25,6 +25,12 @@ tokio = { version = "1", features = ["sync", "time"] }
 # Tree rows dragged out of the window become an OS file drag (Electron's startDrag)
 drag = "2"
 
+# Printing straight to a printer (no system dialog): WebView2 Print / PrintToPdf and the printer
+# list. Same versions as Tauri's own webview2-com / windows (Cargo.lock), so the types match.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Printing", "Win32_Security"] }
+
 [profile.dev.package."*"]
 opt-level = 1
 

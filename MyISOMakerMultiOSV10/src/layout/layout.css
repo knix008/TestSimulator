@@ -321,3 +321,17 @@ body.resizing-row, body.resizing-row * { cursor: row-resize !important; user-sel
 .work-empty-btn.primary .work-empty-btn-text small { color: color-mix(in srgb, var(--accent-fg, #fff) 82%, transparent); }
 .work-empty-btn.primary .work-empty-btn-icon { background: color-mix(in srgb, #000 18%, transparent); }
 .work-empty-btn.primary svg.icon-color { stroke: #fff; }
+
+/* Status bar: more state on the right, the dotted resize triangle in the corner */
+.app-statusbar { margin: 0 !important; border-radius: 0 !important; border-width: 1px 0 0 0 !important; padding: 4px 4px 4px 12px !important; }
+.app { padding-bottom: 0 !important; }
+.sb-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; flex: none; }
+.sb-tab { color: var(--accent); font-weight: 600; }
+.sb-lang { display: inline-flex; align-items: center; gap: 5px; }
+.sb-lang .flag { width: 16px; height: 11px; display: block; border-radius: 1px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.15); }
+.sb-grip { display: inline-grid; place-items: end; width: 16px; height: 16px; margin-left: 4px; align-self: flex-end; cursor: nwse-resize; color: var(--muted); flex: none; }
+.sb-grip svg { fill: currentColor; display: block; }
+.sb-grip:hover { color: var(--accent); }
+.app > .toolbar .toolbar-main { min-width: max-content; flex: 0 0 auto; }
+.app > .toolbar .toolbar-end { padding-left: 0; }
+.num-step input { padding: 4px 6px !important; height: 30px; }

@@ -1,9 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "MyISOMaker's main window. Image work goes through the app's own commands (src-tauri/src/lib.rs); here events, the title, the title bar theme and the page-drawn window buttons (no system title bar).",
+  "description": "MyISOMaker's main window and the shared print window. Image work and printing go through the app's own commands (src-tauri/src/lib.rs, printing.rs); here events, titles, title bar theme, the page-drawn window buttons, moving and resizing (no system title bar).",
   "windows": [
-    "main"
+    "main",
+    "print",
+    "thememenu",
+    "help",
+    "settings",
+    "about"
   ],
   "permissions": [
     "core:default",
@@ -15,6 +20,10 @@
     "core:window:allow-unmaximize",
     "core:window:allow-close",
     "core:window:allow-start-dragging",
-    "core:window:allow-is-maximized"
+    "core:window:allow-is-maximized",
+    "core:window:allow-start-resize-dragging",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
+    "core:window:allow-destroy"
   ]
 }

@@ -11,50 +11,68 @@ export function BackgroundPanel({
   onChange,
   locale,
   t,
+  form = false,
 }: {
   bg: BgPrefs
   onChange: (next: BgPrefs) => void
   locale: 'ko' | 'en'
   t: (key: MessageKey, ...args: string[]) => string
+  /** Settings: speed / strength / auto change as label | control rows. */
+  form?: boolean
 }) {
   const set = (patch: Partial<BgPrefs>) => onChange({ ...bg, ...patch })
+  const round = (v: number, step: number) => Math.round(v / step) * step
+  /** − slider + value: one control, the buttons step by `step`. */
+  const stepper = (
+    id: string,
+    label: string,
+    value: number,
+    min: number,
+    max: number,
+    step: number,
+    shown: string,
+    apply: (v: number) => void,
+  ) => (
+    <span className="bg-step" data-bg-step={id}>
+      <span className="bg-step-label">{label}</span>
+      <button
+        type="button"
+        className="bg-step-btn"
+        aria-label={`${label} −`}
+        title={`${label} −`}
+        disabled={value <= min + 1e-9}
+        onClick={() => apply(Math.max(min, round(value - step, step)))}
+      >
+        −
+      </button>
+      <input type="range" min={min} max={max} step={step} value={value} {...{ [`data-bg-${id}`]: '' }} onChange={(e) => apply(Number(e.target.value))} />
+      <button
+        type="button"
+        className="bg-step-btn"
+        aria-label={`${label} +`}
+        title={`${label} +`}
+        disabled={value >= max - 1e-9}
+        onClick={() => apply(Math.min(max, round(value + step, step)))}
+      >
+        +
+      </button>
+      <output>{shown}</output>
+    </span>
+  )
   return (
-    <div className="bg-panel">
+    <div className={`bg-panel${form ? ' bg-panel-form' : ''}`}>
       <BackgroundCards value={bg.kind} onChange={(kind) => set({ kind })} names={locale === 'ko' ? BG_NAMES_KO : BG_NAMES_EN} />
-      <div className="bg-controls">
-        <label className="bg-control">
-          <span>{t('bgSpeed')}</span>
-          <input
-            type="range"
-            min={0}
-            max={2}
-            step={0.1}
-            value={bg.speed}
-            data-bg-speed=""
-            onChange={(e) => set({ speed: Number(e.target.value) })}
-          />
-          <output>{bg.speed === 0 ? t('bgOff') : `${bg.speed.toFixed(1)}×`}</output>
-        </label>
-        <label className="bg-control">
-          <span>{t('bgOpacity')}</span>
-          <input
-            type="range"
-            min={0.15}
-            max={1}
-            step={0.05}
-            value={bg.opacity}
-            data-bg-opacity=""
-            onChange={(e) => set({ opacity: Number(e.target.value) })}
-          />
-          <output>{Math.round(bg.opacity * 100)}%</output>
-        </label>
-        <label className="bg-control bg-auto">
+      {/* One line: speed, strength, automatic change */}
+      <div className="bg-line">
+        {stepper('speed', t('bgSpeed'), bg.speed, 0, 2, 0.1, bg.speed === 0 ? t('bgOff') : `${bg.speed.toFixed(1)}×`, (speed) => set({ speed }))}
+        {stepper('opacity', t('bgOpacity'), bg.opacity, 0.15, 1, 0.05, `${Math.round(bg.opacity * 100)}%`, (opacity) => set({ opacity }))}
+        <label className="bg-auto-line">
           <input type="checkbox" checked={bg.auto} onChange={(e) => set({ auto: e.target.checked })} />
           <span>{t('bgAuto')}</span>
           <select value={bg.autoSec} disabled={!bg.auto} onChange={(e) => set({ autoSec: Number(e.target.value) })}>
-            {AUTO_SECONDS.map((s) => (
-              <option key={s} value={s}>
-                {t('bgAutoSec', String(s))}
+            {AUTO_SECONDS.map((sec) => (
+              <option key={sec} value={sec}>
+                {t('bgAutoSec', String(sec))}
               </option>
             ))}
           </select>

@@ -18,7 +18,7 @@
         "title": "MyISOMaker",
         "width": 1480,
         "height": 900,
-        "minWidth": 1480,
+        "minWidth": 1100,
         "minHeight": 700,
         "center": true,
         "dragDropEnabled": true,

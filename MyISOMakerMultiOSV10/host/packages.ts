@@ -55,7 +55,13 @@ const MAIN_EXE: Record<PackageId, string[]> = {
   squashfs: ['unsquashfs', 'mksquashfs'],
 }
 const BREW: Record<PackageId, string> = { xorriso: 'xorriso', squashfs: 'squashfs' }
-const LINUX: Record<PackageId, string> = { xorriso: 'xorriso', squashfs: 'squashfs-tools' }
+/** Package names differ between Linux distributions' package managers. */
+export const LINUX_PACKAGES: Record<string, Record<PackageId, string>> = {
+  'apt-get': { xorriso: 'xorriso', squashfs: 'squashfs-tools' },
+  dnf: { xorriso: 'xorriso', squashfs: 'squashfs-tools' },
+  pacman: { xorriso: 'libisoburn', squashfs: 'squashfs-tools' },
+  zypper: { xorriso: 'xorriso', squashfs: 'squashfs' },
+}
 
 // ── Where the app keeps its own copies ───────────────────────
 
@@ -208,7 +214,7 @@ export async function runPackageJob(
     } else {
       const pm = linuxPackageManager()
       if (!pm) throw new Error('No supported package manager (apt-get, dnf, pacman, zypper) was found.')
-      await runStreamed('pkexec', pm.args(action, LINUX[id]), ctl.signal, say)
+      await runStreamed('pkexec', pm.args(action, LINUX_PACKAGES[pm.name]![id]), ctl.signal, say)
     }
     say('done', action === 'remove' ? 'Removed' : 'Installed', 100)
     return packageStatus()

@@ -12,6 +12,7 @@ import {
   runCommand,
 } from './archive-open'
 import type { JobProgress } from './types'
+import { sourceFromDisk, writeSquashfs } from '../squashfs'
 
 export type AppImageRuntime = {
   runtimePath: string
@@ -102,12 +103,26 @@ export async function packDirectoryAsAppImage(
 
   const mksquashfs = resolveMksquashfs()
   if (!mksquashfs) {
-    throw new Error(
-      'AppImage로 저장하려면 squashfs-tools(mksquashfs)가 필요합니다.\n' +
-        'Windows: MSYS2 `pacman -S squashfs-tools`\n' +
-        'macOS: `brew install squashfs`\n' +
-        'Linux: `sudo apt install squashfs-tools`',
-    )
+    // No squashfs-tools: the built-in SquashFS writer (host/squashfs.ts).
+    onProgress?.({ phase: 'save', percent: 92, message: 'squashfs 작성 중… (내장)' })
+    const head = Buffer.alloc(offset)
+    const src = await fs.promises.open(runtime.runtimePath, 'r')
+    try {
+      await src.read(head, 0, offset, 0)
+    } finally {
+      await src.close()
+    }
+    const tmp = `${outputPath}.part`
+    const fd = fs.openSync(tmp, 'w')
+    try {
+      fs.writeSync(fd, head, 0, head.length, 0)
+      writeSquashfs(fd, head.length, sourceFromDisk(sourceDir))
+    } finally {
+      fs.closeSync(fd)
+    }
+    fs.renameSync(tmp, outputPath)
+    if (process.platform !== 'win32') await fs.promises.chmod(outputPath, 0o755).catch(() => {})
+    return
   }
 
   const work = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'isomaker-appimage-'))

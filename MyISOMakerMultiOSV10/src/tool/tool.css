@@ -1,0 +1,132 @@
+/* Help / Settings / About windows: title bar + the view filling the rest */
+body.tool-window { background: var(--bg1); overflow: hidden; }
+.tool-app { display: flex; flex-direction: column; height: 100vh; color: var(--text); }
+.tool-app .titlebar { background: var(--bg1); }
+.tool-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.help-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.help-view .help-layout { flex: 1 1 auto; min-height: 0; }
+.tool-settings .settings-layout { flex: 1 1 auto; min-height: 0; height: auto; }
+.tool-settings .settings-tab,
+.tool-settings .settings-seg-btn,
+.tool-settings .settings-check,
+.tool-settings .settings-label,
+.tool-settings .dialog-btn { font-size: 13px; }
+.tool-settings .settings-tab { padding: 6px 10px; }
+.tool-settings .dialog-btn { padding: 5px 12px; gap: 6px; }
+.tool-settings .dialog-btn svg { width: 15px; height: 15px; }
+.about-view { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 28px; text-align: center; overflow: auto; }
+.about-view-icon { width: 128px; height: 128px; filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.3)); }
+.about-view h1 { margin: 6px 0 0; font-size: 1.6rem; }
+.about-view h1 small { font-size: 0.9rem; color: var(--accent); font-weight: 650; }
+.about-view-lead { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.about-grid { display: grid; gap: 4px; width: 100%; margin: 6px 0; font-size: 13px; text-align: left; }
+.about-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; padding: 5px 10px; border-radius: 8px; background: var(--bg2); }
+.about-row dt { color: var(--muted); }
+.about-row dd { margin: 0; overflow: hidden; text-overflow: ellipsis; }
+.about-view-copy { margin: 4px 0 8px; font-size: 12px; color: var(--muted); }
+.about-close { font-size: 13px; padding: 6px 18px; }
+.about-close svg { width: 16px; height: 16px; }
+
+/* Settings: every tab is one vertical column of label | control rows, all at 13px */
+.tool-settings .settings-page { font-size: 13px; }
+.tool-settings .settings-page * { font-size: inherit; }
+.tool-settings .settings-page code, .tool-settings .pkg-facts dd { font-size: 12px; }
+.settings-form { display: flex; flex-direction: column; gap: 10px; }
+.settings-form .form-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 14px; min-height: 30px; }
+.settings-form .form-row-top { align-items: start; }
+.settings-form .form-row-top > .form-label { padding-top: 6px; }
+.form-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); }
+.form-label svg { width: 16px; height: 16px; flex: none; }
+.settings-form .settings-seg { justify-self: start; }
+.settings-form .settings-check { justify-self: start; }
+.custom-color-value { display: inline-flex; align-items: center; gap: 10px; }
+.custom-color-value input[type='color'] { width: 46px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: transparent; cursor: pointer; }
+.custom-theme .settings-form { margin: 10px 0; }
+.custom-theme h3 { font-size: 13px; }
+.tool-settings .theme-chip-name { font-size: 11.5px; }
+
+/* Background in Settings: cards, then speed / strength / auto change as aligned rows */
+.bg-panel-form .bg-card { font-size: 12.5px; height: 30px; }
+.bg-panel-form .bg-controls { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 14px; align-items: center; margin-top: 4px; }
+.bg-panel-form .bg-control { display: contents; }
+.bg-panel-form .bg-control > span:first-child { color: var(--muted); }
+.bg-panel-form .bg-control input[type='range'] { width: 100%; max-width: 260px; }
+.bg-panel-form .bg-auto { display: contents; }
+
+/* Theme tab: two columns like the theme menu, same type size as the rest */
+.theme-list-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 260px)); gap: 0 18px; }
+.theme-list-col { display: flex; flex-direction: column; }
+.theme-list-col .ctx-menu-item { padding: 4px 10px; font-size: 13px; }
+.theme-list-col .ctx-menu-item.on { background: color-mix(in srgb, var(--accent) 18%, transparent); font-weight: 600; }
+.theme-list-col .theme-swatch-mini { width: 22px; height: 14px; }
+.tool-settings .theme-v-head { font-size: 13px; padding: 4px 10px; }
+.tool-settings .custom-theme, .tool-settings .custom-theme * { font-size: 13px; }
+.tool-settings .custom-theme code { font-size: 12px; }
+
+/* Background rows: label | slider | value; auto: label | checkbox + interval */
+.bg-form-rows { display: grid; grid-template-columns: max-content minmax(0, 260px) max-content; gap: 8px 14px; align-items: center; margin-top: 6px; }
+.bg-form-label { color: var(--text); }
+.bg-form-rows input[type='range'] { width: 100%; padding: 0; accent-color: var(--accent); }
+.bg-form-rows output { min-width: 48px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bg-form-auto { grid-column: 2 / span 2; display: inline-flex; align-items: center; gap: 10px; }
+.bg-form-auto input[type='checkbox'] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); }
+.bg-form-auto select { padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg0); color: var(--text); }
+.tool-settings select, .tool-settings option { font-size: 13px !important; }
+
+/* No scrollbars in Settings: the window has a fixed size every tab fits into.
+   Theme tab: Dark | Light lists on the left, the custom theme beside them. */
+.tool-settings .settings-page { overflow: hidden; }
+.tool-settings .settings-theme { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 20px; align-items: start; }
+.tool-settings .theme-list-cols { grid-template-columns: repeat(2, 200px); gap: 0 10px; }
+.tool-settings .theme-list-col .ctx-menu-item { padding: 3px 10px; }
+.tool-settings .custom-theme { margin-top: 0; }
+.tool-settings .custom-theme .settings-form .form-row { grid-template-columns: 90px minmax(0, 1fr); }
+.tool-settings .custom-theme-actions { flex-wrap: wrap; }
+
+/* ── Settings, one structure for every tab: heading · description · cards of aligned rows ── */
+.tool-settings .settings-layout { grid-template-columns: 190px minmax(0, 1fr); }
+.tool-settings .settings-tabs { padding: 12px 10px; gap: 4px; }
+.tool-settings .settings-tab { border: 1px solid transparent; outline: none; }
+.tool-settings .settings-tab:focus { outline: none; }
+.tool-settings .settings-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tool-settings .settings-tab:not(.on) { border-color: transparent !important; background: transparent; }
+.tool-settings .settings-tab:not(.on):hover { background: var(--bg2); }
+.tool-settings .settings-tab.on { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: var(--bg2); }
+.tool-settings .settings-page { padding: 16px 22px; display: flex; flex-direction: column; gap: 14px; }
+.settings-head { display: flex; align-items: flex-start; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.settings-head-icon { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: var(--bg2); flex: none; }
+.settings-head-icon svg { width: 20px; height: 20px; }
+.settings-head h2 { margin: 0; font-size: 15px !important; font-weight: 700; color: var(--text); letter-spacing: normal; text-transform: none; }
+.settings-head p { margin: 2px 0 0; color: var(--muted); }
+.settings-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; background: color-mix(in srgb, var(--bg2) 35%, transparent); }
+.settings-card-title { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-weight: 650; color: var(--text); }
+.settings-card-title svg { width: 16px; height: 16px; }
+.settings-stack { display: flex; flex-direction: column; gap: 14px; }
+.tool-settings .settings-form .form-row { grid-template-columns: 150px minmax(0, 1fr); }
+.tool-settings .settings-theme { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 14px; align-items: start; }
+.tool-settings .custom-theme { margin: 0; padding: 12px 16px; }
+.tool-settings .custom-theme .settings-form .form-row { grid-template-columns: 70px minmax(0, 1fr); }
+.tool-settings .custom-theme .settings-hint { margin-bottom: 4px; }
+.tool-settings .pkg-panel { gap: 10px; }
+.tool-settings .pkg-row { background: color-mix(in srgb, var(--bg2) 35%, transparent); }
+.tool-settings .pkg-facts { grid-template-columns: 70px minmax(0, 1fr); }
+.tool-settings .bg-panel-form { gap: 8px; }
+.tool-settings .bg-form-rows { grid-template-columns: 150px minmax(0, 260px) max-content; margin-top: 10px; }
+
+/* Settings window: sized to the tallest tab (fit_tool_window); footer with Reset / OK */
+.tool-settings .tool-body { position: relative; }
+.tool-settings .settings-page { overflow: visible; }
+.settings-foot { display: flex; align-items: center; gap: 8px; flex: none; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--bg1); }
+.settings-foot-grow { flex: 1; }
+.settings-foot .dialog-btn { font-size: 13px; padding: 6px 16px; gap: 6px; }
+.settings-foot .dialog-btn svg { width: 15px; height: 15px; }
+.settings-measure { position: absolute; left: 190px; right: 0; top: 0; visibility: hidden; pointer-events: none; height: 0; overflow: visible; }
+.settings-measure-page { position: absolute; left: 0; right: 0; top: 0; }
+.settings-measure .settings-page { height: auto; overflow: visible; }
+/* Nothing cut off: long values wrap instead of ending in … */
+.tool-settings .pkg-facts dd, .tool-settings .start-link .path { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+/* Settings: 4 columns of background cards (24 = 6 full rows), names never cut */
+.tool-settings .bg-panel-form .bg-cards { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+.tool-settings .bg-line { gap: 14px; }
+.tool-settings .bg-step { grid-template-columns: max-content 24px minmax(70px, 110px) 24px 42px; }
+.tool-settings .bg-step { grid-template-columns: max-content 24px minmax(60px, 100px) 24px 40px; gap: 5px; }

@@ -6,6 +6,8 @@ import { normalizeKey } from '../../src/iso9660/reader'
 import type { IsoDirNode, IsoNode } from '../../src/iso9660/types'
 import type { OpenImageKind } from '../../src/iso9660/image-formats'
 import { appToolPath } from '../packages'
+import { unixToolCandidates } from './xorriso'
+import { openSquashfs, SquashError } from '../squashfs'
 
 const SQUASHFS_MAGIC = Buffer.from('hsqs', 'ascii')
 const ELF_MAGIC = Buffer.from([0x7f, 0x45, 0x4c, 0x46])
@@ -141,6 +143,20 @@ async function extractAppImage(
     throw new Error('AppImage에서 squashfs(hsqs) 시그니처를 찾지 못했습니다.')
   }
 
+  // Built-in reader first (gzip / zstd AppImages need no tools); other compressions fall through.
+  try {
+    const outDir = path.join(destDir, 'root')
+    const sq = openSquashfs(filePath, offset)
+    try {
+      sq.extractTo(outDir)
+    } finally {
+      sq.close()
+    }
+    return { treeRoot: outDir, squashfsOffset: offset }
+  } catch (err) {
+    if (!(err instanceof SquashError) || err.code !== 'UNSUPPORTED_COMPRESSION') throw err
+  }
+
   const unsquashfs = resolveSquashfsTool('unsquashfs')
   if (unsquashfs) {
     const outDir = path.join(destDir, 'root')
@@ -265,6 +281,7 @@ function resolveSquashfsTool(baseName: 'unsquashfs' | 'mksquashfs'): string | nu
   const extras: string[] = []
   const own = appToolPath(baseName)
   if (own) extras.push(own)
+  extras.push(...unixToolCandidates(baseName))
   if (process.platform === 'win32') {
     for (const root of [
       process.env.MSYS2_ROOT,
@@ -291,8 +308,8 @@ function whichSync(command: string): string | null {
   try {
     const result =
       process.platform === 'win32'
-        ? execFileSync('where', [command], { encoding: 'utf8', windowsHide: true })
-        : execFileSync('which', [command], { encoding: 'utf8' })
+        ? execFileSync('where', [command], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] })
+        : execFileSync('which', [command], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
     const line = String(result)
       .split(/\r?\n/)
       .map((s) => s.trim())

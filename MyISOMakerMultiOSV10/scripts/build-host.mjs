@@ -17,11 +17,13 @@ const release = process.argv.includes('--release')
 // dist-sidecar/ (without Node) and must not empty what the installer bundles.
 const out = path.join(root, release ? 'dist-sidecar-release' : 'dist-sidecar')
 
-fs.rmSync(out, { recursive: true, force: true })
+// Written to a temp name and renamed: tests (or a dev run) may start the host while this runs.
 fs.mkdirSync(out, { recursive: true })
+if (!release) fs.rmSync(path.join(out, 'node.exe'), { force: true })
+const tmpOut = path.join(out, `host.${process.pid}.tmp.mjs`)
 await esbuild.build({
   entryPoints: [path.join(root, 'host', 'host.ts')],
-  outfile: path.join(out, 'host.mjs'),
+  outfile: tmpOut,
   bundle: true,
   platform: 'node',
   target: ['node20'],
@@ -29,9 +31,12 @@ await esbuild.build({
   sourcemap: release ? false : 'inline',
   logLevel: 'warning',
 })
+fs.renameSync(tmpOut, path.join(out, 'host.mjs'))
 if (release) {
   const name = process.platform === 'win32' ? 'node.exe' : 'node'
   fs.copyFileSync(process.execPath, path.join(out, name))
   if (process.platform !== 'win32') fs.chmodSync(path.join(out, name), 0o755)
 }
+// tauri.conf.json bundles dist-sidecar-release/; Cargo wants it to exist even in dev builds.
+fs.mkdirSync(path.join(root, 'dist-sidecar-release'), { recursive: true })
 console.log(`host ready: ${path.relative(root, out)}${release ? ' (with Node runtime)' : ''}`)

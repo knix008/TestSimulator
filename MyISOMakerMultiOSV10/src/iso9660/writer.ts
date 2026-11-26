@@ -1,42 +1,58 @@
-import {
-  SECTOR,
-  encodeAsciiPadded,
-  encodeJolietName,
-  iso9660FileId,
-  writeBothU16,
-  writeBothU32,
-  writeU8,
-  writeU16LE,
-} from './binary'
+import { SECTOR, writeBothU16, writeBothU32, writeU16BE, writeU16LE, writeU32BE, writeU32LE } from './binary'
 import type { IsoDirNode, IsoFileNode, IsoNode } from './types'
 
+/**
+ * ISO9660 (ECMA-119, level 1 names) + Joliet image from a virtual directory tree.
+ *
+ * Layout: 16 system sectors · PVD (16) · Joliet SVD (17) · terminator (18) · path tables
+ * (primary L, primary M, Joliet L, Joliet M) · primary directories · Joliet directories ·
+ * file data. Both trees point at the same file data.
+ *
+ * What other readers check (xorriso/libisofs, Windows' mounter, macOS, Linux):
+ *  - descriptor text fields padded with spaces, dates as 16 digits + a time-zone byte,
+ *    file structure version (byte 881) = 1, the type-M path table location big-endian;
+ *  - path tables list every directory, parents first, children by identifier;
+ *  - directory records never cross a sector boundary, sorted by identifier, the first two
+ *    are "." and "..";
+ *  - identifiers unique inside a directory (8.3 names are made unique with ~N).
+ *
+ * File payloads stay as Blob slices when possible (large-ISO friendly). This is a data image:
+ * boot catalogs of the original are not kept. Files must be under 4 GiB each (single extent).
+ */
 export type WriteProgress = {
   phase: string
   percent: number
   message: string
 }
 
-type PlannedFile = {
-  path: string
-  node: IsoFileNode
-  lba: number
-  size: number
-}
-
-type PlannedDir = {
-  path: string
-  node: IsoDirNode
-  lba: number
-  size: number
-}
-
-/**
- * Build an ISO9660 + Joliet image from a virtual directory tree.
- * File payloads stay as Blob slices when possible (large-ISO friendly).
- * Note: Web rebuild is a data image; boot catalogs from the original are not preserved.
- */
 /** Optional reader for `{ type: 'path' }` sources (desktop / Node only). */
 export type PathFileReader = (absolutePath: string) => Promise<Blob>
+
+type Entry = {
+  /** ISO9660 (d-chars, ;1 for files) and Joliet (UCS-2 BE) identifiers */
+  isoId: Uint8Array
+  jolietId: Uint8Array
+  node: IsoNode
+  dir?: Dir
+  file?: FileOut
+}
+
+type Dir = {
+  path: string
+  node: IsoDirNode
+  parent: Dir | null
+  entries: Entry[]
+  /** 1-based number in the path table (same order for both trees) */
+  number: number
+  isoLba: number
+  isoSize: number
+  jolietLba: number
+  jolietSize: number
+}
+
+type FileOut = { path: string; node: IsoFileNode; lba: number; size: number }
+
+const MAX_FILE = 0xffffffff
 
 export async function writeIso(
   root: IsoDirNode,
@@ -47,140 +63,412 @@ export async function writeIso(
 ): Promise<Blob> {
   throwIfAborted(signal)
   const label = sanitizeLabel(volumeLabel)
-  const dirs: PlannedDir[] = []
-  const files: PlannedFile[] = []
-  collect(root, '', dirs, files)
-  throwIfAborted(signal)
+  const now = new Date()
 
-  let nextLba = 19
-
-  for (const dir of dirs) {
-    dir.lba = nextLba
-    dir.size = estimateDirSize(dir, false)
-    nextLba += sectorsFor(dir.size)
+  // ── Plan the trees ──
+  const files: FileOut[] = []
+  const rootDir = planDir(root, '', null, files)
+  const dirs = pathTableOrder(rootDir)
+  dirs.forEach((d, i) => (d.number = i + 1))
+  for (const f of files) {
+    if (f.size > MAX_FILE) throw new Error(`File too large for a single ISO9660 extent (4 GiB): ${f.path}`)
   }
 
-  const pathTableSize = 10
-  const pathTableLba = nextLba
-  nextLba += 1
-  const pathTableMLba = nextLba
-  nextLba += 1
+  const isoPt = pathTable(dirs, false)
+  const jolietPt = pathTable(dirs, true)
+  const isoPtSectors = sectorsFor(isoPt.size)
+  const jolietPtSectors = sectorsFor(jolietPt.size)
 
-  const jolietDirs: PlannedDir[] = dirs.map((d) => ({
-    path: d.path,
-    node: d.node,
-    lba: 0,
-    size: estimateDirSize(d, true),
-  }))
-  for (const dir of jolietDirs) {
-    dir.lba = nextLba
-    nextLba += sectorsFor(dir.size)
+  let lba = 19
+  const isoPtL = lba
+  lba += isoPtSectors
+  const isoPtM = lba
+  lba += isoPtSectors
+  const jolietPtL = lba
+  lba += jolietPtSectors
+  const jolietPtM = lba
+  lba += jolietPtSectors
+
+  for (const d of dirs) {
+    d.isoSize = dirBytes(d, false)
+    d.isoLba = lba
+    lba += d.isoSize / SECTOR
   }
-
-  const jolietPathLba = nextLba
-  nextLba += 1
-  const jolietPathMLba = nextLba
-  nextLba += 1
-
-  for (const file of files) {
-    file.lba = nextLba
-    nextLba += sectorsFor(Math.max(file.size, 1))
+  for (const d of dirs) {
+    d.jolietSize = dirBytes(d, true)
+    d.jolietLba = lba
+    lba += d.jolietSize / SECTOR
   }
-
-  const volumeSectors = nextLba
-  const parts: Blob[] = []
+  const metaEnd = lba
+  for (const f of files) {
+    if (f.size === 0) {
+      f.lba = 0
+      continue
+    }
+    f.lba = lba
+    lba += sectorsFor(f.size)
+  }
+  const volumeSectors = lba
 
   onProgress?.({ phase: 'write', percent: 5, message: '볼륨 헤더 작성…' })
   throwIfAborted(signal)
 
-  parts.push(toBlob(new Uint8Array(16 * SECTOR)))
+  // ── Descriptors and metadata in one buffer (sectors 0 … metaEnd-1) ──
+  const meta = new Uint8Array(metaEnd * SECTOR)
+  const sector = (n: number) => meta.subarray(n * SECTOR, (n + 1) * SECTOR)
 
-  const pvd = blankSector()
-  writePrimaryVolume(pvd, label, dirs[0]!, pathTableLba, pathTableMLba, pathTableSize, volumeSectors)
-  parts.push(toBlob(pvd))
-
-  const svd = blankSector()
-  writeJolietVolume(svd, label, jolietDirs[0]!, jolietPathLba, jolietPathMLba, pathTableSize, volumeSectors)
-  parts.push(toBlob(svd))
-
-  const term = blankSector()
+  writeDescriptor(sector(16), false, label, now, volumeSectors, isoPt.size, isoPtL, isoPtM, rootDir)
+  writeDescriptor(sector(17), true, label, now, volumeSectors, jolietPt.size, jolietPtL, jolietPtM, rootDir)
+  const term = sector(18)
   term[0] = 255
-  writeAscii(term, 1, 'CD001')
+  ascii(term, 1, 'CD001')
   term[6] = 1
-  parts.push(toBlob(term))
 
-  // Fill directory / path-table region as one packed buffer for correct LBAs
-  const metaStart = 19
-  const filesStart = files[0]?.lba ?? volumeSectors
-  const metaSectors = filesStart - metaStart
-  const meta = new Uint8Array(metaSectors * SECTOR)
+  meta.set(pathTableBytes(dirs, false, false, isoPt.size), isoPtL * SECTOR)
+  meta.set(pathTableBytes(dirs, false, true, isoPt.size), isoPtM * SECTOR)
+  meta.set(pathTableBytes(dirs, true, false, jolietPt.size), jolietPtL * SECTOR)
+  meta.set(pathTableBytes(dirs, true, true, jolietPt.size), jolietPtM * SECTOR)
 
-  writePathTableInto(meta, pathTableLba - metaStart, dirs[0]!.lba, false)
-  writePathTableInto(meta, pathTableMLba - metaStart, dirs[0]!.lba, true)
-  writePathTableInto(meta, jolietPathLba - metaStart, jolietDirs[0]!.lba, false)
-  writePathTableInto(meta, jolietPathMLba - metaStart, jolietDirs[0]!.lba, true)
-  writeDirectoryRecordsInto(meta, metaStart, dirs, files, false)
-  writeDirectoryRecordsInto(meta, metaStart, jolietDirs, files, true)
-  parts.push(toBlob(meta))
+  for (const d of dirs) {
+    writeDirectory(meta, d, false, now)
+    writeDirectory(meta, d, true, now)
+  }
+
+  const parts: Blob[] = [toBlob(meta)]
 
   onProgress?.({ phase: 'write', percent: 20, message: '파일 데이터 연결…' })
-  throwIfAborted(signal)
-
-  const totalFiles = Math.max(files.length, 1)
-  for (let i = 0; i < files.length; i++) {
+  const data = files.filter((f) => f.size > 0).sort((a, b) => a.lba - b.lba)
+  const total = Math.max(data.length, 1)
+  for (let i = 0; i < data.length; i++) {
     throwIfAborted(signal)
-    const file = files[i]!
-    onProgress?.({
-      phase: 'write',
-      percent: 20 + Math.round((i / totalFiles) * 75),
-      message: `파일 포함: ${file.path}`,
-    })
-    parts.push(await filePayload(file, readPathFile))
-    throwIfAborted(signal)
-    const padded = sectorsFor(Math.max(file.size, 1)) * SECTOR - Math.max(file.size, 1)
-    // empty files still occupy one sector
-    if (file.size === 0) {
-      parts.push(toBlob(new Uint8Array(SECTOR)))
-    } else if (padded > 0) {
-      parts.push(toBlob(new Uint8Array(padded)))
-    }
+    const file = data[i]!
+    onProgress?.({ phase: 'write', percent: 20 + Math.round((i / total) * 75), message: `파일 포함: ${file.path}` })
+    const payload = await filePayload(file, readPathFile)
+    if (payload.size !== file.size) throw new Error(`Size changed while saving: ${file.path} (${payload.size} ≠ ${file.size})`)
+    parts.push(payload)
+    const pad = sectorsFor(file.size) * SECTOR - file.size
+    if (pad > 0) parts.push(new Blob([new Uint8Array(pad)]))
   }
 
   onProgress?.({ phase: 'write', percent: 100, message: 'ISO 작성 완료' })
   return new Blob(parts, { type: 'application/x-iso9660-image' })
 }
 
+// ── Planning ──────────────────────────────────────────────────
+
+function planDir(node: IsoDirNode, path: string, parent: Dir | null, files: FileOut[]): Dir {
+  const dir: Dir = { path, node, parent, entries: [], number: 0, isoLba: 0, isoSize: 0, jolietLba: 0, jolietSize: 0 }
+  const children = [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name))
+  const isoUsed = new Set<string>()
+  const jolietUsed = new Set<string>()
+  for (const child of children) {
+    const childPath = path ? `${path}/${child.name}` : child.name
+    const isDir = child.kind === 'dir'
+    const entry: Entry = {
+      isoId: asciiBytes(uniqueIsoName(child.name, isDir, isoUsed)),
+      jolietId: ucs2(uniqueJolietName(child.name, jolietUsed)),
+      node: child,
+    }
+    if (isDir) entry.dir = planDir(child as IsoDirNode, childPath, dir, files)
+    else {
+      entry.file = { path: childPath, node: child as IsoFileNode, lba: 0, size: (child as IsoFileNode).size }
+      files.push(entry.file)
+    }
+    dir.entries.push(entry)
+  }
+  return dir
+}
+
+/** Path table order: by depth, then by parent number, then by identifier. */
+function pathTableOrder(root: Dir): Dir[] {
+  const out: Dir[] = [root]
+  for (let i = 0; i < out.length; i++) {
+    const subdirs = out[i]!.entries.filter((e) => e.dir).sort((a, b) => compareBytes(a.isoId, b.isoId))
+    for (const e of subdirs) out.push(e.dir!)
+  }
+  return out
+}
+
+/** ISO9660 level 1: d-characters, 8.3 for files (with ";1"), 8 for directories; unique. */
+function uniqueIsoName(name: string, isDir: boolean, used: Set<string>): string {
+  const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9_]/g, '_')
+  let base: string
+  let ext = ''
+  if (isDir) base = clean(name).slice(0, 8) || '_'
+  else {
+    const dot = name.lastIndexOf('.')
+    base = clean(dot > 0 ? name.slice(0, dot) : name).slice(0, 8) || '_'
+    ext = dot > 0 ? clean(name.slice(dot + 1)).slice(0, 3) : ''
+  }
+  const make = (b: string) => (isDir ? b : `${b}.${ext}`)
+  let candidate = make(base)
+  for (let n = 1; used.has(candidate); n++) {
+    const suffix = `~${n}`
+    candidate = make(base.slice(0, 8 - suffix.length) + suffix)
+  }
+  used.add(candidate)
+  return isDir ? candidate : `${candidate};1`
+}
+
+/** Joliet: up to 64 UCS-2 characters, without * / : ; ? \ ; unique. */
+function uniqueJolietName(name: string, used: Set<string>): string {
+  let clean = name.replace(/[*/:;?\\]/g, '_')
+  if ([...clean].length > 64) {
+    const dot = clean.lastIndexOf('.')
+    const ext = dot > 0 && clean.length - dot <= 10 ? clean.slice(dot) : ''
+    clean = clean.slice(0, 64 - ext.length) + ext
+  }
+  let candidate = clean
+  for (let n = 1; used.has(candidate.toLowerCase()); n++) {
+    const suffix = ` (${n})`
+    const dot = clean.lastIndexOf('.')
+    const ext = dot > 0 ? clean.slice(dot) : ''
+    const stem = dot > 0 ? clean.slice(0, dot) : clean
+    candidate = stem.slice(0, 64 - ext.length - suffix.length) + suffix + ext
+  }
+  used.add(candidate.toLowerCase())
+  return candidate
+}
+
+// ── Sizes ─────────────────────────────────────────────────────
+
+function recordLength(idLength: number): number {
+  const len = 33 + idLength
+  return len % 2 === 1 ? len + 1 : len
+}
+
+function sortedEntries(dir: Dir, joliet: boolean): Entry[] {
+  return [...dir.entries].sort((a, b) => compareBytes(joliet ? a.jolietId : a.isoId, joliet ? b.jolietId : b.isoId))
+}
+
+/** A directory's bytes: records never cross a sector boundary. */
+function dirBytes(dir: Dir, joliet: boolean): number {
+  let offset = 34 * 2
+  for (const e of sortedEntries(dir, joliet)) {
+    const len = recordLength((joliet ? e.jolietId : e.isoId).length)
+    if ((offset % SECTOR) + len > SECTOR) offset = Math.ceil(offset / SECTOR) * SECTOR
+    offset += len
+  }
+  return Math.max(1, Math.ceil(offset / SECTOR)) * SECTOR
+}
+
+function pathTable(dirs: Dir[], joliet: boolean): { size: number } {
+  let size = 0
+  for (const d of dirs) {
+    const idLen = d.parent ? idOf(d, joliet).length : 1
+    size += 8 + idLen + (idLen % 2)
+  }
+  return { size }
+}
+
+function idOf(dir: Dir, joliet: boolean): Uint8Array {
+  const entry = dir.parent!.entries.find((e) => e.dir === dir)!
+  return joliet ? entry.jolietId : entry.isoId
+}
+
+// ── Writing ───────────────────────────────────────────────────
+
+function pathTableBytes(dirs: Dir[], joliet: boolean, msb: boolean, size: number): Uint8Array {
+  const out = new Uint8Array(sectorsFor(size) * SECTOR)
+  let o = 0
+  for (const d of dirs) {
+    const id = d.parent ? idOf(d, joliet) : new Uint8Array([0])
+    out[o] = id.length
+    out[o + 1] = 0
+    const lba = joliet ? d.jolietLba : d.isoLba
+    const parentNumber = d.parent ? d.parent.number : 1
+    if (msb) {
+      writeU32BE(out, o + 2, lba)
+      writeU16BE(out, o + 6, parentNumber)
+    } else {
+      writeU32LE(out, o + 2, lba)
+      writeU16LE(out, o + 6, parentNumber)
+    }
+    out.set(id, o + 8)
+    o += 8 + id.length + (id.length % 2)
+  }
+  return out
+}
+
+function writeDirectory(meta: Uint8Array, dir: Dir, joliet: boolean, now: Date): void {
+  const lba = joliet ? dir.jolietLba : dir.isoLba
+  const size = joliet ? dir.jolietSize : dir.isoSize
+  const buf = meta.subarray(lba * SECTOR, lba * SECTOR + size)
+  const parent = dir.parent ?? dir
+  let o = 0
+  o += dirRecord(buf, o, lba, size, 0x02, new Uint8Array([0]), now)
+  o += dirRecord(buf, o, joliet ? parent.jolietLba : parent.isoLba, joliet ? parent.jolietSize : parent.isoSize, 0x02, new Uint8Array([1]), now)
+  for (const e of sortedEntries(dir, joliet)) {
+    const id = joliet ? e.jolietId : e.isoId
+    const len = recordLength(id.length)
+    if ((o % SECTOR) + len > SECTOR) o = Math.ceil(o / SECTOR) * SECTOR
+    if (e.dir) {
+      const d = e.dir
+      o += dirRecord(buf, o, joliet ? d.jolietLba : d.isoLba, joliet ? d.jolietSize : d.isoSize, 0x02, id, mtimeOf(e.node, now))
+    } else {
+      o += dirRecord(buf, o, e.file!.lba, e.file!.size, 0x00, id, mtimeOf(e.node, now))
+    }
+  }
+}
+
+function dirRecord(buf: Uint8Array, o: number, lba: number, size: number, flags: number, id: Uint8Array, date: Date): number {
+  const len = recordLength(id.length)
+  buf[o] = len
+  buf[o + 1] = 0
+  writeBothU32(buf, o + 2, lba)
+  writeBothU32(buf, o + 10, size)
+  recordDate(buf, o + 18, date)
+  buf[o + 25] = flags
+  buf[o + 26] = 0
+  buf[o + 27] = 0
+  writeBothU16(buf, o + 28, 1)
+  buf[o + 32] = id.length
+  buf.set(id, o + 33)
+  return len
+}
+
+function writeDescriptor(
+  s: Uint8Array,
+  joliet: boolean,
+  label: string,
+  now: Date,
+  volumeSectors: number,
+  ptSize: number,
+  ptL: number,
+  ptM: number,
+  root: Dir,
+): void {
+  s[0] = joliet ? 2 : 1
+  ascii(s, 1, 'CD001')
+  s[6] = 1
+  const text = (offset: number, length: number, value: string) => {
+    if (joliet) ucs2Field(s, offset, length, value)
+    else ascii(s, offset, value.padEnd(length, ' ').slice(0, length))
+  }
+  text(8, 32, '')
+  text(40, 32, joliet ? label.slice(0, 16) : label.toUpperCase())
+  writeBothU32(s, 80, volumeSectors)
+  if (joliet) {
+    // UCS-2 level 3
+    s[88] = 0x25
+    s[89] = 0x2f
+    s[90] = 0x45
+  }
+  writeBothU16(s, 120, 1)
+  writeBothU16(s, 124, 1)
+  writeBothU16(s, 128, SECTOR)
+  writeBothU32(s, 132, ptSize)
+  writeU32LE(s, 140, ptL)
+  writeU32LE(s, 144, 0)
+  writeU32BE(s, 148, ptM)
+  writeU32BE(s, 152, 0)
+  dirRecord(s, 156, joliet ? root.jolietLba : root.isoLba, joliet ? root.jolietSize : root.isoSize, 0x02, new Uint8Array([0]), now)
+  text(190, 128, '')
+  text(318, 128, '')
+  text(446, 128, '')
+  text(574, 128, 'MYISOMAKER')
+  text(702, 37, '')
+  text(739, 37, '')
+  text(776, 37, '')
+  descriptorDate(s, 813, now)
+  descriptorDate(s, 830, now)
+  descriptorDate(s, 847, null)
+  descriptorDate(s, 864, null)
+  s[881] = 1
+}
+
+// ── Small helpers ─────────────────────────────────────────────
+
+function mtimeOf(node: IsoNode, fallback: Date): Date {
+  const m = (node as { mtime?: Date | number | string }).mtime
+  if (m instanceof Date && !Number.isNaN(m.getTime())) return m
+  if (typeof m === 'number' || typeof m === 'string') {
+    const d = new Date(m)
+    if (!Number.isNaN(d.getTime())) return d
+  }
+  return fallback
+}
+
+/** 7-byte directory record date, UTC. */
+function recordDate(buf: Uint8Array, o: number, d: Date): void {
+  buf[o] = Math.max(0, Math.min(255, d.getUTCFullYear() - 1900))
+  buf[o + 1] = d.getUTCMonth() + 1
+  buf[o + 2] = d.getUTCDate()
+  buf[o + 3] = d.getUTCHours()
+  buf[o + 4] = d.getUTCMinutes()
+  buf[o + 5] = d.getUTCSeconds()
+  buf[o + 6] = 0
+}
+
+/** 17-byte descriptor date: "YYYYMMDDHHMMSScc" + time-zone byte; unset = sixteen '0' and 0. */
+function descriptorDate(buf: Uint8Array, o: number, d: Date | null): void {
+  const p = (n: number, w: number) => String(n).padStart(w, '0')
+  const text = d
+    ? `${p(d.getUTCFullYear(), 4)}${p(d.getUTCMonth() + 1, 2)}${p(d.getUTCDate(), 2)}${p(d.getUTCHours(), 2)}${p(d.getUTCMinutes(), 2)}${p(d.getUTCSeconds(), 2)}00`
+    : '0000000000000000'
+  ascii(buf, o, text)
+  buf[o + 16] = 0
+}
+
+function ascii(buf: Uint8Array, offset: number, text: string): void {
+  for (let i = 0; i < text.length; i++) buf[offset + i] = text.charCodeAt(i) & 0x7f
+}
+
+function asciiBytes(text: string): Uint8Array {
+  const out = new Uint8Array(text.length)
+  ascii(out, 0, text)
+  return out
+}
+
+function ucs2(text: string): Uint8Array {
+  const out = new Uint8Array(text.length * 2)
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i)
+    out[i * 2] = (c >>> 8) & 0xff
+    out[i * 2 + 1] = c & 0xff
+  }
+  return out
+}
+
+/** A Joliet text field: UCS-2 BE, padded with spaces (00 20). */
+function ucs2Field(buf: Uint8Array, offset: number, length: number, text: string): void {
+  for (let i = 0; i + 1 < length; i += 2) {
+    const c = i / 2 < text.length ? text.charCodeAt(i / 2) : 0x20
+    buf[offset + i] = (c >>> 8) & 0xff
+    buf[offset + i + 1] = c & 0xff
+  }
+  if (length % 2 === 1) buf[offset + length - 1] = 0
+}
+
+function compareBytes(a: Uint8Array, b: Uint8Array): number {
+  const n = Math.min(a.length, b.length)
+  for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i]! - b[i]!
+  return a.length - b.length
+}
+
+function sectorsFor(bytes: number): number {
+  return Math.max(1, Math.ceil(bytes / SECTOR))
+}
+
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new Error('JOB_CANCELED')
 }
 
-async function filePayload(file: PlannedFile, readPathFile?: PathFileReader): Promise<Blob> {
+async function filePayload(file: FileOut, readPathFile?: PathFileReader): Promise<Blob> {
   if (file.size === 0) return new Blob([])
   const src = file.node.source
-  if (src.type === 'blob') {
-    return src.blob.slice(0, file.size)
-  }
-  if (src.type === 'unavailable') {
-    throw new Error(src.reason)
-  }
+  if (src.type === 'blob') return src.blob.slice(0, file.size)
+  if (src.type === 'unavailable') throw new Error(src.reason)
   if (src.type === 'path') {
-    if (!readPathFile) {
-      throw new Error(`경로 소스는 데스크톱에서만 저장할 수 있습니다: ${src.absolutePath}`)
-    }
-    const blob = await readPathFile(src.absolutePath)
-    return blob.slice(0, file.size)
+    if (!readPathFile) throw new Error(`경로 소스는 데스크톱에서만 저장할 수 있습니다: ${src.absolutePath}`)
+    return (await readPathFile(src.absolutePath)).slice(0, file.size)
   }
+  const block = src.blockSize || SECTOR
   if (src.extents.length === 1) {
     const e = src.extents[0]!
-    const block = src.blockSize || SECTOR
     return src.iso.slice(e.lba * block, e.lba * block + e.size)
   }
-  const parts: Blob[] = []
-  const block = src.blockSize || SECTOR
-  for (const e of src.extents) {
-    parts.push(src.iso.slice(e.lba * block, e.lba * block + e.size))
-  }
-  return new Blob(parts)
+  return new Blob(src.extents.map((e) => src.iso.slice(e.lba * block, e.lba * block + e.size)))
 }
 
 function toBlob(bytes: Uint8Array): Blob {
@@ -189,203 +477,6 @@ function toBlob(bytes: Uint8Array): Blob {
   return new Blob([copy.buffer])
 }
 
-function collect(
-  node: IsoDirNode,
-  path: string,
-  dirs: PlannedDir[],
-  files: PlannedFile[],
-): void {
-  dirs.push({ path, node, lba: 0, size: 0 })
-  for (const child of sortedChildren(node)) {
-    const childPath = path ? `${path}/${child.name}` : child.name
-    if (child.kind === 'dir') collect(child, childPath, dirs, files)
-    else files.push({ path: childPath, node: child, lba: 0, size: child.size })
-  }
-}
-
-function sortedChildren(node: IsoDirNode): IsoNode[] {
-  return [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name))
-}
-
-function estimateDirSize(dir: PlannedDir, joliet: boolean): number {
-  let size = 34 + 34
-  for (const child of sortedChildren(dir.node)) {
-    const id = joliet ? encodeJolietName(child.name) : iso9660FileId(child.name, child.kind === 'dir')
-    let rec = 33 + id.length
-    if (rec % 2 === 1) rec += 1
-    size += rec
-  }
-  return Math.max(SECTOR, Math.ceil(size / SECTOR) * SECTOR)
-}
-
-function sectorsFor(bytes: number): number {
-  return Math.max(1, Math.ceil(bytes / SECTOR))
-}
-
-function writePrimaryVolume(
-  sector: Uint8Array,
-  label: string,
-  root: PlannedDir,
-  pathL: number,
-  pathM: number,
-  pathSize: number,
-  volumeSectors: number,
-): void {
-  sector[0] = 1
-  writeAscii(sector, 1, 'CD001')
-  sector[6] = 1
-  writeAscii(sector, 8, 'ISOMAKER')
-  writeAscii(sector, 40, label.padEnd(32).slice(0, 32))
-  writeBothU32(sector, 80, volumeSectors)
-  writeBothU16(sector, 120, 1)
-  writeBothU16(sector, 124, 1)
-  writeBothU16(sector, 128, SECTOR)
-  writeBothU32(sector, 132, pathSize)
-  writeU32LEOnly(sector, 140, pathL)
-  writeU32LEOnly(sector, 148, pathM)
-  writeDirectoryRecord(sector, 156, root.lba, root.size, 0x02, new Uint8Array([0]))
-  writeAscii(sector, 881, 'ISOMAKER')
-}
-
-function writeJolietVolume(
-  sector: Uint8Array,
-  label: string,
-  root: PlannedDir,
-  pathL: number,
-  pathM: number,
-  pathSize: number,
-  volumeSectors: number,
-): void {
-  sector[0] = 2
-  writeAscii(sector, 1, 'CD001')
-  sector[6] = 1
-  writeAscii(sector, 8, 'ISOMAKER')
-  const jolietLabel = encodeJolietName(label.slice(0, 16))
-  sector.set(jolietLabel.subarray(0, Math.min(32, jolietLabel.length)), 40)
-  writeBothU32(sector, 80, volumeSectors)
-  sector[88] = 0x25
-  sector[89] = 0x2f
-  sector[90] = 0x40
-  writeBothU16(sector, 120, 1)
-  writeBothU16(sector, 124, 1)
-  writeBothU16(sector, 128, SECTOR)
-  writeBothU32(sector, 132, pathSize)
-  writeU32LEOnly(sector, 140, pathL)
-  writeU32LEOnly(sector, 148, pathM)
-  writeDirectoryRecord(sector, 156, root.lba, root.size, 0x02, new Uint8Array([0]))
-}
-
-function writePathTableInto(meta: Uint8Array, sectorIndex: number, rootDirLba: number, msb: boolean): void {
-  const buf = meta.subarray(sectorIndex * SECTOR, sectorIndex * SECTOR + SECTOR)
-  buf[0] = 1
-  buf[1] = 0
-  if (msb) {
-    buf[2] = (rootDirLba >>> 24) & 0xff
-    buf[3] = (rootDirLba >>> 16) & 0xff
-    buf[4] = (rootDirLba >>> 8) & 0xff
-    buf[5] = rootDirLba & 0xff
-    buf[6] = 0
-    buf[7] = 1
-  } else {
-    writeU32LEOnly(buf, 2, rootDirLba)
-    writeU16LE(buf, 6, 1)
-  }
-  buf[8] = 0
-}
-
-function writeDirectoryRecordsInto(
-  meta: Uint8Array,
-  metaStartLba: number,
-  dirs: PlannedDir[],
-  files: PlannedFile[],
-  joliet: boolean,
-): void {
-  const byPath = new Map(dirs.map((d) => [d.path, d]))
-
-  for (const dir of dirs) {
-    const local = (dir.lba - metaStartLba) * SECTOR
-    const buf = meta.subarray(local, local + dir.size)
-    let offset = 0
-    const parentPath = parentOf(dir.path)
-    const parent = parentPath === null ? dir : (byPath.get(parentPath) ?? dir)
-
-    offset = putDirRecord(buf, offset, dir.lba, dir.size, 0x02, new Uint8Array([0]))
-    offset = putDirRecord(buf, offset, parent.lba, parent.size, 0x02, new Uint8Array([1]))
-
-    for (const child of sortedChildren(dir.node)) {
-      const childPath = dir.path ? `${dir.path}/${child.name}` : child.name
-      if (child.kind === 'dir') {
-        const planned = byPath.get(childPath)
-        if (!planned) continue
-        const id = joliet ? encodeJolietName(child.name) : iso9660FileId(child.name, true)
-        offset = putDirRecord(buf, offset, planned.lba, planned.size, 0x02, id)
-      } else {
-        const planned = files.find((f) => f.path === childPath)
-        if (!planned) continue
-        const id = joliet ? encodeJolietName(child.name) : iso9660FileId(child.name, false)
-        offset = putDirRecord(buf, offset, planned.lba, planned.size, 0x00, id)
-      }
-    }
-  }
-}
-
-function putDirRecord(
-  buf: Uint8Array,
-  offset: number,
-  lba: number,
-  size: number,
-  flags: number,
-  id: Uint8Array,
-): number {
-  let recLen = 33 + id.length
-  if (recLen % 2 === 1) recLen += 1
-  if (offset + recLen > buf.length) return offset
-  writeDirectoryRecord(buf, offset, lba, size, flags, id)
-  return offset + recLen
-}
-
-function writeDirectoryRecord(
-  buf: Uint8Array,
-  offset: number,
-  lba: number,
-  size: number,
-  flags: number,
-  id: Uint8Array,
-): void {
-  let recLen = 33 + id.length
-  if (recLen % 2 === 1) recLen += 1
-  writeU8(buf, offset, recLen)
-  writeU8(buf, offset + 1, 0)
-  writeBothU32(buf, offset + 2, lba)
-  writeBothU32(buf, offset + 10, size)
-  writeU8(buf, offset + 25, flags)
-  writeBothU16(buf, offset + 28, 1)
-  writeU8(buf, offset + 32, id.length)
-  buf.set(id, offset + 33)
-}
-
-function blankSector(): Uint8Array {
-  return new Uint8Array(SECTOR)
-}
-
-function writeAscii(buf: Uint8Array, offset: number, text: string): void {
-  buf.set(encodeAsciiPadded(text, text.length, 0), offset)
-}
-
-function writeU32LEOnly(buf: Uint8Array, offset: number, value: number): void {
-  buf[offset] = value & 0xff
-  buf[offset + 1] = (value >>> 8) & 0xff
-  buf[offset + 2] = (value >>> 16) & 0xff
-  buf[offset + 3] = (value >>> 24) & 0xff
-}
-
 function sanitizeLabel(label: string): string {
-  return (label || 'ISOMAKER').replace(/[^\w.-]+/g, '_').slice(0, 32)
-}
-
-function parentOf(path: string): string | null {
-  if (!path) return null
-  const idx = path.lastIndexOf('/')
-  if (idx < 0) return ''
-  return path.slice(0, idx)
+  return (label || 'ISOMAKER').toUpperCase().replace(/[^A-Z0-9_]+/g, '_').slice(0, 32) || 'ISOMAKER'
 }

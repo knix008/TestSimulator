@@ -106,6 +106,13 @@ test('manual: every guide renders with headings and tables', async () => {
     assert.ok(headings.filter((h) => h.level === 2).length >= 5, `${f} sections`)
     assert.ok(!/<script/i.test(html), `${f} escapes HTML`)
   }
+  for (const f of ['doc/UsersGuide.md', 'doc/UsersGuide.en.md', 'doc/Tutorial.md', 'doc/Tutorial.en.md']) {
+    const text = fs.readFileSync(f, 'utf8')
+    const refs = [...text.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1])
+    assert.ok(refs.length >= 4, `${f} has pictures`)
+    for (const r of refs) assert.ok(fs.existsSync(path.join('doc', r)), `${f}: ${r} exists`)
+    assert.match(renderMarkdown(text).html, /<figure class="doc-figure"><img src="images\//, `${f} renders pictures`)
+  }
   const { html } = renderMarkdown('| a | b |\n|---|---|\n| `x` | **y** |\n\n<b>z</b>')
   assert.match(html, /<table>.*<code>x<\/code>.*<strong>y<\/strong>/s)
   assert.match(html, /&lt;b&gt;z&lt;\/b&gt;/)

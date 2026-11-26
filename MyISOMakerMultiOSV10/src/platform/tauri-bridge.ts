@@ -139,6 +139,7 @@ export function installTauriBridge(): void {
     extractIso: (options) => call('iso:extract', options),
     createIso: (options) => call('iso:create', options),
     createBootableIso: (options) => call('iso:createBootable', options),
+    createAppImage: (options) => call('iso:createAppImage', options),
     cancelJob: () => call('iso:cancel'),
     mountIso: (isoPath) => call('iso:mount', isoPath),
     unmountIso: (target) => call('iso:unmount', target),

@@ -101,6 +101,7 @@ function ToolbarButton({ action }: { action: ToolbarAction }) {
       ]
         .filter(Boolean)
         .join(' ')}
+      data-tool={action.id}
       disabled={action.disabled}
       onClick={action.onClick}
       title={action.tooltip}

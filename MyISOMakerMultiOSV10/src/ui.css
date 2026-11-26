@@ -314,3 +314,69 @@
 .theme-select:hover, .theme-select.open { border-color: var(--accent); }
 .theme-select-name { min-width: 64px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .theme-select svg { color: var(--muted); flex: none; }
+
+/* Help: top bar (language flags · text size · print) above contents + text */
+.dialog-panel--help .dialog-body { display: flex; flex-direction: column; }
+.dialog-panel--help .help-layout { flex: 1 1 auto; min-height: 0; height: auto; }
+.help-top { display: flex; align-items: center; gap: 10px; flex: none; padding: 8px 12px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg2) 45%, transparent); font-size: 13px; }
+.help-top-sep { width: 1px; align-self: stretch; background: var(--line); }
+.help-top-grow { flex: 1; }
+.help-langs { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.help-lang { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 0; background: transparent; color: var(--text); cursor: pointer; font-size: 12.5px; }
+.help-lang + .help-lang { border-left: 1px solid var(--line); }
+.help-lang.on { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 650; }
+.help-lang .flag { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.15); }
+.help-font { display: inline-grid; grid-template-columns: 34px 58px 34px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.help-font-btn { border: 0; background: transparent; color: var(--accent); font-weight: 700; cursor: pointer; padding: 5px 0; }
+.help-font-btn:disabled { opacity: 0.35; cursor: default; }
+.help-font-btn:hover:not(:disabled) { background: var(--bg2); }
+.help-font-value { border: 0; border-left: 1px solid var(--line); border-right: 1px solid var(--line); background: var(--bg0); color: var(--text); text-align: center; font-variant-numeric: tabular-nums; cursor: pointer; font-size: 12.5px; }
+.help-print { font-size: 13px !important; padding: 5px 12px !important; }
+.help-print svg { width: 16px; height: 16px; }
+.help-print-note { color: var(--danger); font-size: 12px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Pictures in the manual */
+.doc-figure { margin: 10px 0 16px; text-align: center; }
+.doc-figure img { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 18px rgb(0 0 0 / 0.18); }
+.doc-figure figcaption { margin-top: 6px; font-size: 0.85em; color: var(--muted); }
+.print-doc .doc-figure img { border-color: #c9ced6; box-shadow: none; }
+.print-doc .doc-figure { break-inside: avoid; }
+.print-doc .doc-figure figcaption { color: #555; }
+/* The theme list is a portal on <body>, placed by ThemeMenu.tsx (fixed, under the button). */
+.theme-menu { z-index: 2000; }
+
+/* Theme drop-down: a vertical menu like the context menus (same classes, same type size) */
+.theme-menu-v { position: fixed; z-index: 2000; width: 230px; overflow-y: auto; scrollbar-width: thin; }
+.theme-menu-v .ctx-menu-item { padding: 5px 10px; }
+.theme-menu-v .ctx-menu-item.on { background: color-mix(in srgb, var(--accent) 18%, transparent); font-weight: 600; }
+.theme-menu-v .ctx-menu-icon svg { width: 16px; height: 16px; }
+.theme-v-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-v-check { color: var(--accent); font-weight: 700; }
+.theme-v-head { padding: 4px 10px 2px; font-size: 0.8em; font-weight: 650; color: var(--muted); }
+.theme-menu-v .theme-swatch-mini { width: 22px; height: 14px; }
+.theme-menu-v .ctx-menu-sep { height: 1px; margin: 5px 4px; background: var(--line); }
+
+/* Theme menu window: the window is sized to this box (fit_theme_menu) */
+body.thememenu-window { background: transparent; overflow: hidden; }
+body.thememenu-window #root { width: max-content; height: max-content; }
+.theme-menu-win { position: static; display: inline-block; width: max-content; box-shadow: none; border-radius: 0; }
+.theme-win-top { display: grid; grid-template-columns: 1fr 1fr; gap: 0 6px; }
+.theme-win-cols { display: grid; grid-template-columns: 210px 210px; gap: 0 6px; }
+.theme-menu-win .ctx-menu-item { padding: 4px 10px; }
+.theme-menu-win .ctx-menu-item.on { background: color-mix(in srgb, var(--accent) 18%, transparent); font-weight: 600; }
+.theme-menu-win .ctx-menu-icon svg { width: 16px; height: 16px; }
+.theme-menu-win .theme-swatch-mini { width: 22px; height: 14px; }
+.theme-menu-win .ctx-menu-sep { height: 1px; margin: 5px 4px; background: var(--line); }
+
+/* Background controls: one line — speed, strength (− slider + value), automatic change */
+.bg-line { display: flex; flex-wrap: nowrap; align-items: center; gap: 18px; margin-top: 8px; font-size: 13px; white-space: nowrap; }
+.bg-step { display: inline-grid; grid-template-columns: max-content 24px minmax(80px, 140px) 24px 44px; align-items: center; gap: 6px; }
+.bg-step-label { color: var(--text); }
+.bg-step-btn { width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--bg2); color: var(--text); font-size: 15px; line-height: 1; cursor: pointer; }
+.bg-step-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.bg-step-btn:disabled { opacity: 0.4; cursor: default; }
+.bg-step input[type='range'] { width: 100%; padding: 0; margin: 0; accent-color: var(--accent); }
+.bg-step output { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.bg-auto-line { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.bg-auto-line input[type='checkbox'] { width: 15px; height: 15px; padding: 0; margin: 0; accent-color: var(--accent); }
+.bg-auto-line select { padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg0); color: var(--text); font-size: 13px; }
