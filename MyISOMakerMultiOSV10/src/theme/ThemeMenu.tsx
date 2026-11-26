@@ -46,43 +46,6 @@ export function ThemeList() {
   )
 }
 
-export function ThemeChips({ onPick }: { onPick?: (id: string) => void }) {
-  const { themeId, setThemeId, themeName, t } = usePrefs()
-  const pick = (id: string) => {
-    setThemeId(id)
-    onPick?.(id)
-  }
-  return (
-    <>
-      {(['dark', 'light'] as const).map((mode) => (
-        <div key={mode} className="theme-group" data-theme-group={mode}>
-          <div className="theme-group-head">{mode === 'dark' ? t('themeGroupDark') : t('themeGroupLight')}</div>
-          <div className="theme-grid">
-            {themesByMode(mode).map((th: { id: string; bars: string[] }) => (
-              <button
-                key={th.id}
-                type="button"
-                data-theme-pick={th.id}
-                className={`theme-chip${themeId === th.id ? ' on' : ''}`}
-                title={themeName(th.id)}
-                aria-pressed={themeId === th.id}
-                onClick={() => pick(th.id)}
-              >
-                <span className="theme-chip-bars" aria-hidden="true">
-                  {th.bars.map((c, i) => (
-                    <i key={i} style={{ background: c }} />
-                  ))}
-                </span>
-                <span className="theme-chip-name">{themeName(th.id)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </>
-  )
-}
-
 /** The theme button's icon: a painter's palette with coloured paint. */
 export const PALETTE = (
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">

@@ -10,7 +10,7 @@
  * [data-card-resize]); StartBoard.start() then places them on the grid.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { EngineInfo } from '../../host/iso/types'
+import type { EngineInfo } from '../platform/engine-types'
 import type { MessageKey } from '../i18n/messages'
 import { Icons } from '../Toolbar'
 import { APP_VERSION, APP_YEAR } from '../version'

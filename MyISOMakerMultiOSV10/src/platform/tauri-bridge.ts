@@ -1,7 +1,7 @@
 /**
  * `window.isoMaker` on Tauri — the same API the Electron preload exposed, so
  * App.tsx did not have to change. Calls go to src-tauri/src/lib.rs:
- *   ipc(ch, args)       → the Node host (host/host.ts), channel names as before
+ *   ipc(ch, args)       → the Rust engine (src-tauri/isohost), channel names as before
  *   pick / open_path / start_file_drag / set_locale / close_*   → Rust
  * Host events arrive as the `host-event` event ({ ch, p }).
  *

@@ -2,21 +2,20 @@
 //
 // The page (src/, React) talks to `window.isoMaker`, rebuilt on top of these
 // commands by src/platform/tauri-bridge.ts:
-//   ipc               a call for the Node host (host/host.ts): image sessions,
-//                     xorriso, mounting — the old Electron IPC channels
+//   ipc               a call for the engine (isohost/, Rust, in this process): image
+//                     sessions, xorriso, mounting — the old Electron IPC channels
 //   pick              open / save / folder dialogs (the host remembers the folder)
 //   open_path         Electron's shell.openPath
 //   start_file_drag   tree rows dragged out of the window → OS file drag
 //   set_locale        language of the native fallback messages
 //   close_ack / close_decision   the unsaved-changes guard on closing
-// Host events (job progress) reach the page as the `host-event` event.
+// Engine events (job progress) reach the page as the `host-event` event.
 
-mod host;
 mod printing;
 
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
@@ -32,7 +31,7 @@ const MIN_H: f64 = 700.0;
 
 #[derive(Default)]
 struct AppState {
-    host: Mutex<Option<Arc<host::Host>>>,
+    host: Mutex<Option<Arc<isomaker_host::Host>>>,
     /// Set once closing is decided: the next close request goes through.
     allow_close: AtomicBool,
     /// The page is asking the user (or the native fallback is showing).
@@ -79,8 +78,20 @@ fn state(app: &AppHandle) -> tauri::State<'_, AppState> {
     app.state::<AppState>()
 }
 
-fn host_of(app: &AppHandle) -> Result<Arc<host::Host>, String> {
-    state(app).host.lock().unwrap().clone().ok_or_else(|| "The ISO host is not running".to_string())
+fn host_of(app: &AppHandle) -> Result<Arc<isomaker_host::Host>, String> {
+    state(app).host.lock().unwrap().clone().ok_or_else(|| "The ISO engine is not running".to_string())
+}
+
+/// One engine call off the UI thread (they read and write images, run xorriso …).
+async fn host_call(app: &AppHandle, method: &str, args: Value) -> Result<Value, String> {
+    let host = host_of(app)?;
+    let method = method.to_string();
+    let args: Vec<Value> = match args {
+        Value::Array(a) => a,
+        Value::Null => Vec::new(),
+        other => vec![other],
+    };
+    tauri::async_runtime::spawn_blocking(move || host.call(&method, &args)).await.map_err(|e| e.to_string())?
 }
 
 fn is_ko(app: &AppHandle) -> bool {
@@ -92,114 +103,23 @@ fn emit_page(app: &AppHandle, channel: &str, payload: Value) {
     let _ = app.emit("host-event", json!({ "ch": channel, "p": payload }));
 }
 
-// ── Node host ────────────────────────────────────────────────
+// ── The engine ───────────────────────────────────────────────
 
-/// \\?\C:\… → C:\… (Node cannot start a script given as a verbatim path).
-fn plain_path(path: &Path) -> PathBuf {
-    let text = path.to_string_lossy();
-    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
-        return PathBuf::from(format!(r"\\{rest}"));
-    }
-    PathBuf::from(text.strip_prefix(r"\\?\").unwrap_or(&text))
-}
-
-fn node_on_path() -> Option<PathBuf> {
-    let path = std::ffi::OsString::from(host_path());
-    let name = if cfg!(windows) { "node.exe" } else { "node" };
-    std::env::split_paths(&path).map(|d| d.join(name)).find(|c| c.is_file())
-}
-
-fn host_path() -> String {
-    let current = std::env::var("PATH").unwrap_or_default();
-    if cfg!(windows) {
-        return current;
-    }
-    let mut parts: Vec<String> = current.split(':').filter(|p| !p.is_empty()).map(String::from).collect();
-    for extra in ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/usr/sbin", "/bin", "/sbin"] {
-        if !parts.iter().any(|p| p == extra) {
-            parts.push(extra.to_string());
-        }
-    }
-    parts.join(":")
-}
-
-fn project_root() -> PathBuf {
-    plain_path(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".."))
-}
-
-/// Installed: the bundled Node runtime and host (resources/sidecar);
-/// a debug build runs dist-sidecar/ of the project with the Node on PATH.
-fn host_launch(app: &tauri::App) -> Result<host::Launch, String> {
-    let node_name = if cfg!(windows) { "node.exe" } else { "node" };
-    let resource_dir = app.path().resource_dir().map(|d| plain_path(&d)).unwrap_or_default();
-    let sidecar = resource_dir.join("sidecar");
-    let installed = !cfg!(debug_assertions) && sidecar.join("host.mjs").is_file();
-    let (bundled_node, script, resources) = if installed {
-        (Some(sidecar.join(node_name)).filter(|p| p.is_file()), sidecar.join("host.mjs"), resource_dir.clone())
-    } else {
-        let root = project_root();
-        (None, root.join("dist-sidecar").join("host.mjs"), root)
-    };
-    if !script.is_file() {
-        return Err(format!("The ISO host is missing: {} (run `npm run build:host`)", script.display()));
-    }
-    let node = std::env::var_os("ISOMAKER_NODE")
-        .map(PathBuf::from)
-        .or(bundled_node)
-        .or_else(node_on_path)
-        .ok_or("Node.js was not found. Install Node.js, or use the installed MyISOMaker (it brings its own).")?;
-    let mut env = vec![
-        ("ISOMAKER_RESOURCE_DIR".to_string(), resources.to_string_lossy().to_string()),
-        // macOS / Linux: started from the Finder, Dock or a desktop menu the program gets a
-        // short PATH; Homebrew's and the system's tool folders are added for xorriso, brew …
-        ("PATH".to_string(), host_path()),
-        ("ISOMAKER_VERSION".to_string(), app.package_info().version.to_string()),
-    ];
-    // Tests keep their remembered folders apart from the user's.
-    if let Some(dir) = std::env::var_os("ISOMAKER_CONFIG_DIR").filter(|v| !v.is_empty()) {
-        env.push(("ISOMAKER_USER_DATA".to_string(), dir.to_string_lossy().to_string()));
-    }
-    Ok(host::Launch { node, script, env })
-}
-
+/// The engine runs inside the program.
 fn start_host(app: &tauri::App) {
-    let handle = app.handle().clone();
-    let launch = match host_launch(app) {
-        Ok(l) => l,
-        Err(e) => {
-            eprintln!("[isomaker] {e}");
-            let h = handle.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(1200));
-                emit_page(&h, "host:error", json!(e));
-            });
-            return;
-        }
-    };
-    let events = handle.clone();
-    let on_event: host::OnEvent = Arc::new(move |ch, p| emit_page(&events, &ch, p));
-    let exited = handle.clone();
-    let on_exit = Box::new(move || {
-        state(&exited).host.lock().unwrap().take();
-        emit_page(&exited, "host:error", json!("The ISO host stopped unexpectedly. Restart MyISOMaker."));
-    });
-    match host::Host::start(launch, on_event, on_exit) {
-        Ok(h) => *state(&handle).host.lock().unwrap() = Some(h),
-        Err(e) => {
-            eprintln!("[isomaker] {e}");
-            let h = handle.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(1200));
-                emit_page(&h, "host:error", json!(e));
-            });
-        }
-    }
+    let mut config = isomaker_host::Config::default();
+    // Tests keep their remembered folders and packages apart from the user's.
+    config.user_data = std::env::var_os("ISOMAKER_CONFIG_DIR").filter(|v| !v.is_empty()).map(PathBuf::from);
+    config.tools_dir = std::env::var_os("ISOMAKER_TOOLS_DIR").filter(|v| !v.is_empty()).map(PathBuf::from);
+    let events = app.handle().clone();
+    let host = isomaker_host::Host::new(config, Arc::new(move |ch: &str, p: Value| emit_page(&events, ch, p)));
+    *state(app.handle()).host.lock().unwrap() = Some(host);
 }
 
 fn stop_host(app: &AppHandle) {
     let taken = state(app).host.lock().unwrap().take();
     if let Some(h) = taken {
-        h.stop();
+        h.shutdown();
     }
 }
 
@@ -207,8 +127,7 @@ fn stop_host(app: &AppHandle) {
 
 #[tauri::command]
 async fn ipc(app: AppHandle, ch: String, args: Option<Value>) -> Result<Value, String> {
-    let host = host_of(&app)?;
-    host.request(&ch, args.unwrap_or_else(|| json!([]))).await
+    host_call(&app, &ch, args.unwrap_or_else(|| json!([]))).await
 }
 
 #[derive(Deserialize)]
@@ -232,9 +151,7 @@ struct PickOptions {
 /// path, else the folder used last, and remembers the folder chosen.
 #[tauri::command]
 async fn pick(app: AppHandle, window: WebviewWindow, options: PickOptions) -> Result<Value, String> {
-    let host = host_of(&app)?;
-    let start = host
-        .request("paths:dialogDefault", json!([options.hint_path, options.file_name]))
+    let start = host_call(&app, "paths:dialogDefault", json!([options.hint_path, options.file_name]))
         .await
         .ok()
         .and_then(|v| v.as_str().map(PathBuf::from));
@@ -287,7 +204,7 @@ async fn pick(app: AppHandle, window: WebviewWindow, options: PickOptions) -> Re
     .await
     .map_err(|e| e.to_string())?;
     if let Some(first) = picked.first() {
-        let _ = host.request("paths:remember", json!([first.to_string_lossy()])).await;
+        let _ = host_call(&app, "paths:remember", json!([first.to_string_lossy()])).await;
     }
     let list: Vec<String> = picked.iter().map(|p| p.to_string_lossy().to_string()).collect();
     Ok(if options.kind == "files" {
@@ -370,15 +287,11 @@ fn request_close(window: WebviewWindow) {
         return;
     }
     tauri::async_runtime::spawn(async move {
-        let dirty = match host_of(&app) {
-            Ok(h) => h
-                .request("session:isDirty", json!([]))
-                .await
-                .ok()
-                .and_then(|v| v.get("dirty").and_then(Value::as_bool))
-                .unwrap_or(false),
-            Err(_) => false,
-        };
+        let dirty = host_call(&app, "session:isDirty", json!([]))
+            .await
+            .ok()
+            .and_then(|v| v.get("dirty").and_then(Value::as_bool))
+            .unwrap_or(false);
         if !dirty {
             close_now(&window);
             return;
@@ -565,6 +478,21 @@ fn fit_tool_window(window: WebviewWindow, height: f64) -> Result<(), String> {
     Ok(())
 }
 
+/// The installer's language (Windows: installer-options.json next to the program, written by
+/// windows/hooks.nsh). Read once: the file is deleted, so a later choice in Settings stays.
+#[tauri::command]
+fn take_installer_locale() -> Option<String> {
+    let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let file = dir.join("installer-options.json");
+    let text = std::fs::read_to_string(&file).ok()?;
+    let _ = std::fs::remove_file(&file);
+    let value: Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()?;
+    match value.get("locale").and_then(Value::as_str) {
+        Some(l @ ("ko" | "en")) => Some(l.to_string()),
+        _ => None,
+    }
+}
+
 /// About window: what the program runs on.
 #[tauri::command]
 fn app_info(app: AppHandle) -> Value {
@@ -657,6 +585,7 @@ pub fn run() {
             open_tool_window,
             fit_tool_window,
             app_info,
+            take_installer_locale,
             show_theme_menu,
             hide_theme_menu,
             fit_theme_menu,

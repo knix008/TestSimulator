@@ -21,15 +21,15 @@ Windows / macOS / Linux에서 디스크 이미지를 **열기·편집·저장·�
 
 ## 요구 사항
 
-- **Node.js** 22.15 이상 (개발 · 빌드. 설치본에는 Node가 함께 들어갑니다)
-- **Rust** (stable) — Tauri 빌드
+- **Node.js** 22 이상 — 개발 · 빌드 · 시험만 (화면 빌드). 설치본에는 들어가지 않습니다: 이미지 처리는 모두 Rust입니다.
+- **Rust** (stable) — 프로그램과 엔진(`src-tauri/isohost`) 빌드
 - **xorriso** — ISO 생성 · 부팅 ISO · 전체 추출. **없으면 프로그램이 처음 시작할 때 자동으로 설치합니다.**
   - Windows: repo.msys2.org 의 MSYS2 패키지(xorriso와 런타임 라이브러리)를 내려받아 `%LOCALAPPDATA%\MyISOMaker\tools` 에 풉니다. MSYS2 설치나 관리자 권한이 필요 없습니다. 이미 `C:\msys64` 등에 있으면 그것을 씁니다.
   - macOS: Homebrew (`brew install xorriso`)
   - Linux: 시스템 패키지 관리자(apt/dnf/pacman/zypper)를 pkexec 로 실행
-- **squashfs-tools** (선택) — xz · lz4 등으로 압축된 AppImage 열기, 더 작은 AppImage 저장. gzip · zstd AppImage는 내장 SquashFS 리더/라이터로 처리하므로 없어도 됩니다.
+- **squashfs-tools** (선택) — xz · lz4 등으로 압축된 AppImage 열기. gzip · zstd AppImage는 내장 SquashFS 리더/라이터로 처리하므로 없어도 됩니다.
 
-ISO **열기/트리 편집/드래그 추출**은 순수 JS(ISO9660)이며 xorriso 없이도 동작합니다.
+ISO **열기/트리 편집/저장/드래그 추출**은 내장 ISO 9660 엔진(Rust; 웹판은 TypeScript)이라 xorriso 없이도 동작합니다.
 
 ---
 
@@ -37,18 +37,18 @@ ISO **열기/트리 편집/드래그 추출**은 순수 JS(ISO9660)이며 xorris
 
 ```bash
 npm install
-npm start            # 데스크톱 개발 실행 (tauri dev: Vite 5183 + Node 호스트)
+npm start            # 데스크톱 개발 실행 (tauri dev: Vite 5183, 엔진은 프로그램에 컴파일)
 npm run start:web    # 웹 (포트 5174, /web.html)
 ```
 
 Windows에서 더블클릭: `start.cmd` (데스크톱), `start-web.cmd` (웹)
 
 ```bash
-npm test             # 테스트 35개: 실제 xorriso로 ISO 생성 → 열기 → 파일 교체/추가/이름변경/삭제 → 저장 → 다시 열어 바이트 비교 →
+npm test             # 엔진(isomaker-host, 프로그램과 같은 Rust 코드)으로: 실제 xorriso로 ISO 생성 → 열기 → 파일 교체/추가/이름변경/삭제 → 저장 → 다시 열어 바이트 비교 →
                      #   xorriso 추출 → 드라이브로 마운트, 부팅 ISO(BIOS+UEFI), IMG · Docker tar, 탐색기 · 패키지 · 웹 세션,
                      #   SquashFS(실제 mksquashfs 이미지 읽기) · AppImage 생성/열기/저장, 시작 보드 · 테마 · 설명서 · 언어 키
-                     #   (영문 · 정렬 · 컬러 출력, 테스트별 시간, 요약)
-npm run test:rust    # Rust
+                     #   cargo test 결과도 한 줄씩 (영문 · 정렬 · 컬러 출력, 테스트별 시간, 요약)
+npm run test:rust    # cargo test (프로그램 + 엔진)
 npm run typecheck
 npm run build:debug  # 시험용 exe (src-tauri/target/debug/MyISOMaker.exe, 설치 파일 없음)
 npm run build:win    # Windows 설치 파일 (NSIS) → 프로젝트 루트로 복사
@@ -97,13 +97,14 @@ UI 기본 언어는 **한국어**, 기본 테마는 **다크**입니다.
 ```
 src/                React 화면 (App.tsx, start/ 시작 화면, layout/ 패널·제목 줄, theme/ 테마,
                     settings/ 설정, packages/ 패키지 UI, help/ 도움말, platform/tauri-bridge.ts)
-src/iso9660/        ISO9660 리더/라이터/세션 (웹과 공유)
-host/               Node 호스트: 편집 세션, xorriso, 마운트, 패키지 설치(packages.ts), 탐색기(fsx.ts)
-src-tauri/          Tauri 2 (창, 대화상자, OS 드래그, 닫기 확인, Node 호스트 실행), windows/hooks.nsh
+src/iso9660/        ISO9660 리더/라이터/세션 (웹판, 브라우저 안)
+src-tauri/          Tauri 2 (창, 대화상자, OS 드래그, 닫기 확인, 인쇄), windows/hooks.nsh
+src-tauri/isohost/  엔진 (Rust): 편집 세션, ISO 9660 · SquashFS · AppImage · tar, xorriso, 마운트,
+                    패키지 설치, 탐색기; isomaker-host = 시험용 stdio 실행 파일
 doc/                사용 설명서 · 튜토리얼 (한/영)
 assets/             아이콘 원본과 생성 스크립트
-scripts/            build-host.mjs (호스트 번들 + Node 런타임), build.mjs (설치 파일)
-test/               단위 테스트
+scripts/            build.mjs (설치 파일), make-doc-images.mjs (설명서 그림), setup-linux.sh
+test/               시험 (엔진 stdio · cargo test · 화면 모듈)
 ```
 
 ## 라이선스 / 문의

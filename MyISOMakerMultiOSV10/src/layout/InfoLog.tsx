@@ -1,6 +1,6 @@
 /** Right panel (image + selection info) and bottom panel (log). */
 import { useEffect, useRef } from 'react'
-import type { EngineInfo } from '../../host/iso/types'
+import type { EngineInfo } from '../platform/engine-types'
 import type { ContextMenuItem } from '../components/ContextMenu'
 import type { IsoTreeNode } from '../iso9660/tree-types'
 import type { MessageKey } from '../i18n/messages'

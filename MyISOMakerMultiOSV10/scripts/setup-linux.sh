@@ -11,7 +11,7 @@ $SUDO apt-get install -y \
   build-essential curl file pkg-config \
   libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
   libssl-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libxdo-dev \
-  xorriso squashfs-tools
+  xorriso squashfs-tools fuseiso
 # AppImage tools need FUSE 2 (renamed libfuse2t64 on Ubuntu 24.04)
 $SUDO apt-get install -y libfuse2 || $SUDO apt-get install -y libfuse2t64
 if ! command -v node >/dev/null 2>&1; then

@@ -100,6 +100,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
+  // First start after installing (main window only): the language picked in the installer.
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window) || !document.querySelector('#root[data-main]')) return
+    void import('@tauri-apps/api/core')
+      .then(({ invoke }) => invoke<string | null>('take_installer_locale'))
+      .then((l) => {
+        if (l === 'ko' || l === 'en') setLocale(l)
+      })
+      .catch(() => {})
+  }, [setLocale])
+
   useEffect(() => {
     document.documentElement.lang = locale === 'ko' ? 'ko' : 'en'
     void window.isoMaker?.setLocale?.(locale)

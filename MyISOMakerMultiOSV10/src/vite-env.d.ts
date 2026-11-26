@@ -7,7 +7,7 @@ import type {
   ExtractOptions,
   JobProgress,
   MountResult,
-} from '../host/iso/types'
+} from './platform/engine-types'
 import type { IsoTreeResult } from './iso9660/tree-types'
 
 export type EditSessionSnapshot = IsoTreeResult & {
@@ -73,9 +73,9 @@ export type IsoMakerApi = {
   /** Tauri: OS file drops come as the `isomaker-native-drop` window event (tauri-bridge.ts). */
   nativeDrop?: boolean
   onHostError?: (handler: (message: string) => void) => () => void
-  fsPlaces?: () => Promise<import('../host/fsx').FsPlace[]>
-  fsList?: (dir: string) => Promise<import('../host/fsx').FsEntry[]>
-  fsStat?: (p: string) => Promise<import('../host/fsx').FsEntry | null>
+  fsPlaces?: () => Promise<import('./platform/engine-types').FsPlace[]>
+  fsList?: (dir: string) => Promise<import('./platform/engine-types').FsEntry[]>
+  fsStat?: (p: string) => Promise<import('./platform/engine-types').FsEntry | null>
   packageStatus?: () => Promise<import('./packages/packages').PackageStatus[]>
   missingRequiredPackages?: () => Promise<import('./packages/packages').PackageId[]>
   runPackage?: (

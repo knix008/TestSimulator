@@ -1,16 +1,15 @@
 // npm run build:win | build:mac | build:linux | build:all   — installers
 // npm run build:debug                                       — test build (no installer)
 //
-// `tauri build` runs `npm run build` + scripts/build-host.mjs --release first
-// (tauri.conf.json), embeds dist/ in the program and bundles:
+// `tauri build` runs `npm run build` first (tauri.conf.json), embeds dist/ in the program
+// (the image engine, src-tauri/isohost, is compiled into it) and bundles:
 //   Windows  NSIS setup.exe            (src-tauri/windows/hooks.nsh)
 //   macOS    MyISOMaker.app + .dmg
 //   Linux    AppImage + .deb
 // Tauri builds installers only for the system it runs on. The installers are
 // copied to the project root.
 //
-// build:debug makes src-tauri/target/debug/MyISOMaker(.exe) with the pages
-// embedded; it runs the host from dist-sidecar/ with the Node on PATH.
+// build:debug makes src-tauri/target/debug/MyISOMaker(.exe) with the pages embedded.
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -31,8 +30,6 @@ function run(args) {
 }
 
 if (target === 'debug') {
-  // The debug program runs dist-sidecar/host.mjs with the Node on PATH.
-  run([path.join(root, 'scripts', 'build-host.mjs')])
   run([cli, "build", "--debug", "--no-bundle", "--features", "tauri/custom-protocol"])
   process.exit(0)
 }

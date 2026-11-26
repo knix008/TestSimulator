@@ -6,7 +6,7 @@
  * menu that fits the item.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { FsEntry, FsPlace } from '../../host/fsx'
+import type { FsEntry, FsPlace } from '../platform/engine-types'
 import type { ContextMenuItem } from '../components/ContextMenu'
 import type { MessageKey } from '../i18n/messages'
 import { NATIVE_DROP_EVENT, type NativeDropDetail } from '../platform/tauri-bridge'

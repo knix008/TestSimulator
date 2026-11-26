@@ -1,14 +1,11 @@
-"""Builds icon-master.png: the disc-stack artwork (cut out of its white tile, kept in
-icon-art.png) on a coloured, bevelled 3D tile. Run it, then `python assets/build-icons.py`
-and `npm run icons`.
+"""Builds icon-master.png: a stack of metallic discs and a file badge, drawn here, on a
+coloured, bevelled 3D tile. Run it, then `python assets/build-icons.py` and `npm run icons`.
 
-    python assets/make-3d-icon.py            # uses assets/icon-art.png (or cuts it once
-                                             # from the old white icon-master.png)
+    python assets/make-3d-icon.py
 """
 
 from __future__ import annotations
 
-from collections import deque
 from pathlib import Path
 
 import numpy as np
@@ -17,83 +14,6 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 root = Path(__file__).resolve().parent
 SIZE = 1024
 RADIUS = 210
-
-
-def cut_art(src: Image.Image) -> Image.Image:
-    """The artwork without its near-white tile: flood fill from inside the frame."""
-    img = src.convert('RGBA')
-    arr = np.array(img)
-    h, w = arr.shape[:2]
-    rgb = arr[:, :, :3].astype(np.int16)
-    light = (rgb.min(axis=2) > 214) & ((rgb.max(axis=2) - rgb.min(axis=2)) < 34)
-    alpha_low = arr[:, :, 3] < 20
-    bg = np.zeros((h, w), dtype=bool)
-    q: deque[tuple[int, int]] = deque()
-    seeds = []
-    for f in (0.0, 0.02, 0.06, 0.1, 0.13, 0.15, 0.17):
-        for t in np.linspace(0, 1, 40):
-            for (x, y) in (
-                (int(t * (w - 1)), int(f * (h - 1))),
-                (int(t * (w - 1)), int((1 - f) * (h - 1))),
-                (int(f * (w - 1)), int(t * (h - 1))),
-                (int((1 - f) * (w - 1)), int(t * (h - 1))),
-            ):
-                seeds.append((x, y))
-    for x, y in seeds:
-        if (light[y, x] or alpha_low[y, x]) and not bg[y, x]:
-            bg[y, x] = True
-            q.append((x, y))
-    while q:
-        x, y = q.popleft()
-        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-            if 0 <= nx < w and 0 <= ny < h and not bg[ny, nx] and (light[ny, nx] or alpha_low[ny, nx]):
-                bg[ny, nx] = True
-                q.append((nx, ny))
-    # The thin tile frame (grey-blue line) and its shadow: drop anything within a
-    # band along the outer edge that is not part of the big central object.
-    keep = ~bg
-    lab = keep.astype(np.uint8)
-    out = arr.copy()
-    out[:, :, 3] = np.where(lab, out[:, :, 3], 0)
-    art = Image.fromarray(out)
-    # Largest connected blob only (drops frame remnants and the corner flare).
-    a = np.array(art)[:, :, 3] > 40
-    seen = np.zeros_like(a)
-    best: list[tuple[int, int]] = []
-    for sy in range(0, h, 4):
-        for sx in range(0, w, 4):
-            if a[sy, sx] and not seen[sy, sx]:
-                comp = []
-                seen[sy, sx] = True
-                dq = deque([(sx, sy)])
-                while dq:
-                    x, y = dq.popleft()
-                    comp.append((x, y))
-                    for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-                        if 0 <= nx < w and 0 <= ny < h and a[ny, nx] and not seen[ny, nx]:
-                            seen[ny, nx] = True
-                            dq.append((nx, ny))
-                if len(comp) > len(best):
-                    best = comp
-    mask = np.zeros((h, w), dtype=np.uint8)
-    if best:
-        xs, ys = zip(*best)
-        mask[np.array(ys), np.array(xs)] = 255
-    # The white reflections on the discs touch the tile, so the fill ate into them:
-    # close the silhouette (dilate, then erode) and fill its holes (the disc centre).
-    m = Image.fromarray(mask)
-    for _ in range(9):
-        m = m.filter(ImageFilter.MaxFilter(11))
-    for _ in range(9):
-        m = m.filter(ImageFilter.MinFilter(11))
-    inv = ImageChops.invert(m)
-    ImageDraw.floodfill(inv, (0, 0), 0)
-    filled = ImageChops.lighter(m, inv)
-    # Colours and alpha from the original picture, cut by the closed silhouette.
-    final = arr.copy()
-    final[:, :, 3] = np.minimum(final[:, :, 3], np.array(filled.filter(ImageFilter.GaussianBlur(0.8))))
-    res = Image.fromarray(final)
-    return res.crop(res.getbbox())
 
 
 def rounded_mask(size: int, inset: int, radius: int) -> Image.Image:

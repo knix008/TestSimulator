@@ -8,7 +8,6 @@
     "start": "tauri dev",
     "tauri": "tauri",
     "dev:renderer": "vite",
-    "build:host": "node scripts/build-host.mjs",
     "start:web": "vite --config vite.config.web.ts",
     "dev:web": "vite --config vite.config.web.ts",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
@@ -22,7 +21,7 @@
     "preview:web": "vite preview --config vite.config.web.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "node --test --test-concurrency=1 --test-reporter=./test/reporter.mjs --test-reporter-destination=stdout test/*.test.mjs",
-    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:rust": "cargo test --workspace --manifest-path src-tauri/Cargo.toml",
     "smoke": "node scripts/smoke.mjs",
     "doc:images": "node scripts/make-doc-images.mjs"
   },

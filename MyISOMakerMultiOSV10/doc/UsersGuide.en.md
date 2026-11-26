@@ -11,17 +11,17 @@ MyISOMaker is a desktop program for disc images. It opens ISO, IMG, AppImage and
 - Opening and saving AppImages use squashfs-tools (unsquashfs / mksquashfs).
 - Mounting uses the operating system (Mount-DiskImage on Windows, hdiutil on macOS, mount or fuseiso on Linux).
 
-The program is a Tauri 2 window with a React interface; a bundled Node host does the image work. The minimum window width is worked out so that both toolbar rows fit, each on one line. The interface language is Korean or English; Korean is the default.
+The program is a Tauri 2 window with a React interface; a Rust engine inside the program does the image work (no extra runtime to install). The minimum window width is worked out so that both toolbar rows fit, each on one line. The interface language is Korean or English; Korean is the default.
 
 ## 2. Installation and first start
 
 ### 2.1 Windows installer
 
-1. Run the `MyISOMaker` setup file (NSIS).
+1. Run the `MyISOMaker` setup file (NSIS). In its first dialog, choose the installer language (한국어 / English).
 2. Any earlier installation of MyISOMaker, or of its old name "ISO Maker", is removed completely first.
 3. The installer asks whether to delete the saved user data (settings, recent list and so on). If you keep it, the new version carries on with it.
 4. The installation is per user and needs no administrator rights.
-5. Start MyISOMaker when setup finishes.
+5. Start MyISOMaker when setup finishes. On its first start it opens in the language chosen in the installer; after that, the language you pick in Settings or with the flag button is kept.
 
 ### 2.2 Automatic package installation
 

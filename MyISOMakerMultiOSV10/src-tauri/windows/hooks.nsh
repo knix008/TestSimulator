@@ -11,6 +11,9 @@
 ;     whether to delete it.
 ; Silent installs (/S) skip the messages: the old copy is removed, data stays.
 ;
+; The installer's language (Korean / English, chosen in its first dialog) is written to
+; installer-options.json; the program starts in that language once after installing.
+;
 ; Uninstalling removes the packages the program installed (%LOCALAPPDATA%\MyISOMaker\tools);
 ; with "Delete the application data" ticked also %APPDATA%\MyISOMaker.
 ;
@@ -103,6 +106,7 @@ Function MiSweepDir
       Delete "$0\${MI_EL_EXE}"
       Delete "$0\uninstall.exe"
       Delete "$0\Uninstall ${MI_EL_NAME}.exe"
+      Delete "$0\installer-options.json"
       RMDir /r "$0\sidecar"
       RMDir /r "$0\vendor"
       RMDir /r "$0\resources"
@@ -216,9 +220,22 @@ FunctionEnd
   ${EndIf}
 !macroend
 
+!macro NSIS_HOOK_POSTINSTALL
+  ; The language picked for this installer: the program starts in it once (it reads and
+  ; deletes this file on its first start), later choices in Settings are kept.
+  FileOpen $0 "$INSTDIR\installer-options.json" w
+  ${If} $LANGUAGE == 1042
+    FileWrite $0 '{"locale":"ko"}'
+  ${Else}
+    FileWrite $0 '{"locale":"en"}'
+  ${EndIf}
+  FileClose $0
+!macroend
+
 !macro NSIS_HOOK_PREUNINSTALL
   nsExec::Exec 'taskkill /F /T /IM "${MI_EXE}"'
   Pop $0
+  Delete "$INSTDIR\installer-options.json"
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL

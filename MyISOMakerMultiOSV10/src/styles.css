@@ -82,21 +82,6 @@ input {
   overflow: hidden;
 }
 
-.hero {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  min-height: 0;
-}
-
-.brand {
-  margin: 0;
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
 .toolbar {
   display: flex;
   flex-wrap: nowrap;
@@ -247,38 +232,6 @@ input {
   overflow: hidden;
 }
 
-.panel-splitter {
-  flex: 0 0 7px;
-  position: relative;
-  z-index: 2;
-  margin: 0 2px;
-  border-radius: 999px;
-  background: var(--line);
-  cursor: col-resize;
-  touch-action: none;
-  transition: background 120ms ease;
-}
-
-.panel-splitter::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -4px;
-  right: -4px;
-}
-
-.panel-splitter:hover,
-.panel-splitter:focus-visible,
-.panel-splitter.active {
-  background: var(--accent);
-}
-
-.panel-splitter:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  outline-offset: 1px;
-}
-
 .panel-work > section {
   flex: 1 1 auto;
   height: 100%;
@@ -295,107 +248,12 @@ input {
   overflow: auto;
 }
 
-.change-log {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 0 0 auto;
-  width: var(--log-panel-width, 300px);
-  min-width: 200px;
-  max-width: 560px;
-  min-height: 0;
-  height: 100%;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--bg1) 92%, transparent);
-  padding: 12px;
-  overflow: hidden;
-}
-
-.change-log-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.change-log-header h2 {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.change-log-clear {
-  border: 1px solid var(--line);
-  background: var(--bg0);
-  color: var(--muted);
-  border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.change-log-clear:hover {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
-}
-
-.change-log-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  line-height: 1.45;
-}
-
 .change-log-empty {
   color: var(--muted);
   padding: 16px 4px;
   text-align: center;
   font-family: var(--font-body);
   font-size: 0.85rem;
-}
-
-.change-log-item {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px;
-  padding: 6px 4px;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-}
-
-.change-log-item:last-child {
-  border-bottom: none;
-}
-
-.change-log-time {
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.change-log-msg {
-  color: var(--text);
-  word-break: break-word;
-}
-
-.change-log-item.kind-add .change-log-msg {
-  color: var(--accent);
-}
-
-.change-log-item.kind-save .change-log-msg {
-  color: var(--accent);
-}
-
-.change-log-item.kind-error .change-log-msg {
-  color: var(--danger-text);
-}
-
-.change-log-item.kind-out .change-log-msg {
-  color: var(--accent-2);
 }
 
 .panel section.has-tree {

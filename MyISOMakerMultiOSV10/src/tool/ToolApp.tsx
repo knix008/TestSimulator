@@ -124,7 +124,7 @@ function AboutView() {
           {row(t('aboutPlatformLabel'), info ? `${osName(info.os)} · ${info.arch}` : '—')}
           {row(t('aboutRuntimeLabel'), info ? `Tauri ${info.tauri}${info.webview ? ` · WebView ${info.webview}` : ''}` : '—')}
           {row(t('aboutBuildLabel'), info ? (info.debug ? t('aboutBuildDebug') : t('aboutBuildRelease')) : '—')}
-          {row(t('aboutEngineLabel'), 'React · Node.js · xorriso · SquashFS')}
+          {row(t('aboutEngineLabel'), 'React · Rust · xorriso · SquashFS')}
         </dl>
       </div>
       <footer className="about-foot">

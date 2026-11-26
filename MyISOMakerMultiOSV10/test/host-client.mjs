@@ -1,5 +1,6 @@
-// The real Node host (dist-sidecar/host.mjs) driven like the app drives it: one JSON request per
-// line, answers matched by id. Each client gets its own temp folder for settings and packages.
+// The real Rust engine (src-tauri/isohost, the same code the program calls) driven over its
+// stdio binary `isomaker-host`: one JSON request per line, answers matched by id. Each client
+// gets its own temp folder for settings and packages.
 import { spawn, execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -8,16 +9,21 @@ import readline from 'node:readline'
 
 export const root = path.resolve(import.meta.dirname, '..')
 let built = false
+export const hostExe = path.join(root, 'src-tauri', 'target', 'debug', process.platform === 'win32' ? 'isomaker-host.exe' : 'isomaker-host')
+
+/** Builds the engine's stdio binary (incremental: fast after the first time). */
+export function buildHost() {
+  if (built) return
+  execFileSync('cargo', ['build', '--quiet', '--manifest-path', path.join(root, 'src-tauri', 'isohost', 'Cargo.toml')], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'] })
+  built = true
+}
 
 export function startHost(prefix = 'isomaker-test-') {
-  if (!built) {
-    execFileSync(process.execPath, [path.join(root, 'scripts', 'build-host.mjs')], { cwd: root, stdio: 'ignore' })
-    built = true
-  }
+  buildHost()
   const work = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
-  const env = { ...process.env, ISOMAKER_USER_DATA: path.join(work, 'config'), ISOMAKER_TOOLS_DIR: path.join(work, 'tools'), ISOMAKER_PROJECT_DIR: root }
+  const env = { ...process.env, ISOMAKER_USER_DATA: path.join(work, 'config'), ISOMAKER_TOOLS_DIR: path.join(work, 'tools') }
   delete env.ELECTRON_RUN_AS_NODE
-  const proc = spawn(process.execPath, [path.join(root, 'dist-sidecar', 'host.mjs')], { cwd: root, env, stdio: ['pipe', 'pipe', 'inherit'] })
+  const proc = spawn(hostExe, [], { cwd: root, env, stdio: ['pipe', 'pipe', 'inherit'] })
   const pending = new Map()
   const events = []
   let next = 1

@@ -29,64 +29,6 @@
   display: inline-flex;
   align-items: stretch;
 }
-.theme-split-main {
-  border-top-right-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  padding-right: 6px !important;
-}
-.theme-split-caret {
-  border-top-left-radius: 0 !important;
-  border-bottom-left-radius: 0 !important;
-  padding-left: 4px !important;
-  padding-right: 6px !important;
-  border-left: 1px solid color-mix(in srgb, var(--line) 80%, transparent) !important;
-}
-.theme-split-swatch {
-  display: inline-flex !important;
-  width: 18px !important;
-  height: 18px;
-  overflow: hidden;
-  border-radius: 5px;
-  border: 1px solid var(--line);
-}
-.theme-split-swatch i { flex: 1; display: block; }
-.theme-split-name { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.theme-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 900;
-  width: min(840px, calc(100vw - 48px));
-  max-height: calc(100vh - 140px);
-  overflow-y: auto;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg1);
-  box-shadow: 0 16px 40px color-mix(in srgb, #000 35%, transparent);
-}
-.theme-menu-top {
-  display: flex;
-  gap: 6px;
-  padding-bottom: 8px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--line);
-}
-.theme-menu-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.theme-menu-item:hover,
-.theme-menu-item.on { background: var(--bg2); border-color: var(--line); color: var(--accent); }
 .theme-swatch-mini {
   display: inline-flex;
   width: 18px;
@@ -96,42 +38,6 @@
   border: 1px solid var(--line);
 }
 .theme-swatch-mini i { flex: 1; display: block; }
-.theme-group-head {
-  margin: 8px 2px 4px;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--muted);
-}
-.theme-grid {
-  display: grid;
-  grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 4px;
-}
-.theme-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding: 4px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  cursor: pointer;
-}
-.theme-chip:hover { background: var(--bg2); border-color: var(--line); }
-.theme-chip.on { border-color: var(--accent); background: var(--bg2); box-shadow: inset 0 0 0 1px var(--accent); }
-.theme-chip-bars { display: flex; height: 18px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
-.theme-chip-bars i { flex: 1; display: block; }
-.theme-chip-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-.theme-chip.on .theme-chip-name { color: var(--text); font-weight: 600; }
-
-/* ── Settings ── */
-.dialog-panel.dialog-panel--settings {
-  width: min(960px, 100%);
-  height: min(720px, 90vh);
-  max-height: none;
-}
-.dialog-panel--settings .dialog-body { flex: 1 1 auto; min-height: 0; padding: 0; overflow: hidden; }
 .settings-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); height: 100%; min-height: 0; }
 .settings-tabs {
   display: flex;
@@ -232,10 +138,6 @@
 .bg-auto input[type='checkbox'] { width: 15px; height: 15px; accent-color: var(--accent); }
 .panel.home > .start-bg-canvas { z-index: 0; }
 .panel.home > .start-scroll { z-index: 1; }
-
-/* ── Help ── */
-.dialog-panel.dialog-panel--help { width: min(1040px, 100%); height: min(820px, 92vh); max-height: none; }
-.dialog-panel--help .dialog-body { flex: 1 1 auto; min-height: 0; padding: 0; overflow: hidden; }
 .help-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); height: 100%; min-height: 0; }
 .help-nav { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: color-mix(in srgb, var(--bg0) 40%, var(--bg1)); }
 .help-tabs { display: flex; gap: 4px; padding: 10px 8px 8px; border-bottom: 1px solid var(--line); }
@@ -276,23 +178,6 @@
 .dialog-btn.primary svg.icon-color,
 .settings-seg-btn.on svg.icon-color { stroke: #fff; }
 .toolbar-btn.primary svg.icon-color[fill]:not([fill='none']) { fill: #fff; }
-
-/* Settings: same compact type as the rest of the app (tabs and buttons were 16px). */
-.dialog-panel--settings .settings-tab,
-.dialog-panel--settings .settings-seg-btn,
-.dialog-panel--settings .settings-check,
-.dialog-panel--settings .settings-label,
-.dialog-panel--settings .dialog-btn {
-  font-size: 13px;
-}
-.dialog-panel--settings .settings-tab { padding: 6px 10px; }
-.dialog-panel--settings .dialog-btn { padding: 5px 12px; gap: 6px; }
-.dialog-panel--settings .dialog-btn svg { width: 15px; height: 15px; }
-.dialog-panel--settings .custom-theme h3,
-.dialog-panel--settings .settings-sub { font-size: 13px; }
-.dialog-panel--help .help-tab,
-.dialog-panel--help .dialog-btn,
-.dialog-panel--progress .dialog-btn { font-size: 13px; }
 .settings-seg-btn { display: inline-flex; align-items: center; gap: 7px; }
 .settings-seg-btn .flag { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.15); }
 
@@ -314,10 +199,6 @@
 .theme-select:hover, .theme-select.open { border-color: var(--accent); }
 .theme-select-name { min-width: 64px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .theme-select svg { color: var(--muted); flex: none; }
-
-/* Help: top bar (language flags · text size · print) above contents + text */
-.dialog-panel--help .dialog-body { display: flex; flex-direction: column; }
-.dialog-panel--help .help-layout { flex: 1 1 auto; min-height: 0; height: auto; }
 .help-top { display: flex; align-items: center; gap: 10px; flex: none; padding: 8px 12px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg2) 45%, transparent); font-size: 13px; }
 .help-top-sep { width: 1px; align-self: stretch; background: var(--line); }
 .help-top-grow { flex: 1; }
@@ -342,8 +223,6 @@
 .print-doc .doc-figure img { border-color: #c9ced6; box-shadow: none; }
 .print-doc .doc-figure { break-inside: avoid; }
 .print-doc .doc-figure figcaption { color: #555; }
-/* The theme list is a portal on <body>, placed by ThemeMenu.tsx (fixed, under the button). */
-.theme-menu { z-index: 2000; }
 
 /* Theme drop-down: a vertical menu like the context menus (same classes, same type size) */
 .theme-menu-v { position: fixed; z-index: 2000; width: 230px; overflow-y: auto; scrollbar-width: thin; }

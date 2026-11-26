@@ -4,9 +4,6 @@ node_modules/
 # Build output
 dist/
 dist-web/
-# The Node host bundle (scripts/build-host.mjs); -release also holds node.exe for the installer
-dist-sidecar/
-dist-sidecar-release/
 src-tauri/target/
 src-tauri/gen/
 release/
@@ -21,9 +18,8 @@ release/
 /*.rpm
 *.blockmap
 
-# Half-written files (an AppImage being assembled, the host bundle being renamed)
+# Half-written files (an image or AppImage being saved)
 *.part
-host.*.tmp.mjs
 
 # Test and tool output
 test-results/

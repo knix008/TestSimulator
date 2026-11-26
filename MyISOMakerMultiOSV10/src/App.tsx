@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { EngineInfo, JobProgress } from '../host/iso/types'
+import type { EngineInfo, JobProgress } from './platform/engine-types'
 import { ContextMenu, type ContextMenuItem } from './components/ContextMenu'
 import { ConfirmDialog, Dialog, DialogButton, PromptDialog } from './components/Dialog'
 import { IsoTreeView } from './components/IsoTreeView'

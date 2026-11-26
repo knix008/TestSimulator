@@ -1,78 +1,29 @@
-// End to end through the real Node host (the same process and channels the app uses):
+// End to end through the real Rust engine (the code and channels the app uses):
 // create an ISO from a folder with xorriso, open it, change single files (replace contents,
 // add, rename, delete, new folder), save to a new ISO, open that again and compare every
 // file's bytes; extract it with xorriso; mount it as a drive and read a file from the drive.
-// Everything lives in a temp folder. Skipped when xorriso is not available.
+// Everything lives in a temp folder.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { spawn, execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
-import readline from 'node:readline'
+import { flatten, startHost } from './host-client.mjs'
 
-const root = path.resolve(import.meta.dirname, '..')
-execFileSync(process.execPath, [path.join(root, 'scripts', 'build-host.mjs')], { cwd: root, stdio: 'ignore' })
-
-const work = fs.mkdtempSync(path.join(os.tmpdir(), 'isomaker-e2e-'))
-const env = { ...process.env, ISOMAKER_USER_DATA: path.join(work, 'config'), ISOMAKER_TOOLS_DIR: path.join(work, 'tools'), ISOMAKER_PROJECT_DIR: root }
-delete env.ELECTRON_RUN_AS_NODE
-const host = spawn(process.execPath, [path.join(root, 'dist-sidecar', 'host.mjs')], { cwd: root, env, stdio: ['pipe', 'pipe', 'inherit'] })
-const pending = new Map()
-let nextId = 1
-readline.createInterface({ input: host.stdout }).on('line', (line) => {
-  let msg
-  try {
-    msg = JSON.parse(line)
-  } catch {
-    return
-  }
-  if (msg.t === 'res' && pending.has(msg.id)) {
-    const { resolve, reject } = pending.get(msg.id)
-    pending.delete(msg.id)
-    if (msg.ok) resolve(msg.v)
-    else reject(new Error(msg.e))
-  }
-})
-const call = (m, ...a) =>
-  new Promise((resolve, reject) => {
-    const id = nextId++
-    pending.set(id, { resolve, reject })
-    host.stdin.write(`${JSON.stringify({ t: 'req', id, m, a })}\n`)
-  })
-
-test.after(() => {
-  host.stdin.end()
-  setTimeout(() => {
-    host.kill()
-    fs.rmSync(work, { recursive: true, force: true })
-  }, 300)
-})
-
-function write(rel, text, base = path.join(work, 'src')) {
-  const p = path.join(base, rel)
-  fs.mkdirSync(path.dirname(p), { recursive: true })
-  fs.writeFileSync(p, text)
-  return p
-}
-
-function flatten(nodes, out = new Map()) {
-  for (const n of nodes) {
-    out.set(n.path, n)
-    if (n.children) flatten(n.children, out)
-  }
-  return out
-}
+const h = startHost('isomaker-e2e-')
+test.after(() => h.stop())
+const { call, work, write } = h
 
 const engine = await call('engine:info')
-const skip = engine.available ? false : `xorriso not available (${engine.hint})`
+test('xorriso is available (the app installs it; CI installs it)', () => {
+  assert.ok(engine.available, `xorriso not available: ${engine.hint}`)
+})
 
 const iso1 = path.join(work, 'made.iso')
 const iso2 = path.join(work, 'edited.iso')
 const big = Buffer.alloc(3 * 1024 * 1024 + 123)
 for (let i = 0; i < big.length; i++) big[i] = (i * 31 + 7) & 0xff
 
-test('create an ISO from a folder (xorriso)', { skip }, async () => {
+test('create an ISO from a folder (xorriso)', async () => {
   write('readme.txt', 'version 1\n')
   write('docs/a.txt', 'alpha\n')
   write('docs/keep.md', '# keep\n')
@@ -82,7 +33,7 @@ test('create an ISO from a folder (xorriso)', { skip }, async () => {
   assert.ok(fs.statSync(iso1).size > 300_000, 'ISO written')
 })
 
-test('open it and see the files', { skip }, async () => {
+test('open it and see the files', async () => {
   const snap = await call('session:open', iso1)
   assert.equal(snap.volumeLabel, 'E2ETEST')
   const all = flatten(snap.root)
@@ -91,7 +42,7 @@ test('open it and see the files', { skip }, async () => {
   assert.equal(snap.dirty, false)
 })
 
-test('change single files: replace, add, rename, delete, new folder', { skip }, async () => {
+test('change single files: replace, add, rename, delete, new folder', async () => {
   const repl = write('readme.txt', 'version 2 — replaced\n', path.join(work, 'new'))
   let snap = await call('session:addPaths', '', [repl])
   snap = await call('session:addPaths', 'docs', [write('new.txt', 'brand new\n', path.join(work, 'new'))])
@@ -106,7 +57,7 @@ test('change single files: replace, add, rename, delete, new folder', { skip }, 
   assert.ok(all.has('extra'), 'new folder')
 })
 
-test('save as a new ISO, open it again, compare every file', { skip }, async () => {
+test('save as a new ISO, open it again, compare every file', async () => {
   await call('session:save', iso2)
   assert.ok(fs.existsSync(iso2))
   const snap = await call('session:open', iso2)
@@ -132,7 +83,7 @@ test('save as a new ISO, open it again, compare every file', { skip }, async () 
   assert.ok(all.has('extra'))
 })
 
-test('the saved ISO extracts with xorriso (a standard tool reads it)', { skip }, async () => {
+test('the saved ISO extracts with xorriso (a standard tool reads it)', async () => {
   const out = path.join(work, 'extracted')
   await call('iso:extract', { isoPath: iso2, outputDir: out })
   assert.equal(fs.readFileSync(path.join(out, 'readme.txt'), 'utf8'), 'version 2 — replaced\n')
@@ -140,8 +91,8 @@ test('the saved ISO extracts with xorriso (a standard tool reads it)', { skip },
   assert.ok(fs.readFileSync(path.join(out, 'big.bin')).equals(big))
 })
 
-const canMount = process.platform === 'win32' || process.platform === 'darwin' || process.env.ISOMAKER_TEST_MOUNT === '1'
-test('mount the saved ISO as a drive and read from it', { skip: skip || (!canMount && 'mounting needs root on Linux (ISOMAKER_TEST_MOUNT=1)') }, async () => {
+// Windows: Mount-DiskImage · macOS: hdiutil · Linux: mount, or fuseiso without root (scripts/setup-linux.sh)
+test('mount the saved ISO as a drive and read from it', async () => {
   await call('session:close')
   const res = await call('iso:mount', iso2)
   assert.ok(res.mounted, `mounted: ${res.message}`)

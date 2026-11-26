@@ -5,9 +5,9 @@
   "version": "../package.json",
   "identifier": "com.shkwon.myisomaker",
   "build": {
-    "beforeDevCommand": "node scripts/build-host.mjs && npm run dev:renderer",
+    "beforeDevCommand": "npm run dev:renderer",
     "devUrl": "http://localhost:5183",
-    "beforeBuildCommand": "node scripts/build-host.mjs --release && npm run build",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -52,10 +52,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": {
-      "../vendor/xorriso/": "vendor/xorriso/",
-      "../dist-sidecar-release/": "sidecar/"
-    },
     "windows": {
       "nsis": {
         "installMode": "currentUser",

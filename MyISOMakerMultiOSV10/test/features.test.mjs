@@ -1,4 +1,4 @@
-// Every host feature the app's buttons use, through the real Node host:
+// Every engine feature the app's buttons use, through the real Rust engine:
 // explorer listing, remembered folders, tree listing, folder adds, nested folders, renaming
 // folders, multi-delete, exporting several files, drag-out temp copies, tricky names (long,
 // Korean, 8.3 clashes, empty files, a directory larger than one sector, deep nesting),
@@ -17,7 +17,9 @@ const h = startHost('isomaker-feat-')
 test.after(() => h.stop())
 const { call, work, write } = h
 const engine = await call('engine:info')
-const noXorriso = engine.available ? false : 'xorriso not available'
+test('xorriso is available (the app installs it; CI installs it)', () => {
+  assert.ok(engine.available, `xorriso not available: ${engine.hint}`)
+})
 
 const xorrisoBin = engine.binaryPath
 function xorriso(...args) {
@@ -28,7 +30,7 @@ function xorriso(...args) {
 
 // ── a base image ──
 const baseIso = path.join(work, 'base.iso')
-test('setup: base image with xorriso', { skip: noXorriso }, async () => {
+test('setup: base image with xorriso', async () => {
   write('readme.txt', 'hello\n')
   write('docs/a.txt', 'A\n')
   write('docs/b.txt', 'B\n')
@@ -61,13 +63,13 @@ test('dialogs: the folder used last is remembered', async () => {
   assert.equal(await call('paths:dialogDefault', null, 'out.iso'), path.join(dir, 'out.iso'))
 })
 
-test('list an image tree without opening a session', { skip: noXorriso }, async () => {
+test('list an image tree without opening a session', async () => {
   const tree = await call('iso:listTree', baseIso)
   const all = flatten(tree.root)
   assert.ok(all.has('docs/a.txt') && all.has('readme.txt'))
 })
 
-test('session: add a whole folder, nested folders, rename a folder, multi-delete', { skip: noXorriso }, async () => {
+test('session: add a whole folder, nested folders, rename a folder, multi-delete', async () => {
   await call('session:open', baseIso)
   const folder = path.join(work, 'addme')
   write('one.txt', '1', folder)
@@ -88,7 +90,7 @@ test('session: add a whole folder, nested folders, rename a folder, multi-delete
   assert.equal((await call('session:get')).dirty, true)
 })
 
-test('session: export several files, drag-out temp copies', { skip: noXorriso }, async () => {
+test('session: export several files, drag-out temp copies', async () => {
   const out = path.join(work, 'exported')
   const r = await call('session:exportFilesToDir', ['readme.txt', 'docs/c.txt', 'renamed/inner/two.txt'], out)
   assert.equal(r.count, 3)
@@ -103,7 +105,7 @@ test('session: export several files, drag-out temp copies', { skip: noXorriso },
   assert.equal(await call('session:get'), null)
 })
 
-test('tricky names survive a save: long, Korean, 8.3 clashes, empty, big directory, deep', { skip: noXorriso }, async () => {
+test('tricky names survive a save: long, Korean, 8.3 clashes, empty, big directory, deep', async () => {
   await call('session:open', baseIso)
   const base = path.join(work, 'tricky')
   const names = {
@@ -149,7 +151,7 @@ test('tricky names survive a save: long, Korean, 8.3 clashes, empty, big directo
   await call('session:close')
 })
 
-test('IMG files open like ISO images', { skip: noXorriso }, async () => {
+test('IMG files open like ISO images', async () => {
   const img = path.join(work, 'disk.img')
   fs.copyFileSync(baseIso, img)
   const snap = await call('session:open', img)
@@ -159,7 +161,8 @@ test('IMG files open like ISO images', { skip: noXorriso }, async () => {
 })
 
 const systemTar = process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : '/usr/bin/tar'
-test('Docker save (.tar): open, edit, save as tar', { skip: !fs.existsSync(systemTar) && 'no tar' }, async () => {
+test('Docker save (.tar): open, edit, save as tar', async () => {
+  assert.ok(fs.existsSync(systemTar), `system tar at ${systemTar}`)
   const layer = path.join(work, 'layer')
   write('manifest.json', '[{"Config":"cfg.json","RepoTags":["demo:1"],"Layers":["l1/layer.tar"]}]', layer)
   write('cfg.json', '{}', layer)
@@ -178,7 +181,7 @@ test('Docker save (.tar): open, edit, save as tar', { skip: !fs.existsSync(syste
   await call('session:close')
 })
 
-test('bootable ISO: BIOS (El Torito) and UEFI boot entries', { skip: noXorriso }, async () => {
+test('bootable ISO: BIOS (El Torito) and UEFI boot entries', async () => {
   const src = path.join(work, 'bootsrc')
   write('boot/grub/i386-pc/eltorito.img', Buffer.alloc(2048, 0x90), src)
   write('EFI/BOOT/efiboot.img', Buffer.alloc(1440 * 1024), src)
@@ -222,7 +225,7 @@ async function load(entry) {
   return import(`file:///${out.split(path.sep).join('/')}`)
 }
 
-test('web version: open an ISO in the browser session, edit, save, reopen', { skip: noXorriso }, async () => {
+test('web version: open an ISO in the browser session, edit, save, reopen', async () => {
   const { IsoEditSession } = await load('src/iso9660/session.ts')
   const blob = new Blob([fs.readFileSync(baseIso)])
   const s = await IsoEditSession.open(blob)
@@ -255,10 +258,3 @@ test('default output name and volume label follow the source', async () => {
   assert.ok(volumeLabelFor('/x/' + 'a'.repeat(50)).length <= 32)
 })
 
-test('Linux package names per package manager', async () => {
-  const { LINUX_PACKAGES } = await load('host/packages.ts')
-  assert.equal(LINUX_PACKAGES['apt-get'].xorriso, 'xorriso')
-  assert.equal(LINUX_PACKAGES.pacman.xorriso, 'libisoburn')
-  assert.equal(LINUX_PACKAGES.zypper.squashfs, 'squashfs')
-  for (const pm of Object.values(LINUX_PACKAGES)) assert.deepEqual(Object.keys(pm).sort(), ['squashfs', 'xorriso'])
-})

@@ -2,7 +2,7 @@
 //
 // Runs a copy of the debug program (npm run build:debug first) with its own WebView2 profile,
 // settings and package folders in a temp directory, so nothing of the user's is read or
-// changed. A small sample image is made in the same temp directory with the app's own host.
+// changed. A small sample image is made in the same temp directory by the app itself.
 // The page is driven over the Chrome DevTools Protocol (WebView2 remote debugging).
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -109,7 +109,7 @@ try {
   let page = await connect(isMain)
   await page.evaluate(ui.wait('.toolbar'))
   await page.evaluate(`(async () => { for (let i = 0; i < 100 && !window.isoMaker?.createIso; i++) await new Promise(r => setTimeout(r, 100)); return !!window.isoMaker })()`)
-  // The sample image, made by the app's own host
+  // The sample image, made by the app itself
   await page.evaluate(`window.isoMaker.createIso(${JSON.stringify({ sourceDir: sample, outputIso: sampleIso, volumeLabel: 'SAMPLE' })})`)
   log(`sample image: ${sampleIso}`)
 
