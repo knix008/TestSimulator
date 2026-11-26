@@ -945,6 +945,8 @@ export default {
   'panel.collapseRight': "Collapse properties panel",
   'panel.expand': "Expand",
   'panel.expandLeft': "Expand tool panel",
+  'panel.collapseBottom': "Collapse the bottom panel",
+  'panel.expandBottom': "Expand the bottom panel",
   'panel.expandRight': "Expand properties panel",
   'panel.explorer': "Model Explorer",
   'panel.explorerShort': "Model",

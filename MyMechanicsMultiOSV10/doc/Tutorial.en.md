@@ -140,6 +140,7 @@ Components linked by gear, screw or rack-and-pinion mates move together, driven 
    ![Motion study — the motor and the time slider](images/en/tut-motion.png)
 
 4. **Exploded View** spreads the components outward; click it again to put them back.
+5. Every part sample moves too. Open the sample **Connecting rod** (Basic parts): it opens on a scene with a crank and a crosshead, and **▶** (play) over the graphics area runs it as a slider-crank. The connecting rod part itself is in the document tabs, ready to edit.
 
    ![The six-axis robot sample, exploded](images/en/assembly-explode.png)
 

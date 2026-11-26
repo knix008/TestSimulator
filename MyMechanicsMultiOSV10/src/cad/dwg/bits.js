@@ -100,8 +100,11 @@ export class BitReader {
   /** CmColor (2.11): R2000 a colour index; R2004+ the ENC/CMC forms, returned as { index, rgb }. */
   CMC() {
     if (this.version < R2004) return { index: this.BS() };
-    const index = this.BS(); const rgb = this.BL(); const flags = this.RC();
+    let index = this.BS(); const rgb = this.BL(); const flags = this.RC();
     if (flags & 1) this.TV(); if (flags & 2) this.TV();
+    // The colour method in the top byte: 0xC0 by layer, 0xC1 by block, 0xC3 an index colour (also kept in the low byte).
+    const method = rgb >>> 24;
+    if (!index && method === 0xc3) index = rgb & 0xff; else if (!index && method === 0xc0) index = 256;
     return { index, rgb };
   }
   /** Entity colour (ENC, R2004+). */
@@ -157,6 +160,13 @@ export class BitWriter {
   BD3(p) { this.BD(p[0]); this.BD(p[1]); this.BD(p[2]); }
   BE(p = [0, 0, 1]) { if (p[0] === 0 && p[1] === 0 && p[2] === 1) { this.B(1); return; } this.B(0); this.BD3(p); }
   BT(v = 0) { if (v === 0) { this.B(1); return; } this.B(0); this.BD(v); }
+  /** CmColor of an index colour: R2000 the index; R2004+ the index, the colour as method + index, no names. */
+  CMC(index) {
+    this.BS(index);
+    if (this.version < 18) return;
+    this.BL((index === 256 ? 0xc0000000 : index === 0 ? 0xc1000000 : (0xc3000000 | (index & 0xff))) >>> 0);
+    this.RC(0);
+  }
   /** Handle reference with an explicit code. */
   H(code, value) {
     const bytes = []; let v = value; while (v > 0) { bytes.unshift(v % 256); v = Math.floor(v / 256); }

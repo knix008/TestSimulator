@@ -16,6 +16,7 @@ import * as machineGroup from './samples/machine.js';
 import * as housingGroup from './samples/housing.js';
 import * as assemblyGroup from './samples/assembly.js';
 import * as advancedGroup from './samples/advanced.js';
+import { SCENES, MOTION_NOTES } from './samples/motion-scenes.js';
 
 /** The groups' modules: each exports SAMPLES ([{ id, group, icon, ko: [name, note], en: [name, note] }]) and build(id, lang). */
 const GROUP_MODULES = [basicGroup, machineGroup, housingGroup, assemblyGroup, advancedGroup];
@@ -460,14 +461,25 @@ export function drawingProject(partId, lang) {
  * Builds a sample project (the kernel must be loaded). The builders are written in the old Y-up coordinates:
  * they run in that frame and the project is turned to Z up afterwards, like an old file.
  */
-export function buildSample(id, lang = 'ko') {
-  const project = withYUp(() => buildSampleYUp(id, lang));
+export function buildSample(id, lang = 'ko', { stage = true } = {}) {
+  const project = withYUp(() => buildSampleYUp(id, lang, { stage }));
   return project ? migrateProject(project) : project;
 }
 
 /** The sample as its builder makes it, in the old Y-up frame (call it inside withYUp()). */
-export function buildSampleYUp(id, lang) {
-  for (const g of GROUP_MODULES) if (g.SAMPLES.some((x) => x.id === id) && !id.startsWith('legacy:')) return g.build(id, lang);
+export function buildSampleYUp(id, lang, { stage = true } = {}) {
+  for (const g of GROUP_MODULES) {
+    if (!g.SAMPLES.some((x) => x.id === id) || id.startsWith('legacy:')) continue;
+    const project = g.build(id, lang);
+    // Every sample moves: its motion stage (samples/motion-scenes.js) — a drawing sample keeps its sheet open.
+    const scene = stage ? SCENES[id] : null;
+    if (project && scene) {
+      const active = project.active;
+      scene(project, (ko, en) => (lang === 'en' ? en : ko));
+      if (active?.kind === 'drawing') project.active = active;
+    }
+    return project;
+  }
   id = id.replace(/^legacy:/, '');
   if (id === 'shaftAssembly') return shaftAssembly(lang);
   if (id === 'boltedJoint') return boltedJoint(lang);
@@ -481,3 +493,8 @@ export { byId, addArc };
 
 /** Every sample on the start page, group by group (15 each). */
 export const SAMPLES = GROUP_MODULES.flatMap((g) => g.SAMPLES);
+// The start page tells what each sample's motion study shows.
+for (const s of SAMPLES) {
+  const note = MOTION_NOTES[s.id];
+  if (note && !s.ko[1].includes(note[0])) { s.ko = [s.ko[0], `${s.ko[1]} · ${note[0]}`]; s.en = [s.en[0], `${s.en[1]} · ${note[1]}`]; }
+}

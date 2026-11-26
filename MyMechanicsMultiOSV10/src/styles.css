@@ -1462,7 +1462,12 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
   background: var(--panel); border-top: 1px solid var(--hairline, var(--border)); overflow: hidden; container-type: inline-size;
 }
 .splitter.bottom-split { position: relative; z-index: 3; }
-#app.no-bottom #bottom-panel, #app.no-bottom .bottom-split, #app.on-start #bottom-panel, #app.on-start .bottom-split { display: none; }
+#app.no-bottom .bottom-split, #app.on-start #bottom-panel, #app.on-start .bottom-split { display: none; }
+/* Collapsed (Ctrl+J or the collapse button): only a thin bar stays, with the expand button and the tabs. */
+#app.no-bottom #bottom-panel { height: auto; min-height: 0; }
+.bottom-rail { flex-wrap: nowrap; padding: 2px 6px; border-bottom: 0; overflow: hidden; }
+.bottom-rail-tabs { display: flex; gap: 2px; min-width: 0; overflow: hidden; }
+.bottom-rail-tabs .small-button { white-space: nowrap; }
 .problems-header { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 10px; flex-wrap: wrap; row-gap: 4px; background: var(--toolbar); border-bottom: 1px solid var(--hairline, var(--border)); flex: none; min-width: 0; }
 .problems-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
 .problems-title .icon { width: 16px; height: 16px; color: var(--accent); }

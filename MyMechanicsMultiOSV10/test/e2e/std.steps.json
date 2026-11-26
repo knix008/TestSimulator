@@ -6,8 +6,8 @@
     "wait": 400
   },
   {
-    "name": "std: the Library · Routing · Render tab lists its commands",
-    "eval": "(() => { const tab = document.querySelector('[data-cm-tab=\"stdTools\"]'); if (!tab) return 'no tab'; tab.click(); return new Promise((r) => setTimeout(() => r(['stdLibrary', 'smartFastener', 'pipeRoute', 'tubeRoute', 'cableRoute', 'renderView'].filter((id) => document.querySelector(`#palette-host [data-command=\"${id}\"]`)).length), 200)); })()",
+    "name": "std: the Library · Routing tab lists its commands (as buttons or in its flyouts)",
+    "eval": "(() => { const tab = document.querySelector('[data-cm-tab=\"stdTools\"]'); if (!tab) return 'no tab'; tab.click(); return new Promise((r) => setTimeout(() => r(['stdLibrary', 'smartFastener', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute'].filter((id) => document.querySelector(`#palette-host [data-command=\"${id}\"], #palette-host [data-fly-items~=\"${id}\"]`)).length), 200)); })()",
     "expect": "^6$"
   },
   {

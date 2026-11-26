@@ -2,7 +2,8 @@
 // the switch) turned by R = +90° about X — same volumes and areas, boxes = R(old boxes), component placements
 // R·M·Rᵀ, drawing views the same — and the document migration turns old files once (idempotent). Parts with
 // modelled threads (basClevis, basCapScrew, hsgBottle) were re-measured on 2026-11-25 when every thread form became
-// an exact screw solid (it had been a faceted groove); their boxes are the original ones.
+// an exact screw solid (it had been a faceted groove); their boxes are the original ones. advCarBody was re-measured on
+// 2026-11-26 when the car body was redesigned (eight sections, windshields).
 // ZUP_ONLY=id1,id2 limits the samples (for quick runs).
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -233,6 +234,8 @@ for (const sample of SAMPLES) {
     assert.equal(project.up, 'z');
     const bodies = new Map();
     for (const [i, part] of project.parts.entries()) {
+      // The motion stage's own parts (samples/motion.js) came after the baseline; they are checked in samples.test.js.
+      if (part.stage) { bodies.set(part.id, regenerate(part, { project }).body); continue; }
       const b = base.parts[`${part.name}#${i}`];
       assert.ok(b, `baseline part ${part.name}`);
       const r = regenerate(part, { project });
@@ -248,6 +251,7 @@ for (const sample of SAMPLES) {
       nearVec(got[0], want[0], tol, `${part.name} box min`); nearVec(got[1], want[1], tol, `${part.name} box max`);
     }
     for (const [i, asm] of project.assemblies.entries()) {
+      if (asm.stage) continue;
       const b = base.assemblies[`${asm.name}#${i}`];
       assert.ok(b, `baseline assembly ${asm.name}`);
       const size = b.box ? Math.max(1, ...b.box[1].map((x, k) => x - b.box[0][k])) : 100;

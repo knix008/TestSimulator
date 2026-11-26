@@ -321,7 +321,7 @@ const PARSERS = {
     if (v >= R2004) { r.BS(); r.BS(); r.BS(); }
     o.layoutName = r.TV(); o.tabOrder = r.BL(); o.flags = r.BS(); o.ucsOrigin = r.BD3(); o.limMin = r.RD2(); o.limMax = r.RD2();
     o.insBase = r.BD3(); o.ucsX = r.BD3(); o.ucsY = r.BD3(); o.elevation = r.BD(); o.orthoType = r.BS(); o.extMin = r.BD3(); o.extMax = r.BD3();
-    const nvp = v >= R2004 ? r.RL() : 0;
+    const nvp = v >= R2004 ? r.BL() : 0;
     if (v >= R2004) hr.H();
     if (v >= R2007) hr.H();
     o.block = hr.Habs(o.handle); o.lastViewport = hr.Habs(o.handle); o.baseUcs = hr.Habs(o.handle); o.namedUcs = hr.Habs(o.handle);
@@ -368,7 +368,9 @@ function DIMSTYLE_FIELDS(v) {
   if (v >= R2007) out.push(['BS', 'DIMARCSYM']);
   for (const n of ['DIMTXT', 'DIMCEN', 'DIMTSZ', 'DIMALTF', 'DIMLFAC', 'DIMTVP', 'DIMTFAC', 'DIMGAP', 'DIMALTRND']) out.push(['BD', n]);
   out.push(['B', 'DIMALT'], ['BS', 'DIMALTD'], ['B', 'DIMTOFL'], ['B', 'DIMSAH'], ['B', 'DIMTIX'], ['B', 'DIMSOXD']);
-  out.push(['BS', 'DIMCLRD'], ['BS', 'DIMCLRE'], ['BS', 'DIMCLRT'], ['BS', 'DIMADEC']);
+  // R2004+: the dimension colours are full colours (CMC).
+  const clr = v >= R2004 ? 'CMC' : 'BS';
+  out.push([clr, 'DIMCLRD'], [clr, 'DIMCLRE'], [clr, 'DIMCLRT'], ['BS', 'DIMADEC']);
   for (const n of ['DIMDEC', 'DIMTDEC', 'DIMALTU', 'DIMALTTD', 'DIMAUNIT', 'DIMFRAC', 'DIMLUNIT', 'DIMDSEP', 'DIMTMOVE', 'DIMJUST']) out.push(['BS', n]);
   out.push(['B', 'DIMSD1'], ['B', 'DIMSD2'], ['BS', 'DIMTOLJ'], ['BS', 'DIMTZIN'], ['BS', 'DIMALTZ'], ['BS', 'DIMALTTZ'], ['B', 'DIMUPT'], ['BS', 'DIMFIT']);
   if (v >= R2007) out.push(['B', 'DIMFXLON']);

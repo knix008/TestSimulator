@@ -185,7 +185,7 @@ export function writeHeader(values, version = R2000) {
       case 'TV': case 'T': w.T(x); break;
       case 'H0': w.H(0, x); break;
       case 'H': w.H(f.code ?? 5, x); break;
-      case 'CMC': w.BS(x); break;
+      case 'CMC': w.CMC(x); break;
       default: throw dwgError(`cannot write header type ${f.type}`, 'dwg-write');
     }
   }

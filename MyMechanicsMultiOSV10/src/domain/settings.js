@@ -162,6 +162,8 @@ export function defaultSettings(language = 'ko') {
     autoRelations: true,
     editDimOnCreate: true,
     projection: 'third',
+    // The DWG release written by every DWG export (R2004 opens in AutoCAD 2004 and later; R2000 for older programs).
+    dwgVersion: 'R2004',
     displayStyle: 'shadedEdges',
     showPlanes: true,
     showOrigin: true,
@@ -224,6 +226,7 @@ export function normalizeSettings(raw = {}, language) {
   s.units = UNITS.includes(s.units) ? s.units : base.units;
   s.decimals = clamp(s.decimals, 0, 6, 2);
   s.projection = s.projection === 'first' ? 'first' : 'third';
+  s.dwgVersion = s.dwgVersion === 'R2000' ? 'R2000' : 'R2004';
   s.displayStyle = DISPLAY_STYLES.includes(s.displayStyle) ? s.displayStyle : base.displayStyle;
   s.meshQuality = ['coarse', 'normal', 'fine'].includes(s.meshQuality) ? s.meshQuality : 'normal';
   s.modelledThreads = s.modelledThreads === true;

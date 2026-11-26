@@ -28,6 +28,10 @@ const PARTS = {
   'ellipsoid (doubly curved B-spline)': () => R.makeEllipsoid(20, 12, 8),
   'hollow box (an inner void)': () => R.makeBox([0, 0, 0], [40, 40, 40]).cut(R.makeBox([10, 10, 10], [30, 30, 30])),
   'two separate solids': () => R.makeCompound([R.makeBox([0, 0, 0], [10, 10, 10]), R.makeCylinder(5, 10, [30, 0, 0], [0, 0, 1])]),
+  // A chamfered hex (a nut's 30° chamfer): its flats cut the cone in hyperbolas, which XT has no curve for (an
+  // unbounded OCCT curve, written as a B-spline over the edge).
+  'chamfered hex (plane-cone hyperbolas)': () => R.draw([0, 0]).lineTo([12, 0]).lineTo([12, 8]).lineTo([9, 10]).lineTo([0, 10]).close().sketchOnPlane('XZ').revolve()
+    .intersect(R.makeBox([-10.4, -12, -1], [10.4, 12, 11]).intersect(R.makeBox([-10.4, -12, -1], [10.4, 12, 11]).rotate(60, [0, 0, 0], [0, 0, 1])).intersect(R.makeBox([-10.4, -12, -1], [10.4, 12, 11]).rotate(120, [0, 0, 0], [0, 0, 1]))),
 };
 
 const facts = (s) => { const [lo, hi] = s.boundingBox.bounds; return { volume: R.measureVolume(s), area: R.measureArea(s), lo, hi, faces: s.faces.length }; };

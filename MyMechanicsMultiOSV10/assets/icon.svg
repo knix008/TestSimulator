@@ -1,81 +1,73 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- MyMechanics app icon: a machined flange (hub, bore and bolt holes) in isometric view with a
-       dimension line, over a blueprint grid on a raised steel-blue tile. The tile sits in the exact
-       centre (112…912 both ways); the border is transparent. -->
+  <!-- MyMechanics app icon: a machined steel spur gear meshing with a small amber gear, on a deep steel-blue tile
+       with a soft light from the upper left (no grid). The tile sits in the exact centre (112…912 both ways); the
+       border is transparent. Gear outlines are computed (scripts: 12 and 8 teeth, straight flanks). -->
   <defs>
-    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#d7e9ff"/>
-      <stop offset="0.5" stop-color="#5b8fd6"/>
-      <stop offset="1" stop-color="#1f4c8f"/>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f5d9e"/>
+      <stop offset="0.55" stop-color="#173763"/>
+      <stop offset="1" stop-color="#0b1a33"/>
     </linearGradient>
-    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1b3d70"/>
-      <stop offset="1" stop-color="#0d2346"/>
+    <linearGradient id="tileEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d2140"/>
+      <stop offset="1" stop-color="#050d1c"/>
     </linearGradient>
-    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.15"/>
-      <stop offset="1" stop-color="#06183a" stop-opacity="0.55"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.2" cy="0.16" r="0.62">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
-      <stop offset="0.3" stop-color="#eef6ff" stop-opacity="0.4"/>
-      <stop offset="0.7" stop-color="#ffffff" stop-opacity="0"/>
+    <radialGradient id="light" cx="0.22" cy="0.14" r="0.75">
+      <stop offset="0" stop-color="#8fc2ff" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#5a8fd6" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="steelTop" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.45"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0.1" y1="0" x2="0.9" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.5" stop-color="#d9e1ea"/>
-      <stop offset="1" stop-color="#9eacbb"/>
+      <stop offset="0.35" stop-color="#dfe6ee"/>
+      <stop offset="0.7" stop-color="#9aa8b8"/>
+      <stop offset="1" stop-color="#5f6e80"/>
     </linearGradient>
-    <linearGradient id="steelSide" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#6f7f92"/>
-      <stop offset="0.35" stop-color="#c9d3de"/>
-      <stop offset="0.7" stop-color="#8d9cad"/>
-      <stop offset="1" stop-color="#4f5d6e"/>
+    <linearGradient id="steelEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7d8b9b"/>
+      <stop offset="1" stop-color="#2c3644"/>
     </linearGradient>
-    <linearGradient id="bore" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2b3644"/>
-      <stop offset="1" stop-color="#5d6c7e"/>
+    <radialGradient id="web" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#eef2f6"/>
+      <stop offset="1" stop-color="#8e9cad"/>
+    </radialGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd78a"/>
+      <stop offset="0.5" stop-color="#ffab2e"/>
+      <stop offset="1" stop-color="#c8650a"/>
     </linearGradient>
-    <clipPath id="tileClip"><rect x="112" y="112" width="800" height="800" rx="176"/></clipPath>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity="0.35"/></filter>
+    <linearGradient id="amberEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b8620e"/>
+      <stop offset="1" stop-color="#6a3204"/>
+    </linearGradient>
+    <clipPath id="tileClip"><rect x="112" y="112" width="800" height="776" rx="176"/></clipPath>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%"><feDropShadow dx="10" dy="22" stdDeviation="20" flood-color="#000" flood-opacity="0.45"/></filter>
   </defs>
   <!-- the tile -->
-  <rect x="112" y="136" width="800" height="776" rx="176" fill="url(#side)"/>
-  <rect x="112" y="112" width="800" height="776" rx="176" fill="url(#face)"/>
-  <g clip-path="url(#tileClip)" opacity="0.35" stroke="#e9f3ff" stroke-width="3">
-    <path d="M112 212h800M112 312h800M112 412h800M112 512h800M112 612h800M112 712h800M112 812h800"/>
-    <path d="M212 112v800M312 112v800M412 112v800M512 112v800M612 112v800M712 112v800M812 112v800"/>
-  </g>
-  <rect x="112" y="112" width="800" height="776" rx="176" fill="url(#glow)"/>
-  <rect x="120" y="120" width="784" height="760" rx="170" fill="none" stroke="url(#bevel)" stroke-width="14"/>
-  <!-- the flange: a disc with a hub, isometric ellipses -->
-  <g filter="url(#shadow)">
-    <!-- disc side -->
-    <path d="M232 560 v70 a280 140 0 0 0 560 0 v-70 z" fill="url(#steelSide)"/>
-    <ellipse cx="512" cy="560" rx="280" ry="140" fill="url(#steelTop)" stroke="#5a6878" stroke-width="5"/>
-    <!-- bolt holes -->
-    <g fill="url(#bore)" stroke="#3c4856" stroke-width="3">
-      <ellipse cx="292" cy="560" rx="30" ry="15"/>
-      <ellipse cx="732" cy="560" rx="30" ry="15"/>
-      <ellipse cx="402" cy="474" rx="30" ry="15"/>
-      <ellipse cx="622" cy="474" rx="30" ry="15"/>
-      <ellipse cx="402" cy="646" rx="30" ry="15"/>
-      <ellipse cx="622" cy="646" rx="30" ry="15"/>
+  <rect x="112" y="136" width="800" height="776" rx="176" fill="url(#tileEdge)"/>
+  <rect x="112" y="112" width="800" height="776" rx="176" fill="url(#tile)"/>
+  <rect x="112" y="112" width="800" height="776" rx="176" fill="url(#light)"/>
+  <g clip-path="url(#tileClip)">
+    <!-- the gears: a thickness under each (offset), then the face -->
+    <g filter="url(#shadow)">
+      <path d="M661.9,418.1 L634.6,438.2 A126 126 0 0 1 610.8,414.4 L630.9,387.1 A94 94 0 0 1 619.6,359.9  L586.1,354.8 A126 126 0 0 1 586.1,321.2 L619.6,316.1 A94 94 0 0 1 630.9,288.9  L610.8,261.6 A126 126 0 0 1 634.6,237.8 L661.9,257.9 A94 94 0 0 1 689.1,246.6  L694.2,213.1 A126 126 0 0 1 727.8,213.1 L732.9,246.6 A94 94 0 0 1 760.1,257.9  L787.4,237.8 A126 126 0 0 1 811.2,261.6 L791.1,288.9 A94 94 0 0 1 802.4,316.1  L835.9,321.2 A126 126 0 0 1 835.9,354.8 L802.4,359.9 A94 94 0 0 1 791.1,387.1  L811.2,414.4 A126 126 0 0 1 787.4,438.2 L760.1,418.1 A94 94 0 0 1 732.9,429.4  L727.8,462.9 A126 126 0 0 1 694.2,462.9 L689.1,429.4 A94 94 0 0 1 661.9,418.1 Z" fill="url(#amberEdge)"/>
+      <path d="M654.9,406.1 L627.6,426.2 A126 126 0 0 1 603.8,402.4 L623.9,375.1 A94 94 0 0 1 612.6,347.9  L579.1,342.8 A126 126 0 0 1 579.1,309.2 L612.6,304.1 A94 94 0 0 1 623.9,276.9  L603.8,249.6 A126 126 0 0 1 627.6,225.8 L654.9,245.9 A94 94 0 0 1 682.1,234.6  L687.2,201.1 A126 126 0 0 1 720.8,201.1 L725.9,234.6 A94 94 0 0 1 753.1,245.9  L780.4,225.8 A126 126 0 0 1 804.2,249.6 L784.1,276.9 A94 94 0 0 1 795.4,304.1  L828.9,309.2 A126 126 0 0 1 828.9,342.8 L795.4,347.9 A94 94 0 0 1 784.1,375.1  L804.2,402.4 A126 126 0 0 1 780.4,426.2 L753.1,406.1 A94 94 0 0 1 725.9,417.4  L720.8,450.9 A126 126 0 0 1 687.2,450.9 L682.1,417.4 A94 94 0 0 1 654.9,406.1 Z M670 326 a34 34 0 1 0 68 0 a34 34 0 1 0 -68 0Z" fill="url(#amber)" fill-rule="evenodd" stroke="#7a3d06" stroke-width="4"/>
+      <path d="M642 326 a62 62 0 1 0 124 0 a62 62 0 1 0 -124 0Z" fill="none" stroke="#fff1d2" stroke-opacity="0.55" stroke-width="6"/>
     </g>
-    <!-- hub -->
-    <path d="M392 412 v148 a120 60 0 0 0 240 0 v-148 z" fill="url(#steelSide)"/>
-    <ellipse cx="512" cy="412" rx="120" ry="60" fill="url(#steelTop)" stroke="#5a6878" stroke-width="5"/>
-    <ellipse cx="512" cy="412" rx="64" ry="32" fill="url(#bore)" stroke="#3c4856" stroke-width="4"/>
+    <g filter="url(#shadow)">
+      <path d="M629.3,454.7 L673.4,440 A240 240 0 0 1 694.7,477 L660,507.8 A196 196 0 0 1 670.6,547.3  L716,556.7 A240 240 0 0 1 716,599.3 L670.6,608.7 A196 196 0 0 1 660,648.2  L694.7,679 A240 240 0 0 1 673.4,716 L629.3,701.3 A196 196 0 0 1 600.3,730.3  L615,774.4 A240 240 0 0 1 578,795.7 L547.2,761 A196 196 0 0 1 507.7,771.6  L498.3,817 A240 240 0 0 1 455.7,817 L446.3,771.6 A196 196 0 0 1 406.8,761  L376,795.7 A240 240 0 0 1 339,774.4 L353.7,730.3 A196 196 0 0 1 324.7,701.3  L280.6,716 A240 240 0 0 1 259.3,679 L294,648.2 A196 196 0 0 1 283.4,608.7  L238,599.3 A240 240 0 0 1 238,556.7 L283.4,547.3 A196 196 0 0 1 294,507.8  L259.3,477 A240 240 0 0 1 280.6,440 L324.7,454.7 A196 196 0 0 1 353.7,425.7  L339,381.6 A240 240 0 0 1 376,360.3 L406.8,395 A196 196 0 0 1 446.3,384.4  L455.7,339 A240 240 0 0 1 498.3,339 L507.7,384.4 A196 196 0 0 1 547.2,395  L578,360.3 A240 240 0 0 1 615,381.6 L600.3,425.7 A196 196 0 0 1 629.3,454.7 Z" fill="url(#steelEdge)"/>
+      <path d="M620.3,438.7 L664.4,424 A240 240 0 0 1 685.7,461 L651,491.8 A196 196 0 0 1 661.6,531.3  L707,540.7 A240 240 0 0 1 707,583.3 L661.6,592.7 A196 196 0 0 1 651,632.2  L685.7,663 A240 240 0 0 1 664.4,700 L620.3,685.3 A196 196 0 0 1 591.3,714.3  L606,758.4 A240 240 0 0 1 569,779.7 L538.2,745 A196 196 0 0 1 498.7,755.6  L489.3,801 A240 240 0 0 1 446.7,801 L437.3,755.6 A196 196 0 0 1 397.8,745  L367,779.7 A240 240 0 0 1 330,758.4 L344.7,714.3 A196 196 0 0 1 315.7,685.3  L271.6,700 A240 240 0 0 1 250.3,663 L285,632.2 A196 196 0 0 1 274.4,592.7  L229,583.3 A240 240 0 0 1 229,540.7 L274.4,531.3 A196 196 0 0 1 285,491.8  L250.3,461 A240 240 0 0 1 271.6,424 L315.7,438.7 A196 196 0 0 1 344.7,409.7  L330,365.6 A240 240 0 0 1 367,344.3 L397.8,379 A196 196 0 0 1 437.3,368.4  L446.7,323 A240 240 0 0 1 489.3,323 L498.7,368.4 A196 196 0 0 1 538.2,379  L569,344.3 A240 240 0 0 1 606,365.6 L591.3,409.7 A196 196 0 0 1 620.3,438.7 Z M544.9 626 a34 34 0 1 0 68 0 a34 34 0 1 0 -68 0Z M434 690 a34 34 0 1 0 68 0 a34 34 0 1 0 -68 0Z M323.1 626 a34 34 0 1 0 68 0 a34 34 0 1 0 -68 0Z M323.1 498 a34 34 0 1 0 68 0 a34 34 0 1 0 -68 0Z M434 434 a34 34 0 1 0 68 0 a34 34 0 1 0 -68 0Z M544.9 498 a34 34 0 1 0 68 0 a34 34 0 1 0 -68 0Z  M412 562 a56 56 0 1 0 112 0 a56 56 0 1 0 -112 0Z" fill="url(#steel)" fill-rule="evenodd" stroke="#4b5868" stroke-width="5"/>
+      <!-- the web recess and the hub -->
+      <path d="M298 562 a170 170 0 1 0 340 0 a170 170 0 1 0 -340 0Z" fill="none" stroke="#5b6979" stroke-opacity="0.55" stroke-width="5"/>
+      <path d="M376 562 a92 92 0 1 0 184 0 a92 92 0 1 0 -184 0Z M412 562 a56 56 0 1 0 112 0 a56 56 0 1 0 -112 0Z" fill="url(#web)" fill-rule="evenodd" stroke="#4b5868" stroke-width="5"/>
+      <!-- the keyway -->
+      <path d="M454 510 h28 v-22 h-28z" fill="#22303f"/>
+    </g>
   </g>
-  <!-- a dimension line over the disc (blueprint orange) -->
-  <g stroke="#ffb547" stroke-width="10" stroke-linecap="round" fill="none">
-    <path d="M232 790 h560"/>
-    <path d="M232 760 v60M792 760 v60"/>
-    <path d="M232 790 l34 -18M232 790 l34 18M792 790 l-34 -18M792 790 l-34 18"/>
-  </g>
-  <!-- a centre mark -->
-  <g stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.9">
-    <path d="M512 228 v80M472 268 h80"/>
-  </g>
+  <rect x="120" y="120" width="784" height="760" rx="170" fill="none" stroke="url(#bevel)" stroke-width="12"/>
 </svg>

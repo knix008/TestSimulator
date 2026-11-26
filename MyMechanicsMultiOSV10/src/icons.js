@@ -143,6 +143,8 @@ const base = {
   panelLeftClose: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16"/><path d="M3.8 5.5h4.4v13H3.8z" fill="currentColor" stroke="none" opacity="0.18"/><path d="M16 9l-3 3 3 3"/>',
   panelLeftOpen: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16"/><path d="M3.8 5.5h4.4v13H3.8z" fill="currentColor" stroke="none" opacity="0.18"/><path d="M13 9l3 3-3 3"/>',
   panelRightClose: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16"/><path d="M15.8 5.5h4.4v13h-4.4z" fill="currentColor" stroke="none" opacity="0.18"/><path d="M8 9l3 3-3 3"/>',
+  panelBottomClose: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 14h18"/><path d="M3.8 14.8h16.4v4.4H3.8z" fill="currentColor" stroke="none" opacity="0.18"/><path d="M9 7.5l3 3 3-3"/>',
+  panelBottomOpen: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 14h18"/><path d="M3.8 14.8h16.4v4.4H3.8z" fill="currentColor" stroke="none" opacity="0.18"/><path d="M9 10.5l3-3 3 3"/>',
   panelRightOpen: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16"/><path d="M15.8 5.5h4.4v13h-4.4z" fill="currentColor" stroke="none" opacity="0.18"/><path d="M11 9l-3 3 3 3"/>',
   ruler: '<rect x="2.5" y="8" width="19" height="8" rx="1.5"/><path d="M6 8v3M9.5 8v4M13 8v3M16.5 8v4"/>',
   quality: '<path d="M12 3l2.4 5 5.6.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.6-.8z"/><path d="M12 3v12.6"/>',

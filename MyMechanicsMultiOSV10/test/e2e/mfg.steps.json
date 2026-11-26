@@ -7,7 +7,7 @@
  },
  {
   "name": "mfg: sample part opens",
-  "eval": "window.__mymechanics.actions.openSampleAsk('basMountBracket').then(() => new Promise((r) => setTimeout(r, 1500))).then(() => window.__mymechanics.active()?.name ?? 'none')",
+  "eval": "window.__mymechanics.actions.openSampleAsk('basMountBracket', { stage: false }).then(() => new Promise((r) => setTimeout(r, 1500))).then(() => window.__mymechanics.active()?.name ?? 'none')",
   "expect": ".+"
  },
  {

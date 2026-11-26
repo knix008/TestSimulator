@@ -93,7 +93,12 @@ function installVideo(lang) {
       } else if (fallback) await fallback();
       await g.settle(pause);
     },
-    cmd(id, pause) { return v.click(document.querySelector(`#palette-host [data-command="${id}"]`) ?? document.querySelector(`[data-command="${id}"]`), () => m.run(id), pause); },
+    async cmd(id, pause) {
+      // A command inside a CommandManager flyout: point at its ▾ and run it (the flyout's button then shows it).
+      const box = !document.querySelector(`#palette-host [data-command="${id}"]`) && document.querySelector(`#palette-host [data-fly-items~="${id}"]`);
+      if (box) { await v.go(box.querySelector('[data-fly]')); v.ripple(); await sleep(200); await m.run(id); await g.settle(pause ?? 350); return; }
+      return v.click(document.querySelector(`#palette-host [data-command="${id}"]`) ?? document.querySelector(`[data-command="${id}"]`), () => m.run(id), pause);
+    },
     /** Types a value into a PropertyManager field, one character after the other. */
     async type(key, value, unit = 'length') {
       const input = document.querySelector(`#left-panel [data-pm-field="${key}"]`);
@@ -359,6 +364,13 @@ const lessons = [
         await v.click('#left-panel [data-pm="stopMotion"]', () => m.actions.pmCommand('stopMotion'), 500);
         await v.click('#left-panel .pm-cancel', () => m.actions.cancelEditing({ quiet: true }), 600);
         if (m.state.section) await m.run('section');
+      } },
+      { say: L('부품 예제도 모두 움직입니다. 커넥팅 로드 예제를 열고 그래픽 영역 위의 ▶ 를 누르면 크랭크·크로스헤드와 함께 슬라이더 크랭크로 돕니다.', 'Every part sample moves too: open the connecting rod and press ▶ over the graphics area — it runs as a slider-crank with a crank and a crosshead.'), run: async (g, v) => {
+        await g.sample('basConRod'); await g.view('iso'); await g.fit();
+        await v.hold(900);
+        await v.click('[data-player="play"]', () => document.querySelector('[data-player="play"]')?.click(), 300);
+        await v.hold(7000);
+        await v.click('[data-player="stop"]', () => document.querySelector('[data-player="stop"]')?.click(), 600);
       } },
     ],
   },

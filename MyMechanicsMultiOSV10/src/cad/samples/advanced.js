@@ -21,7 +21,7 @@ export const SAMPLES = [
   { id: 'advMachineStand', group: G, icon: 'cutList', ko: ['용접 기계 받침대', '각관·직사각관·앵글 부재 · 대칭 복사 · 상판 구멍 패턴'], en: ['Welded machine stand', 'Square / rectangular tube and angle members · mirror · top plate holes'] },
   { id: 'advSheetEnclosure', group: G, icon: 'sheetMetal', ko: ['판금 섀시 케이스', '베이스 플랜지 · 조그 · 스케치 굽힘 · 모서리 플랜지 · 헴 · 펼치기'], en: ['Sheet metal chassis', 'Base flange · jog · sketched bend · edge flanges · hem · flat pattern'] },
   { id: 'advMoldedCover', group: G, icon: 'cavity', ko: ['사출 성형 커버 (코어·캐비티)', '구배 · 쉘 · 보스 · 리브 · 파팅 라인 · 툴링 분할'], en: ['Molded cover (core and cavity)', 'Draft · shell · bosses · rib · parting line · tooling split'] },
-  { id: 'advCarBody', group: G, icon: 'surfaceLoft', ko: ['자동차 차체 쉘', '단면 5개 곡면 로프트 · 곡면 자르기 · 붙이기 · 두껍게 · 휠 아치 · 옆 창'], en: ['Car body shell', 'Surface loft through five sections · trim · knit · thicken · wheel arches · side windows'] },
+  { id: 'advCarBody', group: G, icon: 'surfaceLoft', ko: ['자동차 차체 쉘', '단면 8개 곡면 로프트 · 곡면 자르기 · 붙이기 · 두껍게 · 휠 아치 · 옆 창 · 앞뒤 유리'], en: ['Car body shell', 'Surface loft through eight sections · trim · knit · thicken · wheel arches · side windows · windshields'] },
   { id: 'advWineGlass', group: G, icon: 'featDome', ko: ['와인 잔', '스플라인 회전 · 쉘 · 오목 돔 · 필렛'], en: ['Wine glass', 'Spline revolve · shell · concave dome · fillets'] },
   { id: 'advDuctBend', group: G, icon: 'featSweep', ko: ['3D 덕트 벤드', '3D 스플라인 경로 · 링 단면 스윕 · 플랜지 · 볼트 구멍 스케치 패턴 · 필렛'], en: ['3D duct bend', '3D spline path · ring-section sweep · flanges · bolt hole sketch patterns · fillet'] },
   { id: 'advKnob', group: G, icon: 'featWrap', ko: ['각인 노브', '랩 (글자 양각) · 원형 패턴 · 홈 36개 · 돔 · D컷 보어'], en: ['Engraved knob', 'Wrapped lettering emboss · circular patterns · 36 flutes · dome · D bore'] },
@@ -327,20 +327,24 @@ function moldedCover(T) {
 // ───────────────────────── 7. car body from surfaces
 
 function carBody(T) {
-  const b = builder(createPart(T('자동차 차체', 'Car body shell'), { material: 'steel-1020', color: '#b8322f', partNo: 'CB-1-10', description: T('1:10 축척 차체 쉘, 두께 2', '1:10 body shell, 2 mm skin') }));
-  // Cross-sections along the car (right plane: sketch x runs along −Z, y is up): half width, floor, belt line,
-  // roof height and roof half width.
+  const b = builder(createPart(T('자동차 차체', 'Car body shell'), { material: 'steel-1020', color: '#b8322f', partNo: 'CB-1-10', description: T('1:10 축척 세단 차체 쉘, 두께 2', '1:10 sedan body shell, 2 mm skin') }));
+  // Cross-sections along the car (right plane: sketch x runs along −Z, y is up), rear bumper to front bumper:
+  // half width, floor, belt line, roof (or hood / boot lid) height and its half width. Every section is the same
+  // closed spline of 14 points starting at the bottom centre, so the loft does not twist.
   const sections = [
-    [-215, { w: 62, f: 20, b: 64, top: 80, rw: 48 }],
-    [-140, { w: 74, f: 18, b: 76, top: 104, rw: 52 }],
-    [-20, { w: 80, f: 18, b: 80, top: 134, rw: 58 }],
-    [120, { w: 78, f: 18, b: 72, top: 92, rw: 60 }],
-    [215, { w: 64, f: 22, b: 52, top: 60, rw: 50 }],
+    [-215, { w: 70, f: 26, b: 58, top: 66, rw: 56 }], // rear bumper
+    [-170, { w: 84, f: 20, b: 72, top: 80, rw: 70 }], // boot lid
+    [-110, { w: 87, f: 18, b: 78, top: 104, rw: 60 }], // rear window base
+    [-40, { w: 88, f: 18, b: 80, top: 134, rw: 62 }], // roof
+    [40, { w: 88, f: 18, b: 80, top: 128, rw: 62 }], // windshield top
+    [105, { w: 86, f: 18, b: 78, top: 86, rw: 72 }], // cowl
+    [170, { w: 82, f: 20, b: 70, top: 76, rw: 68 }], // hood
+    [215, { w: 66, f: 28, b: 54, top: 60, rw: 52 }], // front bumper
   ];
   const ids = sections.map(([x, s], i) => {
     const pl = b.plane('right', x);
-    const pts = [[0, s.f], [s.w, s.f + 10], [s.w, s.b], [s.rw * 0.7, s.top - 4], [0, s.top]];
-    const loop = [...pts, ...pts.slice(1, -1).reverse().map(([u, y]) => [-u, y])];
+    const half = [[s.w * 0.86, s.f], [s.w, s.f + 12], [s.w, s.b - 10], [s.w * 0.97, s.b], [s.rw, s.top - 9], [s.rw * 0.55, s.top - 1]];
+    const loop = [[0, s.f], ...half, [0, s.top], ...half.slice().reverse().map(([u, y]) => [-u, y])];
     return b.sketch(pl, (k) => addSpline(k, loop, { closed: true }), T(`단면 ${i + 1}`, `Section ${i + 1}`)).id;
   });
   const skin = b.add('surfaceLoft', { sketches: ids, ruled: true });
@@ -348,11 +352,15 @@ function carBody(T) {
   const trim = b.add('trimSurface', { surface: skin.id, plane: { kind: 'ref', id: b.plane('top', 30).id }, keep: 'above' });
   const knit = b.add('knit', { surfaces: [trim.id], solid: false });
   b.add('thicken', { surface: knit.id, thickness: 2, side: 'in' });
-  // Wheel arches, and the side windows, cut through both sides at once (the roof is higher than the windows).
-  const arches = b.sketch('front', (k) => { circleAt(k, -140, 30, 70); circleAt(k, 140, 30, 70); }, T('스케치-휠 아치', 'Sketch-WheelArches'));
+  // Wheel arches (wheelbase 260), cut through both sides at once.
+  const arches = b.sketch('front', (k) => { circleAt(k, -130, 30, 74); circleAt(k, 130, 30, 74); }, T('스케치-휠 아치', 'Sketch-WheelArches'));
   b.add('extrude', { sketch: arches.id, op: 'cut', end: 'throughBoth' });
-  const win = b.sketch('front', (k) => { chain(k, [[-120, 90], [70, 90], [-18, 122], [-100, 112]]); }, T('스케치-옆 창', 'Sketch-SideWindows'));
+  // Side windows between the belt line and the roof edge (both sides), then the windshield and the rear window
+  // (cut down through the roof's slopes — the trimmed underside is open, so nothing else is in the way).
+  const win = b.sketch('front', (k) => { chain(k, [[-98, 86], [92, 86], [42, 121], [-58, 122]]); }, T('스케치-옆 창', 'Sketch-SideWindows'));
   b.add('extrude', { sketch: win.id, op: 'cut', end: 'throughBoth' });
+  const glass = b.sketch(b.plane('top', 60), (k) => { chain(k, [[52, -50], [94, -58], [94, 58], [52, 50]]); chain(k, [[-104, -50], [-62, -46], [-62, 46], [-104, 50]]); }, T('스케치-앞뒤 유리', 'Sketch-Windshields'));
+  b.add('extrude', { sketch: glass.id, op: 'cut', end: 'throughBoth' });
   return b.part;
 }
 

@@ -75,7 +75,7 @@
   },
   {
     "name": "render: an assembly sample opens",
-    "eval": "(async () => {\n  const m = window.__mymechanics;\n  await m.actions.ensureKernel();\n  await m.actions.closeProject({ force: true });\n  await m.actions.openSampleAsk('asmPillowLine');\n  await new Promise((r) => setTimeout(r, 1500));\n  return m.active()?.components ? `assembly ${m.active().components.length}` : 'no assembly';\n})()",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  await m.actions.ensureKernel();\n  await m.actions.closeProject({ force: true });\n  await m.actions.openSampleAsk('asmPillowLine', { stage: false });\n  await new Promise((r) => setTimeout(r, 1500));\n  return m.active()?.components ? `assembly ${m.active().components.length}` : 'no assembly';\n})()",
     "expect": "^assembly [1-9]"
   },
   {

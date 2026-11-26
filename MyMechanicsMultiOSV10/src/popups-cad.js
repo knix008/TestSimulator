@@ -13,6 +13,7 @@ export function renderCadSettings(api) {
     toggle('autoRelations', t('settings.autoRelations'), 'addRelation'),
     toggle('editDimOnCreate', t('settings.editDimOnCreate'), 'smartDim'),
     row('drawing', t('settings.projection'), segmented('projection', [['third', t('drawing.third')], ['first', t('drawing.first')]], set.projection ?? 'third')),
+    row('dwgFile', t('settings.dwgVersion'), segmented('dwgVersion', [['R2004', 'R2004', 'dwgFile'], ['R2000', 'R2000', 'dwgFile']], set.dwgVersion ?? 'R2004')),
     `<h3 class="section-title">${icon('styleShaded')}${escapeHtml(t('settings.sectionDisplay'))}</h3>`,
     row('styleShaded', t('settings.displayStyle'), segmented('displayStyle', [['shadedEdges', t('style.shadedEdges'), 'styleShaded'], ['shaded', t('style.shaded'), 'styleWhite'], ['hiddenRemoved', t('style.hiddenRemoved'), 'styleHidden'], ['wireframe', t('style.wireframe'), 'styleWireframe']], set.displayStyle ?? 'shadedEdges')),
     toggle('showPlanes', t('settings.showPlanes'), 'refPlane'),

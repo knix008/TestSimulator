@@ -85,7 +85,7 @@ function addBCurve(nodes, data, extra) {
  * the curve's own parameterisation (sense '+'). `geom` is the Handle_Geom_Curve when there is one, `adHandle` the
  * Handle_Adaptor3d_Curve when there is one: what a type without an XT twin is converted or approximated from.
  */
-function addCurveFrom(oc, nodes, ad, { geom = null, adHandle = null } = {}) {
+function addCurveFrom(oc, nodes, ad, { geom = null, adHandle = null, range = null } = {}) {
   const T = oc.GeomAbs_CurveType;
   const type = ad.GetType();
   // Conics: OCCT's gp_Ax2 is right-handed, the XT frame (Y = N × X) too, so the parameterisation is the same.
@@ -95,7 +95,15 @@ function addCurveFrom(oc, nodes, ad, { geom = null, adHandle = null } = {}) {
   let bs = null;
   if (type === T.GeomAbs_BSplineCurve) bs = ad.BSpline();
   else if (type === T.GeomAbs_BezierCurve) bs = oc.GeomConvert.CurveToBSplineCurve(new oc.Handle_Geom_Curve_2(ad.Bezier().get()), oc.Convert_ParameterisationType.Convert_TgtThetaOver2);
-  else if (geom) bs = oc.GeomConvert.CurveToBSplineCurve(geom, oc.Convert_ParameterisationType.Convert_TgtThetaOver2);
+  else if (geom) {
+    // Anything else (a hyperbola or parabola where a plane cuts a cone, an offset curve …): XT has no such curve, so
+    // it is written as a B-spline — exactly for the conics — over the edge's own range (the curve itself may be
+    // unbounded, which the conversion refuses).
+    const unbounded = (t) => !Number.isFinite(t) || Math.abs(t) > 1e50;
+    const trimmed = range && (unbounded(ad.FirstParameter()) || unbounded(ad.LastParameter()) || type === T.GeomAbs_Hyperbola || type === T.GeomAbs_Parabola)
+      ? new oc.Handle_Geom_Curve_2(new oc.Geom_TrimmedCurve(geom, range[0], range[1], true, true)) : geom;
+    bs = oc.GeomConvert.CurveToBSplineCurve(trimmed, oc.Convert_ParameterisationType.Convert_TgtThetaOver2);
+  }
   else if (adHandle) {
     const approx = new oc.GeomConvert_ApproxCurve_2(adHandle, 1e-5, oc.GeomAbs_Shape.GeomAbs_C2, 200, 9);
     if (!approx.HasResult()) throw xtError('a curve could not be converted to a B-spline', 'xt-write');
@@ -110,7 +118,8 @@ function addCurve(oc, nodes, edge) {
   const h = oc.BRep_Tool.Curve_2(edge, 0, 0);
   if (h.IsNull()) throw xtError('an edge without a 3D curve', 'xt-write');
   const ad = new oc.GeomAdaptor_Curve_2(h);
-  try { return addCurveFrom(oc, nodes, ad, { geom: h }); } finally { ad.delete(); }
+  const ba = new oc.BRepAdaptor_Curve_2(edge); const range = [ba.FirstParameter(), ba.LastParameter()]; ba.delete();
+  try { return addCurveFrom(oc, nodes, ad, { geom: h, range }); } finally { ad.delete(); }
 }
 
 /** NURBS data of an OCCT B-spline surface (metres), periodic directions unwrapped. */

@@ -39,6 +39,13 @@
 .cm-button.active { background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: var(--accent); color: var(--accent); }
 .cm-button:disabled { opacity: 0.38; cursor: default; }
 .cm-sep { width: 1px; margin: 4px 3px; background: var(--border); flex: none; }
+/* A flyout: the family's current command and a narrow ▾ that lists the others. */
+.cm-fly { display: inline-flex; align-items: stretch; flex: none; border: 1px solid transparent; border-radius: 8px; }
+.cm-fly:hover { border-color: var(--border); }
+.cm-fly .cm-button { border-radius: 8px 0 0 8px; }
+.cm-fly-arrow { display: flex; align-items: center; justify-content: center; width: 14px; padding: 0; border: none; border-radius: 0 8px 8px 0; background: none; color: var(--muted); cursor: pointer; }
+.cm-fly-arrow:hover { background: var(--hover); color: var(--text); }
+.cm-fly-arrow .icon { width: 12px; height: 12px; }
 /* Narrow windows: icons only (the names stay in the tooltips), then smaller icons — never a scroll bar. */
 .cm-buttons { scrollbar-width: none; }
 .command-manager.compact .cm-button { min-width: 38px; padding: 4px; }

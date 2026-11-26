@@ -243,8 +243,8 @@ export const ITEMS = [
 
   // ── file I/O
   i('io', 'STEP·IGES 읽기/쓰기', D, '', 'importStep exportStep exportIges'),
-  i('io', 'Parasolid(x_t/x_b) 읽기/쓰기', P, '외부 Parasolid 기반 프로그램에서 열리는지 확인하지 못함', 'exportXt exportXb'),
-  i('io', 'DXF·DWG 읽기/쓰기', P, 'DWG는 R2000으로만 저장함', 'exportDxf exportDwg'),
+  i('io', 'Parasolid(x_t/x_b) 읽기/쓰기', P, '형식 문서의 수식으로 검증·왕복 일치; 외부 Parasolid 프로그램 확인 대기(확인 파일: test-results/parasolid-check, 부피 표 포함)', 'exportXt exportXb'),
+  i('io', 'DXF·DWG 읽기/쓰기', D, 'DWG 읽기 R2000~R2018, 저장 R2004(기본)·R2000(설정); 저장 파일은 LibreDWG가 오류 없이 읽음(npm run verify:dwg)', 'exportDxf exportDwg'),
   i('io', '메시(STL·OBJ·PLY·glTF/GLB·3MF·VRML·USDZ)', D, '', 'exportMesh:glb exportStl'),
   i('io', '다른 CAD 고유 형식 직접 열기', X, '공개되지 않은 고유 형식은 구현하지 않음(사용자 결정 2026-11-25); 중립 형식(STEP·IGES·Parasolid·DXF/DWG·STL·3MF·OBJ·IDF)으로 교환'),
   i('io', '스캔 데이터(메시)를 솔리드로', D, '평면·원통·구 영역 분할·최소제곱 맞춤, 정점 스냅(교선·교점), 한 바퀴 원통은 정확한 원통면(구멍 빼기·보스 더하기), 새 부품으로', 'scanToSolid'),

@@ -1,12 +1,16 @@
 // Writing DWG R2000 (AC1015) files (Open Design Specification chapters 3, 9, 10, 14, 20, 22, 23, 25, 26): a file
 // header with five section locators, the header variables, the classes, the objects, the object map, the
 // "unknown" section, the second file header, an empty preview and the template (MEASUREMENT).
+// R2004 (AC1018, `version: 'R2004'`): the same objects in their R2004 form (no extension-dictionary handles, no
+// entity links, block owned-entity lists, layout viewports, class counts) in the paged, compressed container of
+// chapter 4 (r2004-write.js).
 //
 // The drawing is the minimal set AutoCAD itself writes for a new R2000 file (tables and their control objects,
 // the named-object dictionary with groups, layouts, multiline styles, plot settings and plot style names, model and
 // paper space with their layouts), with the same handles for those, plus the drawing's own layers, line types and
 // model-space entities: LINE, CIRCLE, ARC, ELLIPSE, POINT, TEXT, SOLID, LWPOLYLINE.
-import { BitWriter, R2000, crc8, encodeMS, encodeMC, dwgError } from './bits.js';
+import { BitWriter, R2000, R2004, crc8, encodeMS, encodeMC, dwgError } from './bits.js';
+import { r2004File } from './r2004-write.js';
 import { writeHeader } from './header.js';
 import { DIMSTYLE_FIELDS } from './objects.js';
 
@@ -43,24 +47,30 @@ const CLASSES = [
 ];
 
 /** One object: its data stream (type, end bit, handle, no EED, …) and its handle stream; MS size before, CRC after. */
-class Obj {
-  constructor(type, handle) {
-    this.handle = handle; this.type = type;
-    this.d = new BitWriter(R2000); this.h = new BitWriter(R2000);
+class ObjBase {
+  constructor(type, handle, version = R2000) {
+    this.handle = handle; this.type = type; this.v = version;
+    this.d = new BitWriter(version); this.h = new BitWriter(version);
     this.d.BS(type); this.endAt = this.d.bit; this.d.RL(0); this.d.H(0, handle); this.d.BS(0);
   }
   /** Common object data (non-entities): reactors (soft pointers), owner, no extension dictionary. */
   object(owner, reactors = []) {
     this.d.BL(reactors.length);
-    this.h.H(SOFT_PTR, owner); for (const r of reactors) this.h.H(SOFT_PTR, r); this.h.H(HARD_OWNER, 0);
+    if (this.v >= R2004) this.d.B(1); // R2004+: no extension dictionary (and no handle for it)
+    this.h.H(SOFT_PTR, owner); for (const r of reactors) this.h.H(SOFT_PTR, r);
+    if (this.v < R2004) this.h.H(HARD_OWNER, 0);
     return this;
   }
   /** Common entity data: entity mode (0 owned by a block, 1 paper space, 2 model space), links, layer, look. */
   entity({ mode = 2, owner = 0, layer = H.LAYER0, color = 256, ltype = 0, prev = 0, next = 0, lineweight = 29 }) {
-    const d = this.d; const linked = prev === this.handle - 1 && next === this.handle + 1;
-    d.B(0); d.BB(mode); d.BL(0); d.B(linked ? 1 : 0); d.BS(color); d.BD(1); d.BB(ltype ? 3 : 0); d.BB(0); d.BS(0); d.RC(lineweight);
+    const d = this.d; const r2004 = this.v >= R2004;
+    // R2004+: entities are no longer linked (the block lists them); no extension dictionary.
+    const linked = r2004 || (prev === this.handle - 1 && next === this.handle + 1);
+    d.B(0); d.BB(mode); d.BL(0);
+    if (r2004) d.B(1); else d.B(linked ? 1 : 0); // R2004+: no extension dictionary; before: linked
+    d.BS(color); d.BD(1); d.BB(ltype ? 3 : 0); d.BB(0); d.BS(0); d.RC(lineweight);
     if (mode === 0) this.h.H(SOFT_PTR, owner);
-    this.h.H(HARD_OWNER, 0);
+    if (!r2004) this.h.H(HARD_OWNER, 0);
     if (!linked) { this.h.H(SOFT_PTR, prev); this.h.H(SOFT_PTR, next); }
     this.h.H(HARD_PTR, layer);
     if (ltype) this.h.H(HARD_PTR, ltype);
@@ -95,7 +105,10 @@ const LTYPES = {
  * DWG R2000 bytes of a drawing: { layers: [{ name, color, ltype }], entities: [{ name, layerName, color, … as the
  * plain model of dxf-read.js }], units (INSUNITS, 4 = mm), extents? }.
  */
-export function writeDwg({ layers = [], entities = [], units = 4, date = new Date() } = {}) {
+export function writeDwg({ layers = [], entities = [], units = 4, date = new Date(), version = 'R2000' } = {}) {
+  const V = version === 'R2004' ? R2004 : R2000;
+  const r2004 = V >= R2004;
+  const Obj = class extends ObjBase { constructor(type, handle) { super(type, handle, V); } };
   const objects = []; // [handle, bytes]
   const put = (o) => { objects.push([o.handle, o.bytes()]); return o.handle; };
   let next = H.FIRST_FREE;
@@ -119,8 +132,9 @@ export function writeDwg({ layers = [], entities = [], units = 4, date = new Dat
   const control = (type, handle, entries, extra = () => {}) => {
     const o = new Obj(type, handle);
     o.d.BL(0); // reactors
+    if (r2004) o.d.B(1);
     o.d.BL(entries.length);
-    o.h.H(SOFT_PTR, 0); o.h.H(HARD_OWNER, 0);
+    o.h.H(SOFT_PTR, 0); if (!r2004) o.h.H(HARD_OWNER, 0);
     for (const e of entries) o.h.H(SOFT_OWNER, e);
     extra(o);
     return put(o);
@@ -136,8 +150,8 @@ export function writeDwg({ layers = [], entities = [], units = 4, date = new Dat
   // The dimension style table also lists its entries once more after a count (R2000+, 20.4.67).
   {
     const o = new Obj(TYPE.DIMSTYLE_CONTROL, H.DIMSTYLE_CONTROL);
-    o.d.BL(0); o.d.BL(1); o.d.RC(1);
-    o.h.H(SOFT_PTR, 0); o.h.H(HARD_OWNER, 0); o.h.H(SOFT_OWNER, H.DIMSTANDARD); o.h.H(HARD_PTR, H.DIMSTANDARD);
+    o.d.BL(0); if (r2004) o.d.B(1); o.d.BL(1); o.d.RC(1);
+    o.h.H(SOFT_PTR, 0); if (!r2004) o.h.H(HARD_OWNER, 0); o.h.H(SOFT_OWNER, H.DIMSTANDARD); o.h.H(HARD_PTR, H.DIMSTANDARD);
     put(o);
   }
   control(TYPE.VX_CONTROL, H.VX_CONTROL, []);
@@ -160,15 +174,15 @@ export function writeDwg({ layers = [], entities = [], units = 4, date = new Dat
   dictionary(TYPE.DICTIONARY, H.LAYOUTS, H.NAMED, [['Layout1', H.LAYOUT1], ['Model', H.MODEL]]);
   {
     const o = new Obj(TYPE.MLINESTYLE, H.MLSTANDARD).object(H.MLSTYLES, [H.MLSTYLES]);
-    o.d.T('STANDARD'); o.d.T(''); o.d.BS(0); o.d.BS(256); o.d.BD(Math.PI / 2); o.d.BD(Math.PI / 2);
-    o.d.RC(2); for (const off of [0.5, -0.5]) { o.d.BD(off); o.d.BS(256); o.d.BS(32767); }
+    o.d.T('STANDARD'); o.d.T(''); o.d.BS(0); o.d.CMC(256); o.d.BD(Math.PI / 2); o.d.BD(Math.PI / 2);
+    o.d.RC(2); for (const off of [0.5, -0.5]) { o.d.BD(off); o.d.CMC(256); o.d.BS(32767); }
     put(o);
   }
 
   // ——— tables ———
   const layerEntry = (handle, name, color, ltype) => {
     const o = new Obj(TYPE.LAYER, handle).object(H.LAYER_CONTROL).entry(name);
-    o.d.BS(16 | (31 << 5)); o.d.BS(Math.abs(color) || 7);
+    o.d.BS(16 | (31 << 5)); o.d.CMC(Math.abs(color) || 7);
     o.h.H(HARD_PTR, 0); o.h.H(HARD_PTR, H.NORMAL); o.h.H(HARD_PTR, ltype);
     put(o);
   };
@@ -205,9 +219,9 @@ export function writeDwg({ layers = [], entities = [], units = 4, date = new Dat
       DIMTFAC: 1, DIMGAP: 0.625, DIMTAD: 1, DIMZIN: 8, DIMALTD: 3, DIMDEC: 2, DIMTDEC: 2, DIMALTU: 2, DIMALTTD: 3, DIMLUNIT: 2,
       DIMDSEP: 44, DIMTOLJ: 1, DIMFIT: 3, DIMLWD: -2, DIMLWE: -2,
     };
-    for (const [type, name] of DIMSTYLE_FIELDS(R2000)) {
+    for (const [type, name] of DIMSTYLE_FIELDS(V)) {
       const x = vals[name] ?? (type === 'TV' || type === 'T' ? '' : 0);
-      if (type === 'B') o.d.B(x ? 1 : 0); else if (type === 'BS') o.d.BS(x); else if (type === 'BD') o.d.BD(x); else o.d.T(x);
+      if (type === 'B') o.d.B(x ? 1 : 0); else if (type === 'BS') o.d.BS(x); else if (type === 'BD') o.d.BD(x); else if (type === 'CMC') o.d.CMC(x); else o.d.T(x);
     }
     o.d.B(0);
     o.h.H(HARD_PTR, 0); o.h.H(HARD_PTR, H.STANDARD); for (let i = 0; i < 4; i++) o.h.H(HARD_PTR, 0);
@@ -224,12 +238,16 @@ export function writeDwg({ layers = [], entities = [], units = 4, date = new Dat
   }
 
   // ——— model and paper space ———
-  const blockHeader = (handle, name, blockEntity, endblk, first, last, layout) => {
+  const blockHeader = (handle, name, blockEntity, endblk, owned, layout) => {
     const o = new Obj(TYPE.BLOCK_HEADER, handle).object(H.BLOCK_CONTROL).entry(name);
     const d = o.d;
     d.B(0); d.B(0); d.B(0); d.B(0); d.B(0); // anonymous, attributes, xref, overlaid, loaded
+    if (r2004) d.BL(owned.length); // R2004+: the owned entities are listed
     d.BD3([0, 0, 0]); d.T(''); d.RC(0); d.T(''); d.BL(0);
-    o.h.H(HARD_PTR, 0); o.h.H(HARD_OWNER, blockEntity); o.h.H(SOFT_PTR, first); o.h.H(SOFT_PTR, last); o.h.H(HARD_OWNER, endblk); o.h.H(HARD_PTR, layout);
+    o.h.H(HARD_PTR, 0); o.h.H(HARD_OWNER, blockEntity);
+    if (r2004) for (const e of owned) o.h.H(HARD_OWNER, e);
+    else { o.h.H(SOFT_PTR, owned[0] ?? 0); o.h.H(SOFT_PTR, owned.at(-1) ?? 0); }
+    o.h.H(HARD_OWNER, endblk); o.h.H(HARD_PTR, layout);
     put(o);
   };
   const blockEnt = (type, handle, mode, name) => {
@@ -237,17 +255,21 @@ export function writeDwg({ layers = [], entities = [], units = 4, date = new Dat
     if (type === TYPE.BLOCK) o.d.T(name);
     put(o);
   };
-  blockHeader(H.PSPACE, '*Paper_Space', H.PSPACE_BLOCK, H.PSPACE_END, 0, 0, H.LAYOUT1);
+  blockHeader(H.PSPACE, '*Paper_Space', H.PSPACE_BLOCK, H.PSPACE_END, [], H.LAYOUT1);
   blockEnt(TYPE.BLOCK, H.PSPACE_BLOCK, 1, '*Paper_Space'); blockEnt(TYPE.ENDBLK, H.PSPACE_END, 1);
-  blockHeader(H.MSPACE, '*Model_Space', H.MSPACE_BLOCK, H.MSPACE_END, entityHandles[0] ?? 0, entityHandles.at(-1) ?? 0, H.MODEL);
+  blockHeader(H.MSPACE, '*Model_Space', H.MSPACE_BLOCK, H.MSPACE_END, entityHandles, H.MODEL);
   blockEnt(TYPE.BLOCK, H.MSPACE_BLOCK, 2, '*Model_Space'); blockEnt(TYPE.ENDBLK, H.MSPACE_END, 2);
   const layout = (handle, name, tab, block, paper) => {
     const o = new Obj(TYPE.LAYOUT, handle).object(H.LAYOUTS, [H.LAYOUTS]);
     const d = o.d;
     d.T(''); d.T('None'); d.BS(paper ? 688 : 1712); for (let i = 0; i < 4; i++) d.BD(0); d.BD(0); d.BD(0); d.T(''); d.BD2([0, 0]);
-    d.BS(1); d.BS(0); d.BS(paper ? 5 : 0); d.BD2([0, 0]); d.BD2([0, 0]); d.T(''); d.BD(1); d.BD(1); d.T(''); d.BS(paper ? 16 : 0); d.BD(1); d.BD2([0, 0]);
+    d.BS(1); d.BS(0); d.BS(paper ? 5 : 0); d.BD2([0, 0]); d.BD2([0, 0]);
+    if (!r2004) d.T(''); // the plot view by name (R2004+: by handle)
+    d.BD(1); d.BD(1); d.T(''); d.BS(paper ? 16 : 0); d.BD(1); d.BD2([0, 0]);
+    if (r2004) { d.BS(0); d.BS(2); d.BS(300); } // shade plot mode, resolution level, custom DPI
     d.T(name); d.BL(tab); d.BS(1); d.BD3([0, 0, 0]); d.RD2([0, 0]); d.RD2([420, 297]); d.BD3([0, 0, 0]); d.BD3([1, 0, 0]); d.BD3([0, 1, 0]); d.BD(0); d.BS(0);
     d.BD3(paper ? [1e20, 1e20, 1e20] : [0, 0, 0]); d.BD3(paper ? [-1e20, -1e20, -1e20] : [0, 0, 0]);
+    if (r2004) { d.BL(0); o.h.H(HARD_PTR, 0); } // no viewports; the plot view
     o.h.H(SOFT_PTR, block); o.h.H(SOFT_PTR, 0); o.h.H(HARD_PTR, 0); o.h.H(HARD_PTR, 0);
     put(o);
   };
@@ -278,16 +300,34 @@ export function writeDwg({ layers = [], entities = [], units = 4, date = new Dat
     DICT_NAMED_OBJECTS: H.NAMED, DICT_LAYOUTS: H.LAYOUTS, DICT_PLOTSETTINGS: H.PLOTSETTINGS, DICT_PLOTSTYLES: H.PLOTSTYLES,
     BLOCK_RECORD_PSPACE: H.PSPACE, BLOCK_RECORD_MSPACE: H.MSPACE, LTYPE_BYLAYER: H.BYLAYER, LTYPE_BYBLOCK: H.BYBLOCK, LTYPE_CONTINUOUS: H.CONTINUOUS,
     DIMASZ: 2.5, DIMEXO: 0.625, DIMDLI: 3.75, DIMEXE: 1.25, DIMTXT: 2.5, DIMCEN: 2.5, DIMGAP: 0.625, MEASUREMENT: 1,
-  });
+  }, V);
 
   // ——— classes ———
-  const cw = new BitWriter(R2000);
-  for (const [num, cpp, dxf] of CLASSES) { cw.BS(num); cw.BS(0); cw.T('AutoCAD 2000'); cw.T(cpp); cw.T(dxf); cw.B(0); cw.BS(0x1f3); }
+  const cw = new BitWriter(V);
+  // R2004+: the largest class number, two zero bytes and a set bit before the classes; each class then counts its
+  // instances and the release that made it.
+  if (r2004) { cw.BS(CLASSES.at(-1)[0]); cw.RC(0); cw.RC(0); cw.B(1); }
+  for (const [num, cpp, dxf] of CLASSES) {
+    cw.BS(num); cw.BS(0); cw.T(r2004 ? 'ObjectDBX Classes' : 'AutoCAD 2000'); cw.T(cpp); cw.T(dxf); cw.B(0); cw.BS(0x1f3);
+    if (r2004) { cw.BL(num === 502 ? 2 : 1); cw.BL(0); cw.BL(0); cw.BL(0); cw.BL(0); }
+  }
   const classData = cw.bytes();
   const classes = new Uint8Array(16 + 4 + classData.length + 2 + 16);
   classes.set(SENT_CLASSES, 0); le32(classes, 16, classData.length); classes.set(classData, 20);
   { const c = crc8(0xc0c1, classes, 16, 20 + classData.length); classes[20 + classData.length] = c & 255; classes[21 + classData.length] = c >> 8; }
   classes.set(SENT_CLASSES_END, 22 + classData.length);
+
+  if (r2004) {
+    // The objects section: the 0x0DCA mark, then the objects; the map's offsets count from the section's start.
+    objects.sort((a, b) => a[0] - b[0]);
+    const offs = new Map(); let p = 4;
+    for (const [handle, bytes] of objects) { offs.set(handle, p); p += bytes.length; }
+    const objs = new Uint8Array(p); le32(objs, 0, 0x0dca); p = 4;
+    for (const [, bytes] of objects) { objs.set(bytes, p); p += bytes.length; }
+    const free = new Uint8Array(53);
+    le32(free, 0, 0); le32(free, 4, offs.size + 3); free.set(UNKNOWN_SECTION, 8); le32(free, 16, 0);
+    return r2004File({ header, classes, handles: objectMap(offs), objects: objs, objFreeSpace: free, template: Uint8Array.from([0, 0, 1, 0]), handseed: HANDSEED, jd, objectCount: offs.size });
+  }
 
   // ——— layout: file header (0x61 bytes), preview, header, classes, padding, objects, object map, unknown section,
   // second header, template ———

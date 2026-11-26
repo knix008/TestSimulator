@@ -60,6 +60,9 @@ import { flatPatternEntities } from './cad/flat-dxf.js';
 import { solarPosition, sunDirection } from './cad/sun.js';
 import { MATERIALS, MATERIAL_FAMILIES, familyOf, materialOf, materialName, massOf } from './cad/materials.js';
 import { SAMPLES, buildSample } from './cad/samples.js';
+import { groupTabs, FLY_OF } from './ui/flyouts.js';
+/** The CommandManager's tabs folded into flyouts (made once, after every module has added its commands). */
+let groupedTabs = null;
 import { Viewport, hitKey } from './view/viewport.js';
 import { SketchEditor } from './view/sketcher.js';
 import { treeHtml, featureIcon, MATE_ICONS } from './ui/tree.js';
@@ -147,6 +150,8 @@ const state = {
   rightTab: 'props',
   bottomTab: 'rebuild',
   collapsed: new Set(),
+  // CommandManager flyouts: the command each one shows (the family member used last).
+  flyLast: {},
   hiddenPlanes: new Set(),
   notice: null,
   log: [],
@@ -454,13 +459,14 @@ async function confirmReplace() {
   return choice === 'discard';
 }
 
-async function openSampleAsk(id) {
+/** Opens a sample (on its motion scene; `{ stage: false }` builds it without — the sample's own documents only). */
+async function openSampleAsk(id, { stage = true } = {}) {
   if (!(await confirmReplace())) return null;
   const entry = SAMPLES.find((x) => x.id === id);
   const name = entry?.[lang()]?.[0] ?? id;
   await ensureKernel();
   return busy('progress.sample', name, async () => {
-    const p = buildSample(id, lang());
+    const p = buildSample(id, lang(), { stage });
     if (!p) return null;
     const d = new Doc(p, { name: `${fileSafe(p.name)}.mymech` });
     await setDoc(d);
@@ -3323,7 +3329,7 @@ function customPm(e) {
     }
     return [
       pmHead('motion', t('cmd.motion'), t('pm.help.motion')), typeSeg,
-      pmGroup('motor', t('motion.motors'), `${pmSeg('kind', [['rotary', t('motion.rotary')], ['linear', t('motion.linear')]], e.kind)}${pmNum('speed', e.speed, e.kind === 'rotary' ? t('motion.rpm') : t('motion.mmps'), 'motor')}${pmList('motor', motors.map((m) => `${asm.components.find((c) => c.id === m.comp)?.name ?? '?'} — ${m.amplitude && m.period ? `±${fmt(m.amplitude)}${m.kind === 'rotary' ? '°' : ' mm'} / ${fmt(m.period)} s` : `${fmt(m.speed)} ${m.kind === 'rotary' ? 'rpm' : 'mm/s'}`}`), t('motion.motorFace'), 'motor', e.pick === 'motor')}`),
+      pmGroup('motor', t('motion.motors'), `${pmSeg('kind', [['rotary', t('motion.rotary')], ['linear', t('motion.linear')]], e.kind)}${pmNum('speed', e.speed, e.kind === 'rotary' ? t('motion.rpm') : t('motion.mmps'), 'motor')}${pmList('motor', motors.map((m) => `${asm.components.find((c) => c.id === m.comp)?.name ?? '?'} — ${m.amplitude && m.period ? `${m.oneWay ? '0…' : '±'}${fmt(m.amplitude)}${m.kind === 'rotary' ? '°' : ' mm'} / ${fmt(m.period)} s` : `${fmt(m.speed)} ${m.kind === 'rotary' ? 'rpm' : 'mm/s'}`}`), t('motion.motorFace'), 'motor', e.pick === 'motor')}`),
       pmGroup('clock', t('motion.study'), `${pmNum('duration', duration, t('motion.duration'), 'clock')}<label class="pm-field"><span class="pm-label">${escapeHtml(t('motion.time'))}</span><input type="range" data-unit="s" data-motion-time min="0" max="${duration}" step="0.01" value="${e.time}"/><output data-motion-clock>${escapeHtml(`${fmt(e.time, 2)} s`)}</output></label><div class="pm-row">${e.playing ? pmButton('stopMotion', 'stop', t('motion.stop')) : pmButton('playMotion', 'play', t('motion.play'), 'primary')}${pmButton('resetMotion', 'rollback', t('motion.reset'))}</div>`),
     ].join('');
   }
@@ -3732,6 +3738,7 @@ const commands = {
   importStep: { icon: 'stepFile', label: 'action.importStep', key: 'Ctrl+I', run: () => importStepDialog() },
   importIdf: { icon: 'pcbBoard', label: 'cmd.importIdf', run: () => importIdfDialog() },
   exportIdf: { icon: 'pcbBoard', label: 'cmd.exportIdf', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportIdf() },
+  newMenu: { icon: 'chevronDown', label: 'action.newMenu', enabled: () => true, run: (c) => showMenu(menuItems(SUBMENUS.newDoc.items), c?.anchor ?? anchorFor('newMenu'), 'context', { header: { icon: 'fileNew', title: t('submenu.newDoc') } }) },
   exportMenu: { icon: 'chevronDown', label: 'action.exportMenu', enabled: hasDoc, run: (c) => showMenu(menuItems(SUBMENUS.exportTo.items), c?.anchor ?? anchorFor('exportMenu'), 'context', { header: { icon: 'exportFile', title: t('submenu.exportTo') } }) },
   exportStep: { icon: 'stepFile', label: 'action.exportStep', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('step') },
   exportIges: { icon: 'igesFile', label: 'action.exportIges', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('iges') },
@@ -4726,6 +4733,9 @@ function commandTip(id) {
 async function run(id, context) {
   const c = commands[id];
   if (!c || !commandEnabled(id)) return undefined;
+  // A command of a CommandManager flyout becomes that flyout's button (the one used last).
+  const fly = FLY_OF.get(id);
+  if (fly && state.flyLast[fly] !== id) { state.flyLast[fly] = id; queueMicrotask(() => renderCommandManager()); }
   try { return await recorder.around('run', [id], () => c.run(context)); } catch (error) { return showError('error.command', error, t(c.label)); }
 }
 
@@ -4768,7 +4778,7 @@ drwTools.extendMenus(SUBMENUS, MENUS);
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', insert: 'featExtrude', sketch: 'featSketch', tools: 'tools', help: 'question' };
 
 const TOOLBAR = [
-  ['newPart', 'newAssembly', 'newDrawing', 'open', 'save', 'print', 'exportSplit', 'importStep', 'exitProject'],
+  ['newSplit', 'open', 'save', 'print', 'exportSplit', 'importStep', 'exitProject'],
   ['undo', 'redo', 'rebuild'],
   ['viewsSplit', 'zoomFit', 'normalTo', 'perspective'],
   ['styleSplit', 'section', 'lights', 'showRulers', 'showGrid'],
@@ -4777,7 +4787,7 @@ const TOOLBAR = [
 const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
 /** The toolbar's groups and the user's own (Customize › Toolbar) after them. */
 const toolbarGroups = () => { const extra = customTools.api.toolbarExtra(); return extra.length ? [...TOOLBAR, extra] : TOOLBAR; };
-const TOOLBAR_MAIN = { exportSplit: 'exportStep', themeSplit: 'theme', viewsSplit: 'view:iso', styleSplit: 'styleCycle' };
+const TOOLBAR_MAIN = { newSplit: 'newPart', exportSplit: 'exportStep', themeSplit: 'theme', viewsSplit: 'view:iso', styleSplit: 'styleCycle' };
 
 /** The CommandManager: tabs of big buttons above the graphics area (a ribbon). */
 const COMMAND_TABS = {
@@ -4792,6 +4802,9 @@ const COMMAND_TABS = {
   assembly: ['insertComponent', 'newPartInContext', 'editInContext', 'newLayout', 'makePartFromBlock', 'updateLayout', 'mate', 'magneticSnap', 'fixComponent', 'floatComponent', 'flexibleComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', 'openPart', '|', 'explode', 'explodeEditor', 'explodeAnimate', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps', 'assemblyVisualization', 'assemblyVisualizationOff', 'asmWeldBead', 'largeAssemblyMode', 'simplifyOuter', 'simplifyBox', 'simplifyFull'],
   drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'removedSection', 'relativeView', 'view3dDrawing', 'alignedSection', 'detailView', 'auxView', 'flatPatternView', 'alternatePositionView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:datumTarget', 'ann:surface', 'ann:centermark', 'ann:cloud', 'ann:hatch', 'bom', 'weldTable', 'cutListTable', 'bendTable', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportDwg', 'exportSvg', 'print'],
 };
+// Bodies, curves, fastening features and external references are flyouts of the Features tab (no tab of their own).
+COMMAND_TABS.features.push('|', ...COMMAND_TABS.bodiesCurves);
+delete COMMAND_TABS.bodiesCurves;
 for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab]?.push('|', ...ids);
 COMMAND_TABS.assembly.push('|', ...asmTools.TAB);
 more.extendMenus(MENUS);
@@ -4823,7 +4836,7 @@ function visibleCommandTabs() {
 
 function baseCommandTabs() {
   const kind = activeKind();
-  if (kind === 'part') return ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'bodiesCurves', 'stdTools', 'evaluate', 'drawing', 'cam', 'plastics'];
+  if (kind === 'part') return ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'stdTools', 'evaluate', 'drawing', 'cam', 'plastics'];
   if (kind === 'assembly') return ['assembly', 'stdTools', 'evaluate', 'drawing'];
   if (kind === 'drawing') return ['drawing', 'inspection'];
   return [];
@@ -4866,7 +4879,8 @@ function renderMenubar() {
   const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? button('maximize', 'winRestore', 'window.restore') : button('maximize', 'winMaximize', 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
   const projectName = '<span class="menubar-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span>';
   // The panel toggles sit just left of the window buttons (minimize · maximize · close).
-  const panels = `<div class="panel-toggles" role="group" aria-label="${escapeHtml(t('submenu.show'))}">${['leftPanel', 'bottomPanel', 'rightPanel'].map((id) => `<button class="window-button panel-toggle ${commands[id].checked() ? 'active' : ''}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-pressed="${commands[id].checked()}">${icon(commands[id].icon)}</button>`).join('')}</div>`;
+  // (no panel toggles here: each panel has its own collapse / expand button; View › Show and Ctrl+J … keep them)
+  const panels = '';
   menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `<button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + projectName + `<div class="menubar-drag" data-window-drag></div>${panels}${controls}`;
   renderTitleProject();
 }
@@ -4910,6 +4924,7 @@ function renderToolbar() {
   };
   const split = (main, arrow, label) => `<span class="split-button">${plain(main)}<button class="tool-button split-arrow" data-command="${arrow}" title="${escapeHtml(commandTip(arrow))}" aria-label="${escapeHtml(t(label))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
   const button = (id) => {
+    if (id === 'newSplit') return split('newPart', 'newMenu', 'action.newMenu');
     if (id === 'exportSplit') return split('exportStep', 'exportMenu', 'action.exportMenu');
     if (id === 'themeSplit') return split('theme', 'themeMenu', 'action.themeChoose');
     if (id === 'viewsSplit') return split('view:iso', 'viewsMenu', 'action.viewsMenu');
@@ -5000,7 +5015,7 @@ function renderTabs() {
       <button class="tab-add" data-command="newPart" title="${escapeHtml(commandTip('newPart'))}">${icon('plus')}</button></div>
     <span class="grow"></span>
     <span class="tab-scroll" role="group" aria-label="${escapeHtml(t('tabs.scroll'))}"><button class="icon-button" data-tab-scroll="-1" title="${escapeHtml(t('tabs.scrollLeft'))}" aria-label="${escapeHtml(t('tabs.scrollLeft'))}">${icon('chevronLeft')}</button><button class="icon-button" data-tab-scroll="1" title="${escapeHtml(t('tabs.scrollRight'))}" aria-label="${escapeHtml(t('tabs.scrollRight'))}">${icon('chevronRight')}</button></span>
-    <div class="tabs-right">${activeKind() !== 'drawing' ? `<span class="seg-toggle" role="group">${['front', 'top', 'right', 'iso'].map((v) => `<button data-command="view:${v}" title="${escapeHtml(commandTip(`view:${v}`))}">${icon(commands[`view:${v}`].icon)}<span>${escapeHtml(t(`view.${v}Short`))}</span></button>`).join('')}</span>` : ''}</div>`;
+`; // (the standard views are the toolbar's views button — not repeated here)
   const strip = tabs.querySelector('.tab-strip');
   strip.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   strip.addEventListener('scroll', frameThrottle(updateTabScroll), { passive: true });
@@ -5026,10 +5041,22 @@ function renderCommandManager() {
   host.hidden = state.showStart || !state.doc || !tabs.length;
   if (host.hidden) { host.innerHTML = ''; return; }
   if (!tabs.includes(state.cmTab)) state.cmTab = tabs[0];
-  const ids = COMMAND_TABS[state.cmTab];
+  // The tab's commands with the families folded into flyouts (My tools stays as the user arranged it).
+  const raw = COMMAND_TABS[state.cmTab].filter((id) => id === '|' || commands[id]);
+  groupedTabs ??= groupTabs(Object.fromEntries(Object.entries(COMMAND_TABS).filter(([k]) => k !== 'user')), (id) => Boolean(commands[id]), ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'bodiesCurves', 'assembly', 'drawing', 'evaluate', 'stdTools', 'cam', 'plastics', 'inspection']);
+  const ids = state.cmTab === 'user' ? raw : (groupedTabs.tabs[state.cmTab] ?? raw);
+  const flyMembers = (key) => groupedTabs.members[key] ?? [];
+  const button = (id) => {
+    if (id === '|') return '<span class="cm-sep" aria-hidden="true"></span>';
+    if (!id.startsWith('fly:')) return `<button class="cm-button" data-command="${id}" title="${escapeHtml(commandTip(id))}">${icon(commands[id].icon)}<span>${escapeHtml(t(commands[id].label))}</span></button>`;
+    const key = id.slice(4); const members = flyMembers(key);
+    const main = members.includes(state.flyLast[key]) ? state.flyLast[key] : members[0];
+    const more = t('fly.more', { name: t(`fly.${key}`) });
+    return `<span class="cm-fly" data-fly-items="${members.join(' ')}"><button class="cm-button" data-command="${main}" title="${escapeHtml(commandTip(main))}">${icon(commands[main].icon)}<span>${escapeHtml(t(commands[main].label))}</span></button><button class="cm-fly-arrow" data-fly="${key}" title="${escapeHtml(more)}" aria-label="${escapeHtml(more)}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
+  };
   host.innerHTML = `<div class="cm-tab-row"><div class="cm-tabs" role="tablist">${tabs.map((id) => `<button class="cm-tab ${state.cmTab === id ? 'active' : ''}" data-cm-tab="${id}" role="tab" aria-selected="${state.cmTab === id}">${escapeHtml(t(`cm.${id}`))}</button>`).join('')}</div>
     <span class="tab-scroll cm-scroll" role="group" aria-label="${escapeHtml(t('tabs.scroll'))}"><button class="icon-button" data-cm-scroll="-1" title="${escapeHtml(t('tabs.scrollLeft'))}" aria-label="${escapeHtml(t('tabs.scrollLeft'))}">${icon('chevronLeft')}</button><button class="icon-button" data-cm-scroll="1" title="${escapeHtml(t('tabs.scrollRight'))}" aria-label="${escapeHtml(t('tabs.scrollRight'))}">${icon('chevronRight')}</button></span></div>
-    <div class="cm-buttons">${ids.map((id) => (id === '|' ? '<span class="cm-sep" aria-hidden="true"></span>' : `<button class="cm-button" data-command="${id}" title="${escapeHtml(commandTip(id))}">${icon(commands[id].icon)}<span>${escapeHtml(t(commands[id].label))}</span></button>`)).join('')}</div>`;
+    <div class="cm-buttons">${ids.map(button).join('')}</div>`;
   fitCommandManager();
   renderToolbarState();
   const strip = host.querySelector('.cm-tabs');
@@ -5346,11 +5373,16 @@ const SEV_ICON = { error: 'error', warning: 'warning', info: 'info', success: 'c
 function renderBottom() {
   const host = root.querySelector('#bottom-panel');
   if (!host) return;
-  if (!state.settings.showBottomPanel || state.showStart || !state.doc) { host.innerHTML = ''; return; }
+  if (state.showStart || !state.doc) { host.innerHTML = ''; return; }
   const problems = rebuildProblems();
   const failedMates = activeAssembly() ? activeAssembly().mates.filter((m) => state.failedMates.has(m.id)) : [];
   const count = problems.length + failedMates.length;
   const tabs = [['rebuild', count ? 'error' : 'check', t('bottom.rebuild'), count], ['messages', 'info', t('bottom.messages'), state.log.length], ['info', 'massProps', t('bottom.info'), null]];
+  // Collapsed: a thin bar with the expand button and the tabs (a tab opens the panel on it), like the side panels' rails.
+  if (!state.settings.showBottomPanel) {
+    host.innerHTML = `<div class="problems-header bottom-rail"><button class="icon-button rail-button expand" data-command="bottomPanel" title="${escapeHtml(t('panel.expandBottom'))}" aria-label="${escapeHtml(t('panel.expandBottom'))}">${icon('panelBottomOpen')}</button><span class="bottom-rail-tabs">${tabs.map(([id, glyph, label, n]) => `<button class="small-button flat" data-bottom-show="${id}" title="${escapeHtml(label)}">${icon(glyph)}<span>${escapeHtml(label)}</span>${n != null ? `<i class="bottom-count">${n}</i>` : ''}</button>`).join('')}</span></div>`;
+    return;
+  }
   const tabHtml = `<span class="segmented" role="tablist">${tabs.map(([id, glyph, label, n]) => `<button class="segment ${state.bottomTab === id ? 'active' : ''}" data-bottom-tab="${id}" role="tab" aria-selected="${state.bottomTab === id}" title="${escapeHtml(label)}">${icon(glyph)}<span>${escapeHtml(label)}</span>${n != null ? `<i class="bottom-count">${n}</i>` : ''}</button>`).join('')}</span>`;
   let tools = ''; let body = '';
   if (state.bottomTab === 'rebuild') {
@@ -5369,7 +5401,7 @@ function renderBottom() {
     body = info ? info.rows.map(([glyph, label, value]) => `<div class="problem-row bottom-row info-row"><span class="cell sev">${icon(glyph)}</span><span class="cell"><b>${escapeHtml(label)}</b></span><span class="cell info-value">${escapeHtml(value)}</span></div>`).join('') : `<p class="problems-empty">${icon('info')}<span>${escapeHtml(t('notice.noBody'))}</span></p>`;
   }
   const scroll = host.querySelector('.problems-list')?.scrollTop ?? 0;
-  host.innerHTML = `<div class="problems-header">${tabHtml}${tools}<button class="icon-button" data-command="bottomPanel" title="${escapeHtml(t('bottom.hide'))}">${icon('close')}</button></div><div class="problems-list bottom-${state.bottomTab}" tabindex="0">${body}</div>`;
+  host.innerHTML = `<div class="problems-header">${tabHtml}${tools}<button class="icon-button" data-command="bottomPanel" title="${escapeHtml(t('panel.collapseBottom'))}" aria-label="${escapeHtml(t('panel.collapseBottom'))}">${icon('panelBottomClose')}</button></div><div class="problems-list bottom-${state.bottomTab}" tabindex="0">${body}</div>`;
   host.querySelector('.problems-list').scrollTop = scroll;
 }
 
@@ -5927,9 +5959,9 @@ async function exportDrawing(format) {
   // The active sheet (app-more.js: sheets, view changes and tables).
   if (format === 'dxf') await saveExport(`${fileSafe(d.name)}.dxf`, 'dxf', more.dxf(d, { labels: drawingLabels(), bomRows: drawingBom(d) }), 'application/dxf');
   else if (format === 'dwg') {
-    // The DWG holds what the DXF does: the sheet's DXF read back as entities and layers, written as DWG R2000.
+    // The DWG holds what the DXF does: the sheet's DXF read back as entities and layers, written as DWG (R2004, or R2000 by the settings).
     const model = readDxf(more.dxf(d, { labels: drawingLabels(), bomRows: drawingBom(d) }));
-    const bytes = writeDwg({ layers: [...model.layers.values()], entities: model.modelSpace, units: 4 });
+    const bytes = writeDwg({ layers: [...model.layers.values()], entities: model.modelSpace, units: 4, version: state.settings.dwgVersion });
     await saveExport(`${fileSafe(d.name)}.dwg`, 'dwg', new Blob([bytes], { type: 'image/vnd.dwg' }), 'image/vnd.dwg');
   }
   else await saveExport(`${fileSafe(d.name)}.svg`, 'svg', more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), bomRows: drawingBom(d), embedFonts: true }), 'image/svg+xml');
@@ -6390,17 +6422,17 @@ function sketchForExport() {
   const part = activePart();
   return part ? [...part.features].reverse().find((f) => f.type === 'sketch' && !f.suppressed) ?? null : null;
 }
-/** A sketch as DXF or DWG (R2000): its geometry in the sketch plane's coordinates, millimetres. */
+/** A sketch as DXF or DWG (R2004 / R2000): its geometry in the sketch plane's coordinates, millimetres. */
 async function exportSketch(format) {
   const s = sketchForExport();
   if (!s) return;
   const entities = sketchToEntities(s);
   const base = fileSafe(s.name || 'sketch');
   if (format === 'dxf') await saveExport(`${base}.dxf`, 'dxf', entitiesToDxf(entities), 'application/dxf');
-  else await saveExport(`${base}.dwg`, 'dwg', new Blob([writeDwg({ layers: [{ name: 'SKETCH', color: 7 }], entities, units: 4 })], { type: 'image/vnd.dwg' }), 'image/vnd.dwg');
+  else await saveExport(`${base}.dwg`, 'dwg', new Blob([writeDwg({ layers: [{ name: 'SKETCH', color: 7 }], entities, units: 4, version: state.settings.dwgVersion })], { type: 'image/vnd.dwg' }), 'image/vnd.dwg');
 }
 /**
- * The active sheet metal part's flat pattern as DXF or DWG (R2000), straight from the part: outline and holes, bend
+ * The active sheet metal part's flat pattern as DXF or DWG (R2004 / R2000), straight from the part: outline and holes, bend
  * lines on BEND_UP / BEND_DOWN, a note per bend (cad/flat-dxf.js).
  */
 async function exportFlatPattern(format) {
@@ -6413,7 +6445,7 @@ async function exportFlatPattern(format) {
   if (!out) { notify('warning', t('notice.flatFailed')); return; }
   const base = fileSafe(`${part.name || 'part'}-flat`);
   if (format === 'dxf') await saveExport(`${base}.dxf`, 'dxf', entitiesToDxf(out.entities, out.layers), 'application/dxf');
-  else await saveExport(`${base}.dwg`, 'dwg', new Blob([writeDwg({ layers: out.layers, entities: out.entities, units: 4 })], { type: 'image/vnd.dwg' }), 'image/vnd.dwg');
+  else await saveExport(`${base}.dwg`, 'dwg', new Blob([writeDwg({ layers: out.layers, entities: out.entities, units: 4, version: state.settings.dwgVersion })], { type: 'image/vnd.dwg' }), 'image/vnd.dwg');
 }
 const hasSheet = () => { const p = activePart(); return Boolean(p && !sketching() && p.features.some((f) => ['baseFlange', 'convertSheet', 'insertBends', 'loftedBend'].includes(f.type) && !f.suppressed)); };
 /** DXF text: UTF-8 (R2007+), else the ANSI code page read as Latin-1. */
@@ -7234,10 +7266,16 @@ function bindEvents() {
     if (docTab) { const [kind, id] = docTab.dataset.docTab.split(':'); return switchDocument({ kind, id }); }
     const cmTab = target.closest('[data-cm-tab]');
     if (cmTab) { state.cmTab = cmTab.dataset.cmTab; return renderCommandManager(); }
+    // A flyout's ▾: its family as a menu (the chosen one becomes the flyout's button).
+    const flyArrow = target.closest('[data-fly]');
+    if (flyArrow) {
+      const box = flyArrow.closest('.cm-fly'); const key = flyArrow.dataset.fly;
+      return showMenu(menuItems(box.dataset.flyItems.split(' ').filter((id) => commands[id])), anchorBelow(box), 'context', { header: { icon: commands[box.querySelector('[data-command]').dataset.command]?.icon ?? 'chevronDown', title: t(`fly.${key}`) } });
+    }
     const command = target.closest('[data-command]');
     if (command && !command.disabled && command.tagName !== 'INPUT') {
       const id = command.dataset.command;
-      const anchored = ['themeMenu', 'exportMenu', 'viewsMenu', 'styleMenu', 'recentFolders', 'openExample', 'material', 'addView'].includes(id);
+      const anchored = ['newMenu', 'themeMenu', 'exportMenu', 'viewsMenu', 'styleMenu', 'recentFolders', 'openExample', 'material', 'addView'].includes(id);
       return run(id, { anchor: anchored ? anchorBelow(command.closest('.split-button') ?? command) : undefined });
     }
     const windowControl = target.closest('[data-window]');
@@ -7797,6 +7835,8 @@ window.__mymechanics = {
   active: () => active(),
 };
 window.__mymechanics.sim2 = more.sim2;
+// The CommandManager as written (COMMAND_TABS) and as shown (families folded into flyouts) — for the tests.
+window.__mymechanics.ribbon = () => { if (!groupedTabs) renderCommandManager(); return { tabs: COMMAND_TABS, grouped: groupedTabs, toolbar: [...TOOLBAR.flat(), ...TOOLBAR_RIGHT, ...Object.values(TOOLBAR_MAIN)] }; };
 window.__mymechanics.decals = decalTools;
 window.__mymechanics.walk = walkTools.api;
 window.__mymechanics.frame = frameTools.api;

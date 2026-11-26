@@ -946,6 +946,8 @@ export default {
   'panel.expand': "펼치기",
   'panel.expandLeft': "도구 패널 펼치기",
   'panel.expandRight': "속성 패널 펼치기",
+  'panel.collapseBottom': "하단 패널 접기",
+  'panel.expandBottom': "하단 패널 펼치기",
   'panel.explorer': "모델 탐색기",
   'panel.explorerShort': "모델",
   'panel.toolbox': "도구 상자",

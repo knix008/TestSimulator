@@ -741,14 +741,15 @@ const clonePlacement = (c) => ({ position: [...c.position], rotation: [...c.rota
 
 /**
  * How far a motor has moved at time t: rad for a rotary motor, mm for a linear one. A motor with an `amplitude`
- * (° or mm) and a `period` (s) swings back and forth, amplitude · sin(2πt / period); otherwise it runs at its
- * speed (rpm or mm/s).
+ * (° or mm) and a `period` (s) swings back and forth, amplitude · sin(2πt / period) — or, `oneWay`, from 0 out to
+ * the amplitude and back, amplitude · (1 − cos(2πt / period)) / 2 (a lid opened and closed, a screw backed out and
+ * run in again); otherwise it runs at its speed (rpm or mm/s).
  */
 export function motorTravel(motor, t) {
   const amp = Number(motor.amplitude) || 0;
   const period = Number(motor.period) || 0;
   if (amp && period > 0) {
-    const s = amp * Math.sin((2 * Math.PI * t) / period);
+    const s = motor.oneWay ? (amp * (1 - Math.cos((2 * Math.PI * t) / period))) / 2 : amp * Math.sin((2 * Math.PI * t) / period);
     return motor.kind === 'linear' ? s : (s * Math.PI) / 180;
   }
   const speed = Number(motor.speed) || 0;
@@ -760,7 +761,7 @@ function motorSweep(motor, dt) {
   const amp = Number(motor.amplitude) || 0;
   const period = Number(motor.period) || 0;
   if (amp && period > 0) {
-    const peak = (2 * Math.PI * amp) / period; // the fastest it moves (°/s or mm/s)
+    const peak = ((motor.oneWay ? Math.PI : 2 * Math.PI) * amp) / period; // the fastest it moves (°/s or mm/s)
     return Math.abs(dt) * (motor.kind === 'linear' ? peak : (peak * Math.PI) / 180);
   }
   return Math.abs(dt) * Math.abs(Number(motor.speed) || 0) * (motor.kind === 'linear' ? 1 : RPM);

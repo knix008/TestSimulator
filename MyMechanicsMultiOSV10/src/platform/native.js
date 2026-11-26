@@ -91,7 +91,7 @@ export const SAVE_TYPES = {
   x_t: { name: 'Parasolid text (*.x_t)', extensions: ['x_t'] },
   x_b: { name: 'Parasolid binary (*.x_b)', extensions: ['x_b'] },
   dxf: { name: 'DXF (*.dxf)', extensions: ['dxf'] },
-  dwg: { name: 'DWG R2000 (*.dwg)', extensions: ['dwg'] },
+  dwg: { name: 'DWG (*.dwg)', extensions: ['dwg'] },
   scad: { name: 'OpenSCAD (*.scad)', extensions: ['scad'] },
   glb: { name: 'glTF binary (*.glb)', extensions: ['glb'] },
   gltf: { name: 'glTF (*.gltf)', extensions: ['gltf'] },

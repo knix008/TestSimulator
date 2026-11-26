@@ -590,7 +590,8 @@ function viceModel(L) {
   addMate(asm, 'concentric', P.screw(cScrew, (f) => isCylinder(f.type) && near(f.center[1], -10, 0.5)), P.handle(cBar, CY(5)));
   addMate(asm, 'limitDistance', P.handle(cBar, PL([0, 1, 0], 12)), P.screw(cScrew, CY(15)), { min: 15, max: 135 });
   settle(project, asm);
-  asm.motion = { duration: 8, motors: [{ id: 'motor-1', kind: 'rotary', comp: cScrew.id, ref: screwAxis, speed: 15 }] };
+  // The jaw opens and closes: the screw turns one turn each way (4 mm of travel).
+  asm.motion = { duration: 8, motors: [{ id: 'motor-1', kind: 'rotary', comp: cScrew.id, ref: screwAxis, speed: 15, amplitude: 360, period: 8 }] };
   asm.explode = {
     on: false,
     steps: [
@@ -825,7 +826,7 @@ function sliderCrankModel(L) {
 // ───────────────────────── 6. cam and follower (cam mate)
 
 /** Points (part frame) around the outer outline of a part's planar face, sampled edge by edge in order. */
-function faceOutline(part, test, perEdge = 16) {
+export function faceOutline(part, test, perEdge = 16) {
   const body = regenerate(part).body;
   const face = body.faces.find((f) => test(faceSignature(f)));
   if (!face) throw new Error(`sample: cam face not found in ${part.name}`);

@@ -157,6 +157,52 @@ function compress(data) {
   return Uint8Array.from(out);
 }
 
+test('DWG R2004 written and read back: the paged container (header CRC-32, page and system-page checksums), every object exact', async () => {
+  const { r2004Header, r2004Sections } = await import('../../src/cad/dwg/r2004.js');
+  const { crc32 } = await import('../../src/cad/dwg/bits.js');
+  const { entities, layers } = sampleDrawing();
+  const bytes = writeDwg({ layers, entities, units: 4, version: 'R2004' });
+  assert.equal(String.fromCharCode(...bytes.subarray(0, 6)), 'AC1018');
+  // The decrypted file header and its CRC-32 (seed 0, the CRC field zero).
+  const h = r2004Header(bytes).raw.slice();
+  const stored = (h[0x68] | h[0x69] << 8 | h[0x6a] << 16 | h[0x6b] << 24) >>> 0;
+  h.set([0, 0, 0, 0], 0x68);
+  assert.equal(crc32(h, 0, 0x6c, 0), stored, 'file header CRC-32');
+  const u32 = (b, at) => (b[at] | b[at + 1] << 8 | b[at + 2] << 16 | b[at + 3] << 24) >>> 0;
+  // Every data page: the header unmasked, its checksums as AutoCAD computes them (checked against AutoCAD's files).
+  const H = r2004Header(bytes);
+  let pages = 0;
+  for (let at = 0x100; at < H.pageMapAddress;) {
+    const mask = (0x4164536b ^ at) >>> 0;
+    const hdr = new Uint8Array(32);
+    for (let k = 0; k < 32; k += 4) { const v = (u32(bytes, at + k) ^ mask) >>> 0; hdr[k] = v & 255; hdr[k + 1] = (v >>> 8) & 255; hdr[k + 2] = (v >>> 16) & 255; hdr[k + 3] = v >>> 24; }
+    if (u32(hdr, 0) !== 0x4163043b) { const size = u32(bytes, at + 8); at += (0x14 + size + 31) & ~31; continue; } // the section map (a system page)
+    const comp = bytes.subarray(at + 32, at + 32 + u32(hdr, 8));
+    const ds = pageChecksum(0, comp);
+    assert.equal(u32(hdr, 28), ds, 'page data checksum');
+    const h0 = hdr.slice(); h0.set([0, 0, 0, 0], 24);
+    assert.equal(u32(hdr, 24), pageChecksum(ds, h0), 'page header checksum');
+    pages++; at += (32 + comp.length + 31) & ~31;
+  }
+  assert.ok(pages >= 7, `${pages} data pages`);
+  // The page map: its checksum over its header (checksum 0), continued over the data.
+  const pm = bytes.subarray(H.pageMapAddress, H.pageMapAddress + 0x14 + u32(bytes, H.pageMapAddress + 8));
+  const ph = pm.slice(0, 0x14); ph.set([0, 0, 0, 0], 16);
+  assert.equal(u32(pm, 16), pageChecksum(pageChecksum(0, ph), pm.subarray(0x14)), 'page map checksum');
+  const sections = r2004Sections(bytes);
+  for (const n of ['AcDb:Header', 'AcDb:AuxHeader', 'AcDb:Classes', 'AcDb:Handles', 'AcDb:Template', 'AcDb:ObjFreeSpace', 'AcDb:AcDbObjects']) assert.ok(sections.has(n), n);
+  assert.equal(sections.get('AcDb:AuxHeader').length, 123);
+  const hv = readHeader(sections.get('AcDb:Header'), 0, 18);
+  assert.equal(hv.crc, hv.crcComputed, 'header CRC');
+  assert.ok(hv.sizeBytes * 8 - hv.usedBits < 8, 'the variables fill their section');
+  const d = readDwg(bytes);
+  for (const o of d.objects.values()) assert.ok(o.exact && !o.error && !o.unsupported, `${o.name} ${o.handle.toString(16)} read exactly`);
+  assert.equal(d.units, 4);
+  assert.deepEqual(d.modelSpace.map((e) => e.name), entities.map((e) => e.name));
+  assert.deepEqual([...d.layers.values()].map((l) => l.name).sort(), ['0', ...layers.map((l) => l.name)].sort());
+  assert.equal([...d.layers.values()].find((l) => l.name === layers[0].name).color, layers[0].color ?? 7);
+});
+
 test('R2004 compression: data compressed by an independent encoder of the opcode table decompresses exactly', () => {
   const pattern = new TextEncoder().encode('AcDb:AcDbObjects ');
   const data = new Uint8Array(4000);
