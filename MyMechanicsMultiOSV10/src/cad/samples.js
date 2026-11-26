@@ -17,9 +17,13 @@ import * as housingGroup from './samples/housing.js';
 import * as assemblyGroup from './samples/assembly.js';
 import * as advancedGroup from './samples/advanced.js';
 import { SCENES, MOTION_NOTES } from './samples/motion-scenes.js';
+import * as tutorialGroup from './samples/tutorial.js';
+// The tutorial's lesson results move too (part lessons on a turntable).
+Object.assign(SCENES, tutorialGroup.SCENES);
+Object.assign(MOTION_NOTES, tutorialGroup.MOTION_NOTES);
 
 /** The groups' modules: each exports SAMPLES ([{ id, group, icon, ko: [name, note], en: [name, note] }]) and build(id, lang). */
-const GROUP_MODULES = [basicGroup, machineGroup, housingGroup, assemblyGroup, advancedGroup];
+const GROUP_MODULES = [basicGroup, machineGroup, housingGroup, assemblyGroup, advancedGroup, tutorialGroup];
 
 export const SAMPLE_GROUPS = [
   { id: 'basic', icon: 'featExtrude', ko: '기본 부품', en: 'Basic parts' },
@@ -27,6 +31,7 @@ export const SAMPLE_GROUPS = [
   { id: 'housing', icon: 'featShell', ko: '하우징·판금형', en: 'Housings' },
   { id: 'assembly', icon: 'assembly', ko: '어셈블리·도면', en: 'Assemblies & drawings' },
   { id: 'advanced', icon: 'featSweep', ko: '고급 피처', en: 'Advanced features' },
+  { id: 'tutorial', icon: 'bulb', ko: '튜토리얼 — 6축 로봇', en: 'Tutorial — six-axis robot' },
 ];
 
 export const LEGACY_SAMPLES = [
@@ -491,7 +496,7 @@ export function buildSampleYUp(id, lang, { stage = true } = {}) {
 
 export { byId, addArc };
 
-/** Every sample on the start page, group by group (15 each). */
+/** Every sample on the start page, group by group (15 each, and the tutorial's 17 lesson results). */
 export const SAMPLES = GROUP_MODULES.flatMap((g) => g.SAMPLES);
 // The start page tells what each sample's motion study shows.
 for (const s of SAMPLES) {

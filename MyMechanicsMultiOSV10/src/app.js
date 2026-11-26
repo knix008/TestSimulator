@@ -7878,6 +7878,9 @@ window.__mymechanics = {
   active: () => active(),
 };
 window.__mymechanics.sim2 = more.sim2;
+// The tutorial video's replay (scripts/make-tutorial-video.mjs): the finished tutorial robot (without its stage) and
+// a feature opened in its own PropertyManager, ready to accept.
+window.__mymechanics.tutorial = { robot: (lang) => buildSample('tut17', lang ?? state.settings.language, { stage: false }), begin: (feature) => beginFeature(structuredClone(feature)) };
 // The CommandManager as written (COMMAND_TABS) and as shown (families folded into flyouts) — for the tests.
 window.__mymechanics.ribbon = () => { return { tabs: COMMAND_TABS, grouped: ribbonGroups(), toolbar: [...TOOLBAR.flat(), ...TOOLBAR_RIGHT, ...Object.values(TOOLBAR_MAIN)] }; };
 window.__mymechanics.decals = decalTools;

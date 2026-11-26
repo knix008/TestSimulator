@@ -30,6 +30,7 @@
     "tutorial:video": "node scripts/make-tutorial-video.mjs",
     "i18n:check": "node scripts/i18n-check.mjs",
     "verify:dwg": "node scripts/verify-dwg.mjs",
+    "verify:xt": "node scripts/verify-parasolid.mjs",
     "verify:openscad": "node scripts/verify-openscad.mjs"
   },
   "dependencies": {

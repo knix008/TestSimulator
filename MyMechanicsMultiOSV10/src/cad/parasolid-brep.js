@@ -376,12 +376,17 @@ export function shapeToXtNodes(oc, shape) {
   // out, and the fins regrouped into closed chains by their vertices.
   for (const { face, fnode } of faceRecs) {
     const loops = [];
+    // A seam is an edge the face's wires use twice (both sides of it belong to this face). OCCT's IsClosed is not
+    // enough: two faces split from one surface both report their common edge as closed, and it is not a seam.
+    const uses = new Map();
+    for (const ex = new oc.TopExp_Explorer_2(face, TA.TopAbs_EDGE, TA.TopAbs_SHAPE); ex.More(); ex.Next()) { const k = edgeMap.FindIndex(ex.Current()); uses.set(k, (uses.get(k) ?? 0) + 1); }
+    const seam = (e) => (uses.get(edgeMap.FindIndex(e)) ?? 0) > 1 && isSeam(oc, e, face);
     for (const wx = new oc.TopExp_Explorer_2(face, TA.TopAbs_WIRE, TA.TopAbs_SHAPE); wx.More(); wx.Next()) {
       const wire = oc.TopoDS.Wire_1(wx.Current());
       const fins = [];
       for (const we = new oc.BRepTools_WireExplorer_3(wire, face); we.More(); we.Next()) {
         const e = we.Current();
-        if (oc.BRep_Tool.Degenerated(e) || isSeam(oc, e, face)) continue;
+        if (oc.BRep_Tool.Degenerated(e) || seam(e)) continue;
         const rec = edgeOf(e);
         const plus = e.Orientation_1() === OR.TopAbs_FORWARD;
         fins.push({ rec, plus, from: plus ? rec.start : rec.end, to: plus ? rec.end : rec.start });

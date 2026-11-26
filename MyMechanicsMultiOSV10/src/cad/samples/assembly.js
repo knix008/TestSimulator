@@ -1225,7 +1225,7 @@ function circleAxis(b, c, r, i, v) {
 }
 
 /** Each joint is a hub on the parent (bore + machined face) and an integral pin on the child, held by a hinge mate. */
-function robotModel(L) {
+export function robotModel(L) {
   const project = newProject(L('6축 다관절 로봇', 'Six-axis articulated robot'));
   const base = (() => {
     const b = builder(part(L('로봇 베이스', 'Robot base'), { material: 'cast-iron', partNo: 'RB-100' }));
@@ -1734,7 +1734,7 @@ function housingDrawing(L) {
 }
 
 /** An assembly drawing: front, top and isometric views, a bill of materials and a balloon on each BOM row's part. */
-function assemblyDrawing(L, { project, asm }, { section = null, notes, sheet = 'A3', drop = ['v-right'] } = {}) {
+export function assemblyDrawing(L, { project, asm }, { section = null, notes, sheet = 'A3', drop = ['v-right'] } = {}) {
   const d = addDrawing(project, { kind: 'assembly', id: asm.id }, `${asm.name} - ${L('조립도', 'Assembly')}`);
   d.sheet = sheet;
   Object.assign(d.title, { partNo: asm.partNo ?? '', drawnBy: 'SHKWON', checkedBy: 'QA', company: 'MyMechanics', revision: 'A' });

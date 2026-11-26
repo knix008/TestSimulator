@@ -262,3 +262,20 @@ test('the format reference example (a sheet circle) is read as a face', async ()
 test('files that are not XT are refused with a code', async () => {
   await assert.rejects(() => xtToBrep('not a parasolid file'), (e) => ['xt-read', 'xt-schema'].includes(e.code));
 });
+
+test('the spur gear sample: faces split from one surface keep their common edge (two fins of opposite sense on every edge)', async () => {
+  // Its hub cylinder is two faces on one surface: OCCT reports their common edge as "closed" on both faces, which
+  // the writer once took for a seam and left out of both loops (an independent XT reader refused the file).
+  const { buildSample } = await import('../../src/cad/samples.js');
+  const { regenerate } = await import('../../src/cad/features.js');
+  const p = buildSample('mchSpurGear', 'en', { stage: false });
+  const body = regenerate(p.parts[0], { project: p }).body;
+  const x = readXt(await brepToXt(body.serialize(), { file: 'gear.x_t' }));
+  const bad = [];
+  for (const e of [...x.nodes.values()].filter((n) => n.type === NODE.EDGE)) {
+    const fins = []; const seen = new Set();
+    for (let f = e.halfedge; f && !seen.has(f); f = x.nodes.get(f).other) { seen.add(f); const fin = x.nodes.get(f); if (fin.loop) fins.push(fin.sense); }
+    if (fins.length !== 2 || fins[0] === fins[1]) bad.push(`${e.index}:${fins.join('')}`);
+  }
+  assert.deepEqual(bad, []);
+});
