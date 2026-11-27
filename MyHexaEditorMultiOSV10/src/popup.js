@@ -2,6 +2,7 @@
 // "popup-<kind>") or in a frame (web build, tutorial: ?popup=<kind>). Every
 // popup has a fixed size chosen so its content fits without scrolling; long
 // content is split into tabs or pages, and each item takes one line.
+import { DISASM_ARCHS } from './domain/archs.js';
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import appIcon from '../assets/icon-256.png';
 import { loadRecent, loadRecentDirs, MAX_RECENT, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
@@ -468,7 +469,7 @@ function settingsTools() {
     section('textStrings', 'tool.strings'),
     row('ruler', t('strings.min'), numberField('stringsMin', s().stringsMin, 2, 256, 1, '', t('strings.min'))),
     section('cpu', 'tool.disasm'),
-    row('cpu', t('disasm.arch'), select('data-select', 'disasmArch', [['x86-64', 'x86-64'], ['x86-32', 'x86 (32)'], ['x86-16', 'x86 (16)'], ['arm64', 'ARM64'], ['arm32', 'ARM (A32)'], ['thumb', 'Thumb']].map(([v, l]) => [v, l, 'cpu']), s().disasmArch, t('disasm.arch'))),
+    row('cpu', t('disasm.arch'), select('data-select', 'disasmArch', DISASM_ARCHS.map(([v, l]) => [v, l, 'cpu']), s().disasmArch, t('disasm.arch'))),
     row('code', t('disasm.syntax'), segmented('disasmSyntax', [['intel', 'Intel'], ['nasm', 'NASM'], ['masm', 'MASM'], ['gas', 'GAS']], s().disasmSyntax)),
     section('chartBar', 'panel.stats'),
     row('chartBar', t('settings.statsBlocks'), numberField('statsBlocks', s().statsBlocks, 16, 4096, 16, '', t('settings.statsBlocks'))),

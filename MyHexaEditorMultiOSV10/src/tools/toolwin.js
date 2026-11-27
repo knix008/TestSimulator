@@ -8,6 +8,10 @@
 import { icon } from '../icons.js';
 import { t } from '../i18n.js';
 import { bindProcessor, processorBody } from './processor.js';
+import { demangleBody, demangleChange, demangleClick, patchBody, patchChange, patchClick, resetPatchTools } from './patchtool.js';
+import { DISASM_ARCHS } from '../domain/archs.js';
+import { resetScript, scriptBody, scriptChange, scriptClick } from './script.js';
+import { resetVisualizer, visualizerBody, visualizerChange, visualizerClick, visualizerPaint } from './visualizer.js';
 import { filesystemBody, forensicsChange, forensicsClick, forensicsInput, resetForensics, yaraBody } from './forensics.js';
 
 export const TOOL_SIZES = {
@@ -26,12 +30,16 @@ export const TOOL_SIZES = {
   processor: { width: 1180, height: 760 },
   filesystem: { width: 940, height: 700 },
   yara: { width: 980, height: 720 },
+  visualizer: { width: 980, height: 760 },
+  script: { width: 980, height: 760 },
+  patch: { width: 760, height: 560 },
+  demangle: { width: 980, height: 720 },
 };
 export const TOOL_KINDS = Object.keys(TOOL_SIZES);
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const hex8 = (n) => Number(n).toString(16).toUpperCase().padStart(8, '0');
-const PER_PAGE = { find: 11, strings: 14, disasm: 16, carve: 11, devices: 12, history: 12, fs: 11, yara: 8 };
+const PER_PAGE = { find: 11, strings: 14, disasm: 16, carve: 11, devices: 12, history: 12, fs: 11, yara: 8, demangle: 10 };
 
 let ctx = null;
 const st = {};
@@ -88,10 +96,11 @@ const errorLine = () => (st.error ? `<div class="tw-error">${icon('error')}<span
 function draw() {
   if (!ctx) return;
   if (ctx.kind === 'processor') bindProcessor({ root: ctx.root, get kind() { return ctx.kind; }, call, btn, guarded, redraw: draw });
-  const body = ({ filesystem: () => filesystemBody(fctx), yara: () => yaraBody(fctx), processor: processorBody, form: formBody, find: findBody, goto: gotoBody, strings: stringsBody, disasm: disasmBody, calc: calcBody, carve: carveBody, devices: devicesBody, compare: compareBody, template: templateBody, history: historyBody, filetools: fileToolsBody })[ctx.kind]();
+  const body = ({ patch: () => patchBody(fctx), demangle: () => demangleBody(fctx), script: () => scriptBody(fctx), visualizer: () => visualizerBody(fctx), filesystem: () => filesystemBody(fctx), yara: () => yaraBody(fctx), processor: processorBody, form: formBody, find: findBody, goto: gotoBody, strings: stringsBody, disasm: disasmBody, calc: calcBody, carve: carveBody, devices: devicesBody, compare: compareBody, template: templateBody, history: historyBody, filetools: fileToolsBody })[ctx.kind]();
   const focus = document.activeElement?.dataset?.tw;
   const caretPos = document.activeElement?.selectionStart;
   ctx.root.innerHTML = ctx.frame({ glyph: body.icon, title: body.title, body: `<div class="tw tw-${ctx.kind}">${body.html}</div>`, foot: body.foot ?? `<span class="grow"></span>${ctx.button('close', t('common.close'), 'close')}` });
+  if (ctx.kind === 'visualizer') visualizerPaint(ctx.root);
   if (focus) { const el = ctx.root.querySelector(`[data-tw="${focus}"]`); if (el) { el.focus(); try { if (caretPos != null) el.setSelectionRange(caretPos, caretPos); } catch { /* not text */ } } }
   if (ctx.kind === 'form' || ctx.kind === 'goto' || ctx.kind === 'compare') ctx.fitHeight();
   ctx.ready();
@@ -128,7 +137,7 @@ function formBody() {
 
 // ───────── find and replace
 
-const KINDS = () => [['hex', t('find.kind.hex'), 'hexCode'], ['text', t('find.kind.text'), 'editorText'], ['regex', t('find.kind.regex'), 'regex'], ['int', t('find.kind.int'), 'hash'], ['float', t('find.kind.float'), 'calculate']];
+const KINDS = () => [['hex', t('find.kind.hex'), 'hexCode'], ['text', t('find.kind.text'), 'editorText'], ['regex', t('find.kind.regex'), 'regex'], ['int', t('find.kind.int'), 'hash'], ['float', t('find.kind.float'), 'calculate'], ['multi', t('find.kind.multi'), 'list']];
 const ENCODINGS = [['utf8', 'UTF-8'], ['ascii', 'ASCII'], ['latin1', 'Latin-1'], ['cp1252', 'Windows-1252'], ['utf16le', 'UTF-16 LE'], ['utf16be', 'UTF-16 BE'], ['utf32le', 'UTF-32 LE'], ['utf32be', 'UTF-32 BE'], ['euc-kr', 'EUC-KR'], ['shift_jis', 'Shift_JIS'], ['gb18030', 'GB18030'], ['big5', 'Big5'], ['cp437', 'CP437'], ['ebcdic', 'EBCDIC']];
 
 function findState() {
@@ -144,23 +153,29 @@ function findBody() {
   const numeric = f.kind === 'int' || f.kind === 'float';
   const opts = `<div class="tw-line">
       ${sel('kind', KINDS(), f.kind, t('find.kind'), 'search')}
-      ${f.kind === 'text' ? sel('encoding', ENCODINGS, f.encoding, t('find.encoding'), 'globe') : ''}
+      ${f.kind === 'text' || f.kind === 'multi' ? sel('encoding', ENCODINGS, f.encoding, t('find.encoding'), 'globe') : ''}
       ${numeric ? sel('width', (f.kind === 'float' ? [4, 8] : [1, 2, 4, 8]).map((w) => [w, t('find.width', { n: w })]), f.width, t('find.widthLabel'), 'ruler') : ''}
       ${numeric ? sel('endian', [['le', t('endian.le')], ['be', t('endian.be')]], f.endian, t('find.endian'), 'swap') : ''}
-      ${f.kind === 'text' || f.kind === 'regex' ? check('caseSensitive', t('find.case'), f.caseSensitive, 'caseSensitive') : ''}
+      ${f.kind === 'text' || f.kind === 'regex' || f.kind === 'multi' ? check('caseSensitive', t('find.case'), f.caseSensitive, 'caseSensitive') : ''}
       ${check('wrap', t('find.wrap'), f.wrap, 'refresh')}
       ${sel('scope', [['all', t('scope.all')], ['selection', t('scope.selectionOnly')], ['files', t('find.inFiles')]], f.scope, t('find.scope'), 'selectAll')}
     </div>`;
   const files = f.scope === 'files' ? `<div class="tw-line">${btn('fif-files', t('find.addFiles'), 'plus', 'small')}${ctx.desktop ? btn('fif-folder', t('find.addFolder'), 'folderOpen', 'small') : ''}${ctx.desktop ? check('recursive', t('find.recursive'), f.recursive !== false, 'layers') : ''}
       <span class="muted tw-text">${esc((f.files ?? []).map((x) => x.name).join(', ') || t('find.noFiles'))}</span>${(f.files ?? []).length ? btn('fif-clear', t('find.clearFiles'), 'close', 'small') : ''}</div>` : '';
-  const what = `<div class="row"><span class="row-label">${icon('search')}<span>${esc(t('find.what'))}</span></span><span class="row-control">${input('value', f.value, t(`find.placeholder.${f.kind}`), 'list="tw-history" data-autofocus')}<datalist id="tw-history">${history.map((x) => `<option value="${esc(x.value)}">${esc(t(`find.kind.${x.kind}`))}</option>`).join('')}</datalist></span></div>`;
+  const what = f.kind === 'multi'
+    ? `<div class="row"><span class="row-label">${icon('list')}<span>${esc(t('find.terms'))}</span></span><span class="row-control"><textarea class="tw-code find-terms" data-tw="value" rows="5" spellcheck="false" placeholder="${esc(t('find.placeholder.multi'))}" data-autofocus>${esc(f.value)}</textarea></span></div>`
+    : `<div class="row"><span class="row-label">${icon('search')}<span>${esc(t('find.what'))}</span></span><span class="row-control">${input('value', f.value, t(`find.placeholder.${f.kind}`), 'list="tw-history" data-autofocus')}<datalist id="tw-history">${history.map((x) => `<option value="${esc(x.value)}">${esc(t(`find.kind.${x.kind}`))}</option>`).join('')}</datalist></span></div>`;
   const repl = `<div class="row"><span class="row-label">${icon('replace')}<span>${esc(t('find.with'))}</span></span><span class="row-control">${sel('rkind', [['hex', t('find.kind.hex')], ['text', t('find.kind.text')], ['int', t('find.kind.int')]], f.rkind, t('find.kind'), 'replace')}${input('rvalue', f.rvalue, t(`find.placeholder.${f.rkind}`))}</span></div>`;
   const buttons = f.scope === 'files'
-    ? `<div class="tw-line tw-buttons"><span class="grow"></span>${btn('fif-run', t('find.inFilesRun'), 'search', 'primary', (f.files ?? []).length ? '' : 'disabled')}</div>`
+    ? `<div class="tw-line tw-buttons">${ctx.desktop ? check('backup', t('find.keepBackup'), Boolean(f.backup), 'save') : ''}<span class="grow"></span>${btn('rif-run', t('find.replaceInFiles'), 'replaceAll', 'danger', (f.files ?? []).length && f.kind !== 'multi' ? '' : 'disabled')}${btn('fif-run', t('find.inFilesRun'), 'search', 'primary', (f.files ?? []).length ? '' : 'disabled')}</div>`
     : `<div class="tw-line tw-buttons">${btn('find-prev', t('find.prev'), 'arrowUp')}${btn('find-next', t('find.next'), 'arrowDown', 'primary')}${btn('find-all', t('find.all'), 'list')}${btn('find-count', t('find.count'), 'hash')}
-      <span class="grow"></span>${btn('replace-one', t('find.replace'), 'replace')}${btn('replace-all', t('find.replaceAll'), 'replaceAll', 'danger')}</div>`;
+      <span class="grow"></span>${f.kind === 'multi' ? '' : `${btn('replace-one', t('find.replace'), 'replace')}${btn('replace-all', t('find.replaceAll'), 'replaceAll', 'danger')}`}</div>`;
   let results = '';
-  if (f.scope === 'files' && f.fileResults) {
+  if (f.scope === 'files' && f.replaceResults) {
+    const rr = f.replaceResults;
+    results = `<h3 class="section-title">${icon('replaceAll')}<span>${esc(t('find.replacedInFiles', { n: rr.replaced.toLocaleString(), files: rr.changed.length, total: rr.files }))}</span></h3>
+      <div class="tw-list">${rr.changed.map((x) => `<div class="tw-item"><span class="chip">${x.count.toLocaleString()}</span><span class="tw-text">${esc(String(x.path).split(/[\\/]/).pop())}</span><span class="muted tw-text">${esc(x.path)}</span>${x.downloaded ? `<span class="chip">${esc(t('find.downloaded'))}</span>` : ''}</div>`).join('')}${rr.failed.map((x) => `<div class="tw-error">${icon('error')}<span>${esc(`${x.path}: ${x.error}`)}</span></div>`).join('')}${rr.changed.length || rr.failed.length ? '' : `<div class="muted">${esc(t('find.none'))}</div>`}</div>`;
+  } else if (f.scope === 'files' && f.fileResults) {
     const [items, nav, start] = pager('find', f.fileResults.matches);
     results = `<h3 class="section-title">${icon('list')}<span>${esc(t('find.inFilesResult', { n: f.fileResults.matches.length.toLocaleString(), files: f.fileResults.searched }))}${f.fileResults.truncated ? ` — ${esc(t('find.truncatedShort'))}` : ''}</span>${nav}</h3>
       <div class="tw-list">${items.map((m, i) => `<button class="tw-item" data-tw-file-match="${start + i}" title="${esc(m.path)}"><b>${start + i + 1}</b><span class="tw-text">${esc(m.path.split(/[\\/]/).pop())}</span><code>${hex8(m.offset)}h</code><span class="muted">${m.length} B</span><span class="muted tw-text">${esc(m.path)}</span></button>`).join('') || `<div class="muted">${esc(t('find.none'))}</div>`}</div>`;
@@ -170,7 +185,7 @@ function findBody() {
       <div class="tw-list">${items.map(([o, l], i) => `<button class="tw-item" data-tw-goto="${o}" data-len="${l}" title="${esc(t('find.gotoMatch'))}"><b>${start + i + 1}</b><code>${hex8(o)}h</code><span class="muted">${l.toLocaleString()} B</span><code class="tw-preview">${esc(f.results.previews?.[start + i] ?? '')}</code></button>`).join('') || `<div class="muted">${esc(t('find.none'))}</div>`}</div>`;
   }
   const status = st.status ? `<div class="tw-status">${icon(st.statusKind === 'warning' ? 'warning' : 'info')}<span>${esc(st.status)}</span></div>` : '';
-  return { icon: 'search', title: t('tool.find'), html: `${what}${f.scope === 'files' ? '' : repl}${opts}${files}${buttons}${status}${errorLine()}${results}` };
+  return { icon: 'search', title: t('tool.find'), html: `${what}${f.kind === 'multi' ? '' : repl}${opts}${files}${buttons}${status}${errorLine()}${results}` };
 }
 
 async function doFind(op) {
@@ -217,7 +232,7 @@ function stringsBody() {
 
 // ───────── disassembler
 
-const ARCHS = [['x86-64', 'x86-64'], ['x86-32', 'x86 (32)'], ['x86-16', 'x86 (16)'], ['arm64', 'ARM64'], ['arm32', 'ARM (A32)'], ['thumb', 'Thumb']];
+const ARCHS = DISASM_ARCHS;
 async function runDisasm(offset) {
   const d = st.disasm;
   const r = await guarded(() => call('disasm', { arch: d.arch, syntax: d.syntax, offset: offset ?? d.from, base: d.base === '' ? null : d.base, length: 4096, max: 400 }));
@@ -384,6 +399,10 @@ const fctx = {
 async function onClick(event) {
   const target = event.target;
   if ((ctx.kind === 'filesystem' || ctx.kind === 'yara') && !target.closest('[data-tw-page], [data-tw-goto]') && await forensicsClick(fctx, target)) return undefined;
+  if (ctx.kind === 'visualizer' && await visualizerClick(fctx, target, event)) return undefined;
+  if (ctx.kind === 'script' && await scriptClick(fctx, target)) return undefined;
+  if (ctx.kind === 'patch' && await patchClick(fctx, target)) return undefined;
+  if (ctx.kind === 'demangle' && !target.closest('[data-tw-page]') && await demangleClick(fctx, target)) return undefined;
   const page = target.closest('[data-tw-page]');
   if (page) { const [name, step] = page.dataset.twPage.split(':'); st.page[name] += Number(step); return draw(); }
   const set = target.closest('[data-tw-set]');
@@ -435,7 +454,15 @@ async function onClick(event) {
       const f = findState();
       if (!f.value.trim()) { st.error = t('find.empty'); return draw(); }
       const r = await guarded(() => call('findInFiles', { pattern: patternOf(f), files: f.files, recursive: f.recursive !== false }));
-      if (r) { f.fileResults = r; st.page = {}; draw(); }
+      if (r) { f.fileResults = r; f.replaceResults = null; st.page = {}; draw(); }
+      return undefined;
+    }
+    case 'rif-run': {
+      const f = findState();
+      if (!f.value.trim()) { st.error = t('find.empty'); return draw(); }
+      const replacement = { kind: f.rkind, value: f.rvalue, encoding: f.encoding, width: Number(f.width), endian: f.endian };
+      const r = await guarded(() => call('replaceInFiles', { pattern: patternOf(f), replacement, files: f.files, recursive: f.recursive !== false, backup: Boolean(f.backup) }));
+      if (r) { f.replaceResults = r; f.fileResults = null; st.page = {}; draw(); }
       return undefined;
     }
     case 'goto-run': {
@@ -485,6 +512,10 @@ function readForm() {
 function onChange(event) {
   const el = event.target;
   if ((ctx.kind === 'filesystem' || ctx.kind === 'yara') && forensicsChange(fctx, el)) return;
+  if (ctx.kind === 'visualizer' && visualizerChange(fctx, el)) return;
+  if (ctx.kind === 'script' && scriptChange(el)) return;
+  if (ctx.kind === 'patch' && patchChange(fctx, el)) return;
+  if (ctx.kind === 'demangle' && demangleChange(fctx, el)) return;
   if (el.dataset.twField) { st.values[el.dataset.twField] = el.type === 'checkbox' ? el.checked : el.value; if (el.tagName === 'SELECT' || el.type === 'checkbox') draw(); return; }
   const key = el.dataset.tw;
   if (!key) return;
@@ -504,6 +535,8 @@ let calcTimer = 0;
 function onInput(event) {
   const el = event.target;
   if (ctx.kind === 'yara' && forensicsInput(el)) return;
+  if (ctx.kind === 'script' && scriptChange(el)) return;
+  if (ctx.kind === 'demangle' && demangleChange(fctx, el)) return;
   const key = el.dataset.tw;
   if (el.dataset.twField) { st.values[el.dataset.twField] = el.value; return; }
   if (!key) return;
@@ -544,5 +577,8 @@ export function renderTool(context) {
 /** The popup was opened again (new parameters): start over. */
 export function resetTool() {
   resetForensics();
+  resetVisualizer();
+  resetScript();
+  resetPatchTools();
   for (const key of Object.keys(st)) delete st[key];
 }

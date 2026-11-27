@@ -1746,3 +1746,4 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 /* Language flags drawn as icons (menus, settings, status bar): 3:2, a thin outline so white parts show. */
 svg.icon.flag { width: 1.35em; height: 0.9em; flex: none; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); vertical-align: -0.1em; }
 .segment svg.icon.flag { margin-right: 5px; }
+.status-recording { color: var(--danger, #d64545); font-weight: 600; }

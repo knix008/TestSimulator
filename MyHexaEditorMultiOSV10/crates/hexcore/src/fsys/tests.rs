@@ -1,6 +1,8 @@
 //! Small but real volumes built in code: FAT12 (directory, long name, deleted file), FAT32, NTFS (resident,
 //! non-resident with a sparse run, deleted record, sub-directory), ext4 / ext2 (block map, extent tree, deleted
-//! entry in slack, sub-directory), and MBR / GPT disks around them.
+//! entry in slack, sub-directory), and MBR / GPT disks around them. Then NTFS attribute lists (resident and non-resident,
+//! the $MFT's own), LZNT1 chunks and compressed units, EFS-encrypted data, alternate data streams, ext4 inline directories
+//! (i_block + system.data) and htree directories, and noise over all of them.
 use super::*;
 use crate::util::unb64;
 use serde_json::json;
@@ -578,4 +580,471 @@ fn garbage_is_an_error_not_a_panic() {
         let _ = list(&src, &json!({ "dir": "c:9999" }));
         let _ = read(&src, &json!({ "id": "13" }));
     }
+}
+
+// ───────── NTFS: attribute lists, compression, encryption, alternate data streams
+
+fn utf16le(s: &str) -> Vec<u8> {
+    s.encode_utf16().flat_map(|u| u.to_le_bytes()).collect()
+}
+
+/// A resident attribute with a name and flags.
+fn attr_res(kind: u32, name: &str, flags: u16, content: &[u8]) -> Vec<u8> {
+    let n = utf16le(name);
+    let at = (24 + n.len()).div_ceil(8) * 8;
+    let len = (at + content.len()).div_ceil(8) * 8;
+    let mut a = vec![0u8; len];
+    put32(&mut a, 0, kind);
+    put32(&mut a, 4, len as u32);
+    a[9] = (n.len() / 2) as u8;
+    put16(&mut a, 10, 24);
+    put16(&mut a, 12, flags);
+    put32(&mut a, 16, content.len() as u32);
+    put16(&mut a, 20, at as u16);
+    a[24..24 + n.len()].copy_from_slice(&n);
+    a[at..at + content.len()].copy_from_slice(content);
+    a
+}
+
+/// A non-resident attribute segment: VCNs `vcn.0..=vcn.1`, a name, flags (0x0001 compressed: 72-byte header).
+fn attr_nr(kind: u32, name: &str, flags: u16, vcn: (u64, u64), runs: &[u8], alloc: u64, real: u64) -> Vec<u8> {
+    let n = utf16le(name);
+    let hdr = if flags & 1 != 0 { 72 } else { 64 };
+    let at = (hdr + n.len()).div_ceil(8) * 8;
+    let len = (at + runs.len()).div_ceil(8) * 8;
+    let mut a = vec![0u8; len];
+    put32(&mut a, 0, kind);
+    put32(&mut a, 4, len as u32);
+    a[8] = 1;
+    a[9] = (n.len() / 2) as u8;
+    put16(&mut a, 10, hdr as u16);
+    put16(&mut a, 12, flags);
+    put64(&mut a, 16, vcn.0);
+    put64(&mut a, 24, vcn.1);
+    put16(&mut a, 32, at as u16);
+    put16(&mut a, 34, if flags & 1 != 0 { 4 } else { 0 });
+    put64(&mut a, 40, alloc);
+    put64(&mut a, 48, real);
+    put64(&mut a, 56, real);
+    a[hdr..hdr + n.len()].copy_from_slice(&n);
+    a[at..at + runs.len()].copy_from_slice(runs);
+    a
+}
+
+/// An $ATTRIBUTE_LIST entry (unnamed attribute).
+fn list_entry(kind: u32, vcn: u64, rec: u64) -> Vec<u8> {
+    let mut e = vec![0u8; 32];
+    put32(&mut e, 0, kind);
+    put16(&mut e, 4, 32);
+    e[7] = 26;
+    put64(&mut e, 8, vcn);
+    put64(&mut e, 16, rec | (1 << 48));
+    e
+}
+
+fn extension(n: u32, base: u64, attrs: &[Vec<u8>]) -> Vec<u8> {
+    let mut r = record(n, 1, attrs);
+    put64(&mut r, 32, base | (1 << 48));
+    r
+}
+
+/// LZNT1 test chunks. A: "abc" then one back-reference (offset 3, length 4093; 4 offset / 12 length bits) = 4096 bytes.
+fn chunk_abc() -> Vec<u8> {
+    let mut c = vec![0x05, 0xB0, 0x08, b'a', b'b', b'c'];
+    c.extend_from_slice(&(((3u16 - 1) << 12) | (4093 - 3)).to_le_bytes());
+    c
+}
+/// B: an uncompressed chunk (header 0x3FFF) of 4096 bytes.
+fn chunk_raw() -> (Vec<u8>, Vec<u8>) {
+    let raw: Vec<u8> = (0..4096).map(|i| (i * 7 % 256) as u8).collect();
+    let mut c = vec![0xFF, 0x3F];
+    c.extend_from_slice(&raw);
+    (c, raw)
+}
+/// C: 20 literals, then a back-reference at position 20 (5 offset / 11 length bits): offset 20, length 10.
+fn chunk_split() -> Vec<u8> {
+    let lit = b"0123456789abcdefghij";
+    let mut body = vec![0x00];
+    body.extend_from_slice(&lit[..8]);
+    body.push(0x00);
+    body.extend_from_slice(&lit[8..16]);
+    body.push(0x10);
+    body.extend_from_slice(&lit[16..20]);
+    body.extend_from_slice(&(((20u16 - 1) << 11) | (10 - 3)).to_le_bytes());
+    let mut c = (0xB000u16 | (body.len() as u16 - 1)).to_le_bytes().to_vec();
+    c.extend_from_slice(&body);
+    c
+}
+
+#[test]
+fn lznt1_chunks() {
+    let (raw_chunk, raw) = chunk_raw();
+    let mut input = chunk_abc();
+    input.extend_from_slice(&raw_chunk);
+    input.extend_from_slice(&chunk_split());
+    input.extend_from_slice(&[0, 0]);
+    let out = lznt1(&input, 1 << 16);
+    assert_eq!(out.len(), 4096 + 4096 + 30);
+    assert!(out[..4096].chunks(3).all(|c| c == &b"abc"[..c.len()]));
+    assert_eq!(&out[4096..8192], &raw[..]);
+    assert_eq!(&out[8192..], b"0123456789abcdefghij0123456789");
+    // Just the split chunk, and the cap.
+    assert_eq!(lznt1(&chunk_split(), 1 << 16), b"0123456789abcdefghij0123456789");
+    assert_eq!(lznt1(&chunk_abc(), 10), b"abcabcabca");
+    // A short compressed chunk followed by another stands for 4096 bytes.
+    let mut two = chunk_split();
+    two.extend_from_slice(&chunk_split());
+    let out = lznt1(&two, 1 << 16);
+    assert_eq!(out.len(), 4096 + 30);
+    assert!(out[30..4096].iter().all(|&b| b == 0));
+    assert_eq!(&out[4096..], b"0123456789abcdefghij0123456789");
+    // A back-reference before the start of the chunk ends it instead of panicking.
+    assert_eq!(lznt1(&[0x02, 0xB0, 0x01, 0x00, 0x10], 4096), b"");
+}
+
+const CS: usize = 4096;
+
+/// 128 clusters; the $MFT is 32 records (clusters 4–11). Records 16–23 hold the new cases.
+fn ntfs_more() -> Vec<u8> {
+    let mut img = ntfs();
+    img.resize(128 * CS, 0);
+    put64(&mut img, 40, 128 * 8);
+    let mft = 4 * CS;
+    let put = |img: &mut Vec<u8>, n: usize, rec: Vec<u8>| img[mft + n * REC..mft + (n + 1) * REC].copy_from_slice(&rec);
+    put(&mut img, 0, record(0, 1, &[attr_resident(0x30, &file_name(5, "$MFT", 32 * 1024)), attr_nonresident(0x80, &[0x11, 8, 4, 0], 8, 32 * 1024)]));
+    // frag.bin: base 16 has only a resident attribute list; its name and both $DATA segments are in 17 and 18.
+    let size = 3 * 4096 + 100;
+    let mut alist = list_entry(0x10, 0, 16);
+    alist.extend(list_entry(0x30, 0, 17));
+    alist.extend(list_entry(0x80, 0, 17));
+    alist.extend(list_entry(0x80, 2, 18));
+    put(&mut img, 16, record(16, 1, &[attr_resident(0x20, &alist)]));
+    put(&mut img, 18, extension(18, 16, &[attr_nr(0x80, "", 0, (2, 3), &[0x11, 2, 50, 0], 0, 0)]));
+    put(&mut img, 17, extension(17, 16, &[attr_resident(0x30, &file_name(5, "frag.bin", size)), attr_nr(0x80, "", 0, (0, 1), &[0x11, 2, 40, 0], 4 * 4096, size)]));
+    img[40 * CS..42 * CS].fill(0x11);
+    img[50 * CS..52 * CS].fill(0x22);
+    // nrlist.txt: base 19 with its name and a non-resident attribute list (cluster 45); the $DATA is in 20.
+    let alist = [list_entry(0x30, 0, 19), list_entry(0x80, 0, 20)].concat();
+    put(&mut img, 19, record(19, 1, &[attr_resident(0x30, &file_name(5, "nrlist.txt", 20)), attr_nonresident(0x20, &[0x11, 1, 45, 0], 1, alist.len() as u64)]));
+    img[45 * CS..45 * CS + alist.len()].copy_from_slice(&alist);
+    put(&mut img, 20, extension(20, 19, &[attr_resident(0x80, b"via a list in a run!")]));
+    // packed.txt: LZNT1, 4 units of 16 clusters: compressed (clusters 56–57 + 14 sparse), raw (64–79), sparse,
+    // compressed (58 + 15 sparse); 3 units + 5000 bytes long.
+    let size = 3 * 65536 + 5000;
+    let runs = [0x11, 2, 56, 0x01, 14, 0x11, 16, 8, 0x01, 16, 0x11, 1, 0xFA, 0x01, 15, 0];
+    put(&mut img, 21, record(21, 1, &[attr_resident(0x30, &file_name(5, "packed.txt", size)), attr_nr(0x80, "", 1, (0, 63), &runs, 64 * 4096, size)]));
+    let (raw_chunk, _) = chunk_raw();
+    let u0 = [chunk_abc(), raw_chunk, vec![0, 0]].concat();
+    img[56 * CS..56 * CS + u0.len()].copy_from_slice(&u0);
+    for (i, b) in img[64 * CS..80 * CS].iter_mut().enumerate() {
+        *b = (i % 253) as u8;
+    }
+    let u3 = [chunk_split(), vec![0, 0]].concat();
+    img[58 * CS..58 * CS + u3.len()].copy_from_slice(&u3);
+    // secret.bin: EFS-encrypted $DATA (cluster 60) and the $EFS stream.
+    put(&mut img, 22, record(22, 1, &[attr_resident(0x30, &file_name(5, "secret.bin", 100)), attr_nr(0x80, "", 0x4000, (0, 0), &[0x11, 1, 60, 0], 4096, 100), attr_res(0x100, "$EFS", 0, &[1, 2, 3, 4])]));
+    img[60 * CS..61 * CS].fill(0xEE);
+    // notes.txt: an unnamed $DATA and two alternate data streams (resident, non-resident at cluster 61).
+    put(&mut img, 23, record(23, 1, &[attr_resident(0x30, &file_name(5, "notes.txt", 4)), attr_resident(0x80, b"main"), attr_res(0x80, "Zone.Identifier", 0, b"[ZoneTransfer]"), attr_nr(0x80, "big", 0, (0, 0), &[0x11, 1, 61, 0], 4096, 10)]));
+    img[61 * CS..61 * CS + 10].copy_from_slice(b"0123456789");
+    img
+}
+
+#[test]
+fn ntfs_attribute_list() {
+    let img = ntfs_more();
+    let src = img.clone();
+    let root = list(&src, &json!({})).unwrap();
+    // The name lives only in extension record 17: the base record is listed.
+    let f = find(&root, "frag.bin");
+    assert_eq!(f["id"], "16");
+    assert_eq!(f["size"], 3 * 4096 + 100);
+    assert_eq!(f["extents"], json!([[40 * 4096, 8192], [50 * 4096, 8192]]));
+    let d = read_file(&img, 0, "16");
+    assert_eq!(d.len(), 3 * 4096 + 100);
+    assert!(d[..8192].iter().all(|&b| b == 0x11) && d[8192..].iter().all(|&b| b == 0x22));
+    assert_eq!(file(&src, &json!({ "id": "16" })).unwrap()["name"], "frag.bin");
+    // Extension records are not entries of their own.
+    assert!(!root["entries"].as_array().unwrap().iter().any(|e| e["id"] == "17" || e["id"] == "18" || e["id"] == "20"));
+    // A non-resident attribute list.
+    assert_eq!(find(&root, "nrlist.txt")["resident"], true);
+    assert_eq!(read_file(&img, 0, "19"), b"via a list in a run!");
+    // The old cases still hold on the bigger MFT.
+    assert_eq!(read_file(&img, 0, "12"), b"hello ntfs");
+    assert_eq!(info(&src, &json!({})).unwrap()["details"][4], json!(["MFT records", "32"]));
+}
+
+#[test]
+fn ntfs_mft_through_attribute_list() {
+    // $MFT record 0 keeps its second run (records 16–31, clusters 8–11) in extension record 1.
+    let mut img = ntfs_more();
+    let mft = 4 * CS;
+    let alist = [list_entry(0x30, 0, 0), list_entry(0x80, 0, 0), list_entry(0x80, 4, 1)].concat();
+    let r0 = record(0, 1, &[attr_resident(0x30, &file_name(5, "$MFT", 32 * 1024)), attr_resident(0x20, &alist), attr_nr(0x80, "", 0, (0, 3), &[0x11, 4, 4, 0], 8 * 4096, 32 * 1024)]);
+    img[mft..mft + REC].copy_from_slice(&r0);
+    let r1 = extension(1, 0, &[attr_nr(0x80, "", 0, (4, 7), &[0x11, 4, 8, 0], 0, 0)]);
+    img[mft + REC..mft + 2 * REC].copy_from_slice(&r1);
+    let src = img.clone();
+    let root = list(&src, &json!({})).unwrap();
+    assert_eq!(find(&root, "notes.txt")["id"], "23");
+    assert_eq!(read_file(&img, 0, "16").len(), 3 * 4096 + 100);
+}
+
+#[test]
+fn ntfs_compressed() {
+    let img = ntfs_more();
+    let src = img.clone();
+    let root = list(&src, &json!({})).unwrap();
+    let p = find(&root, "packed.txt");
+    assert_eq!(p["compressed"], true);
+    assert_eq!(p["encrypted"], false);
+    assert_eq!(find(&root, "small.txt")["compressed"], false);
+    assert_eq!(p["extents"], json!([[56 * 4096, 8192], [-1, 14 * 4096], [64 * 4096, 65536], [-1, 16 * 4096], [58 * 4096, 4096], [-1, 15 * 4096]]));
+    assert_eq!(file(&src, &json!({ "id": "21" })).unwrap()["compressed"], true);
+    let d = read_file(&img, 0, "21");
+    assert_eq!(d.len(), 3 * 65536 + 5000);
+    // Unit 0: the "abc" chunk, the uncompressed chunk, zeros.
+    assert!(d[..4096].chunks(3).all(|c| c == &b"abc"[..c.len()]));
+    assert_eq!(&d[4096..8192], &chunk_raw().1[..]);
+    assert!(d[8192..65536].iter().all(|&b| b == 0));
+    // Unit 1 is stored raw (its runs fill it), unit 2 is sparse.
+    assert!(d[65536..131072].iter().enumerate().all(|(i, &b)| b == (i % 253) as u8));
+    assert!(d[131072..196608].iter().all(|&b| b == 0));
+    // Unit 3: compressed, cut at the file size.
+    assert_eq!(&d[196608..196608 + 30], b"0123456789abcdefghij0123456789");
+    assert!(d[196608 + 30..].iter().all(|&b| b == 0));
+}
+
+#[test]
+fn ntfs_encrypted() {
+    let img = ntfs_more();
+    let src = img.clone();
+    let root = list(&src, &json!({})).unwrap();
+    let s = find(&root, "secret.bin");
+    assert_eq!((s["encrypted"].as_bool(), s["compressed"].as_bool()), (Some(true), Some(false)));
+    assert_eq!(find(&root, "small.txt")["encrypted"], false);
+    assert_eq!(file(&src, &json!({ "id": "22" })).unwrap()["encrypted"], true);
+    // Raw (encrypted) bytes.
+    assert_eq!(read_file(&img, 0, "22"), vec![0xEE; 100]);
+}
+
+#[test]
+fn ntfs_alternate_data_streams() {
+    let img = ntfs_more();
+    let src = img.clone();
+    let root = list(&src, &json!({})).unwrap();
+    let n = names(&root);
+    let at = n.iter().position(|x| x == "notes.txt").unwrap();
+    assert_eq!(&n[at..at + 3], &["notes.txt", "notes.txt:big", "notes.txt:Zone.Identifier"]);
+    assert_eq!(find(&root, "notes.txt")["id"], "23");
+    let zone = find(&root, "notes.txt:Zone.Identifier");
+    assert_eq!((zone["id"].as_str(), zone["size"].as_u64(), zone["resident"].as_bool(), zone["dir"].as_bool()), (Some("23:Zone.Identifier"), Some(14), Some(true), Some(false)));
+    let big = find(&root, "notes.txt:big");
+    assert_eq!(big["extents"], json!([[61 * 4096, 4096]]));
+    assert_eq!(read_file(&img, 0, "23"), b"main");
+    assert_eq!(read_file(&img, 0, "23:Zone.Identifier"), b"[ZoneTransfer]");
+    assert_eq!(read_file(&img, 0, "23:big"), b"0123456789");
+    let f = file(&src, &json!({ "id": "23:big" })).unwrap();
+    assert_eq!((f["name"].as_str(), f["size"].as_u64()), (Some("notes.txt:big"), Some(10)));
+    assert!(file(&src, &json!({ "id": "23:nope" })).is_err());
+    assert!(file(&src, &json!({ "id": "x:big" })).is_err());
+}
+
+// ───────── ext: inline directories, htree directories
+
+/// 64 blocks of 1 KiB, 32 inodes of 256 bytes (table at blocks 5–12); inline data.
+fn ext_inline() -> Vec<u8> {
+    let bs = 1024usize;
+    let mut img = vec![0u8; 64 * bs];
+    {
+        let sb = &mut img[1024..2048];
+        put32(sb, 0, 32);
+        put32(sb, 4, 64);
+        put32(sb, 20, 1);
+        put32(sb, 32, 8192);
+        put32(sb, 40, 32);
+        put16(sb, 56, 0xEF53);
+        put32(sb, 76, 1);
+        put16(sb, 88, 256);
+        put32(sb, 96, 0x8042);
+    }
+    put32(&mut img, 2 * bs + 8, 5);
+    let ino = |img: &mut [u8], n: usize, mode: u16, size: u32, flags: u32, block: &[u8]| -> usize {
+        let o = 5 * 1024 + (n - 1) * 256;
+        put16(img, o, mode);
+        put32(img, o + 4, size);
+        put32(img, o + 16, 1_700_000_000);
+        put16(img, o + 26, 1);
+        put32(img, o + 32, flags);
+        img[o + 40..o + 40 + block.len()].copy_from_slice(block);
+        put16(img, o + 128, 32);
+        o
+    };
+    // system.data in the inode body: magic at 160, the entry at 164, its value at 164 + 40.
+    let xattr = |img: &mut [u8], o: usize, value: &[u8]| {
+        put32(img, o + 160, 0xEA02_0000);
+        let e = o + 164;
+        img[e] = 4;
+        img[e + 1] = 7;
+        put16(img, e + 2, 40);
+        put32(img, e + 8, value.len() as u32);
+        img[e + 16..e + 20].copy_from_slice(b"data");
+        img[e + 40..e + 40 + value.len()].copy_from_slice(value);
+    };
+    ino(&mut img, 2, 0x41ED, 1024, 0, &blocks(&[20]));
+    let r = 20 * bs;
+    dirent(&mut img, r, 2, 12, ".", 2);
+    dirent(&mut img, r + 12, 2, 12, "..", 2);
+    dirent(&mut img, r + 24, 12, (bs - 24) as u16, "inl", 2);
+    // inl/: parent 2, then a.txt and b.txt in i_block, c-in-xattr.txt and d.txt in system.data.
+    let mut ib = vec![0u8; 60];
+    put32(&mut ib, 0, 2);
+    dirent(&mut ib, 4, 13, 16, "a.txt", 1);
+    dirent(&mut ib, 20, 14, 40, "b.txt", 1);
+    let mut xv = vec![0u8; 40];
+    dirent(&mut xv, 0, 15, 24, "c-in-xattr.txt", 1);
+    dirent(&mut xv, 24, 16, 16, "d.txt", 1);
+    let o = ino(&mut img, 12, 0x41ED, 60, 0x1000_0000, &ib);
+    xattr(&mut img, o, &xv);
+    // a.txt: 80 bytes inline, 60 in i_block and 20 in system.data.
+    let text: Vec<u8> = (0..80).map(|i| b'a' + (i % 26) as u8).collect();
+    let o = ino(&mut img, 13, 0x81A4, 80, 0x1000_0000, &text[..60]);
+    xattr(&mut img, o, &text[60..]);
+    ino(&mut img, 14, 0x81A4, 4, 0, &blocks(&[21]));
+    img[21 * bs..21 * bs + 4].copy_from_slice(b"bbbb");
+    ino(&mut img, 15, 0x81A4, 1, 0x1000_0000, b"c");
+    ino(&mut img, 16, 0x81A4, 1, 0x1000_0000, b"d");
+    img
+}
+
+#[test]
+fn ext4_inline_directory() {
+    let img = ext_inline();
+    let src = img.clone();
+    let root = list(&src, &json!({})).unwrap();
+    assert_eq!(names(&root), vec!["inl"]);
+    assert_eq!(find(&root, "inl")["dir"], true);
+    let d = list(&src, &json!({ "dir": "12" })).unwrap();
+    assert_eq!(names(&d), vec!["a.txt", "b.txt", "c-in-xattr.txt", "d.txt"]);
+    assert_eq!((d["parent"].as_str(), d["path"].as_str()), (Some("2"), Some("/inl")));
+    assert!(d["entries"].as_array().unwrap().iter().all(|e| e["deleted"] == false));
+    let a = read_file(&img, 0, "13");
+    assert_eq!(a.len(), 80);
+    assert_eq!(&a[58..62], b"ghij");
+    assert_eq!(read_file(&img, 0, "14"), b"bbbb");
+    assert_eq!(read_file(&img, 0, "16"), b"d");
+}
+
+/// An htree directory (inode 17, blocks 20–23 of `ext(false)`): dx_root, a dx_node whose entries look like a dirent
+/// (hash 12, then a block whose third byte is 3, then the hash "abc"), and two leaf blocks.
+#[test]
+fn ext_htree_directory() {
+    let bs = 1024usize;
+    let mut img = ext(false);
+    inode(&mut img, 17, 0x41ED, 4096, 2, 0x1000, &blocks(&[20, 21, 22, 23]));
+    let b0 = 20 * bs;
+    dirent(&mut img, b0, 17, 12, ".", 2);
+    dirent(&mut img, b0 + 12, 2, (bs - 12) as u16, "..", 2);
+    img[b0 + 28] = 1; // hash version
+    img[b0 + 29] = 8; // info length
+    img[b0 + 30] = 1; // one level of index nodes
+    put16(&mut img, b0 + 32, 124);
+    put16(&mut img, b0 + 34, 1);
+    put32(&mut img, b0 + 36, 1);
+    let b1 = 21 * bs;
+    put16(&mut img, b1 + 4, bs as u16); // fake empty entry over the node
+    put16(&mut img, b1 + 8, 127);
+    put16(&mut img, b1 + 10, 3);
+    put32(&mut img, b1 + 12, 2);
+    put32(&mut img, b1 + 16, 12);
+    put32(&mut img, b1 + 20, 0x0003_0002);
+    img[b1 + 24..b1 + 28].copy_from_slice(b"abc\0");
+    put32(&mut img, b1 + 28, 3);
+    let b2 = 22 * bs;
+    dirent(&mut img, b2, 12, 16, "alpha", 1);
+    dirent(&mut img, b2 + 16, 13, (bs - 16) as u16, "beta", 1);
+    dirent(&mut img, 23 * bs, 16, bs as u16, "gamma", 1);
+    let src = img.clone();
+    let d = list(&src, &json!({ "dir": "17", "deleted": true })).unwrap();
+    assert_eq!(names(&d), vec!["alpha", "beta", "gamma"]);
+    assert_eq!(d["parent"], "2");
+    assert_eq!(read_file(&img, 0, "16"), b"deep");
+}
+
+#[test]
+fn new_paths_survive_garbage() {
+    let mut x = 0x9E37_79B9u32;
+    let junk: Vec<u8> = (0..300_000).map(|_| { x ^= x << 13; x ^= x >> 17; x ^= x << 5; x as u8 }).collect();
+    // LZNT1 on noise, in pieces of every alignment.
+    for k in 0..64 {
+        let _ = lznt1(&junk[k * 997..k * 997 + 9000], 65536);
+    }
+    // Noise over the new NTFS records (attribute lists, compressed and named streams) and over their data clusters.
+    for (off, len) in [(4 * CS + 16 * REC, 8 * REC), (45 * CS, 4096), (56 * CS, 3 * CS), (4 * CS, REC)] {
+        let mut img = ntfs_more();
+        img[off..off + len].copy_from_slice(&junk[..len]);
+        let src = img.clone();
+        let _ = list(&src, &json!({}));
+        for id in ["16", "19", "21", "22", "23", "23:big", "23:Zone.Identifier"] {
+            let _ = read(&src, &json!({ "id": id }));
+        }
+    }
+    // Noise over the inline inode bodies and the htree blocks.
+    let mut img = ext_inline();
+    img[5 * 1024 + 11 * 256..5 * 1024 + 13 * 256].copy_from_slice(&junk[..512]);
+    let src = img.clone();
+    let _ = list(&src, &json!({ "dir": "12" }));
+    let _ = read(&src, &json!({ "id": "13" }));
+    let mut img = ext(false);
+    inode(&mut img, 17, 0x41ED, 4096, 2, 0x1000, &blocks(&[20, 21, 22, 23]));
+    img[20 * 1024..24 * 1024].copy_from_slice(&junk[..4096]);
+    let src = img.clone();
+    let _ = list(&src, &json!({ "dir": "17" }));
+}
+
+/// `attr_nr` with an initialized size below the data size.
+fn with_init(mut a: Vec<u8>, init: u64) -> Vec<u8> {
+    put64(&mut a, 56, init);
+    a
+}
+
+#[test]
+fn ntfs_initialized_size() {
+    let mut img = ntfs_more();
+    let mft = 4 * CS;
+    // partial.bin: one cluster of 0x77, 4096 bytes long, 1000 of them initialized.
+    let r = record(24, 1, &[attr_resident(0x30, &file_name(5, "partial.bin", 4096)), with_init(attr_nr(0x80, "", 0, (0, 0), &[0x11, 1, 62, 0], 4096, 4096), 1000)]);
+    img[mft + 24 * REC..mft + 25 * REC].copy_from_slice(&r);
+    img[62 * CS..63 * CS].fill(0x77);
+    // packed2.txt: the runs of packed.txt, initialized up to 5000 bytes.
+    let size = 3 * 65536 + 5000;
+    let runs = [0x11, 2, 56, 0x01, 14, 0x11, 16, 8, 0x01, 16, 0x11, 1, 0xFA, 0x01, 15, 0];
+    let r = record(25, 1, &[attr_resident(0x30, &file_name(5, "packed2.txt", size)), with_init(attr_nr(0x80, "", 1, (0, 63), &runs, 64 * 4096, size), 5000)]);
+    img[mft + 25 * REC..mft + 26 * REC].copy_from_slice(&r);
+    let d = read_file(&img, 0, "24");
+    assert_eq!(d.len(), 4096);
+    assert!(d[..1000].iter().all(|&b| b == 0x77) && d[1000..].iter().all(|&b| b == 0));
+    let d = read_file(&img, 0, "25");
+    assert_eq!(d.len(), size as usize);
+    assert!(d[..4096].chunks(3).all(|c| c == &b"abc"[..c.len()]));
+    assert_eq!(&d[4096..5000], &chunk_raw().1[..904]);
+    assert!(d[5000..].iter().all(|&b| b == 0));
+    // Fully initialized streams are unchanged.
+    assert_eq!(read_file(&img, 0, "21")[65536 + 1], 1);
+}
+
+#[test]
+fn assemble_huge_sizes_are_errors() {
+    let src = vec![0u8; 4096];
+    for size in [u64::MAX, 1 << 40, (1 << 30) + 1] {
+        let plain = Entry { size, extents: vec![(-1, size)], ..Default::default() };
+        assert!(assemble(&src, &plain).is_err(), "{size}");
+        let packed = Entry { size, extents: vec![(0, 4096), (-1, size)], unit: 65536, ..Default::default() };
+        assert!(assemble(&src, &packed).is_err(), "{size}");
+        let resident = Entry { size, resident: Some(b"abc".to_vec()), ..Default::default() };
+        assert_eq!(assemble(&src, &resident).unwrap(), b"abc");
+    }
+    // A data run past the end of the source is an error too.
+    assert!(assemble(&src, &Entry { size: 8192, extents: vec![(0, 8192)], ..Default::default() }).is_err());
+    assert_eq!(assemble(&src, &Entry { size: 10, extents: vec![(-1, 4)], valid: Some(2), ..Default::default() }).unwrap(), vec![0; 10]);
 }

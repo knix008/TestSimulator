@@ -43,9 +43,27 @@
 //! ParseInt(text, base) strlen min max abs str hex Warning(text) Error(text).
 //! Attributes: [[color("#rrggbb" | "red" | 0xRRGGBB)]] [[comment("…")]] [[name(expr)]] [[hidden]],
 //! or 010 style <bgcolor=0xRRGGBB, comment="…">.
+//!
+//! SCRIPTS (010 Editor "Scripts")
+//! `run_script(src, {source, selStart?, selLength?, cursor?, offset?}, progress)` →
+//!   `{ edits: [{ op: "write"|"insert"|"delete", offset, data: base64, length }], output: "text", returned: value|null,
+//!      errors: [{ line, col, message, warning? }], size: final size, completed: false when an error stopped it }`.
+//! The same language (fields are allowed but not needed); `src` is not changed. Edits are in the order made, each
+//! offset as the data was at that moment (apply them in order); consecutive writes / inserts are joined.
+//! Reads (Read*, find, ReadString, fields, Hash…) see the script's own earlier edits. `return v;` at the top level
+//! (or `Exit(v)`) gives `returned`.
+//! Script functions: WriteU8/U16/U24/U32/U64/S8…S64/Float/Double(o, v) (byte order from `#pragma endian` /
+//! BigEndian() / LittleEndian(); WriteU32BE, WriteU16LE … fixed) WriteBytes(o, "DE AD") WriteString(o, "text"[, zero])
+//! InsertBytes(o, count[, fill]) DeleteBytes(o, count) Printf("%d %5x %08X %-4s %.2f %e %g %c %%", …)
+//! Print(a, b, …) (joined by spaces, plus a newline) Selection() (.start .length .end) SelectionStart()
+//! SelectionLength() Cursor() FileSize() Exit([value]) Assert(cond[, "message"]) Hash("sha256"[, o, length]) → hex
+//! Checksum("crc32"[, o, length]) → number FindAll("hex" | "text"[, asText]) → count, FindAt(i) → offset or -1.
+//! Limits: 1,000,000 loop iterations, 64 MiB of edit data, 16 MiB of output.
 mod eval;
 mod lexer;
 mod parser;
+#[cfg(test)]
+mod script_tests;
 #[cfg(test)]
 mod tests;
 
@@ -106,7 +124,39 @@ pub fn run(src: &dyn Bytes, args: &Value, progress: &mut Progress) -> Result<Val
     match failure {
         Some(eval::Fail::Cancelled) => return Err(CANCELLED.into()),
         Some(eval::Fail::Err((line, col), message)) => errors.push(json!({ "line": line, "col": col, "message": message })),
-        None => {}
+        Some(eval::Fail::Exit) | None => {}
     }
     Ok(json!({ "nodes": ctx.roots_json(), "errors": errors, "count": ctx.count() }))
+}
+
+/// Script mode: runs `args.source` with the script builtins (see the header). Read-only on `src`: the changes
+/// come back as `edits`, to apply in order as one undo step.
+pub fn run_script(src: &dyn Bytes, args: &Value, progress: &mut Progress) -> Result<Value, String> {
+    let text = args.str_or("source", "");
+    let program = match parser::parse(text) {
+        Ok(p) => p,
+        Err(e) => {
+            return Ok(json!({
+                "edits": [], "output": "", "returned": null, "size": src.len(), "completed": false,
+                "errors": [{ "line": e.line, "col": e.col, "message": e.message }],
+            }))
+        }
+    };
+    let offset = args.u64_or("offset", 0).min(src.len());
+    let max_nodes = args.u64_or("maxNodes", 1_000_000).clamp(1, 5_000_000) as usize;
+    let mut ctx = eval::Ctx::new(src, &program, offset, max_nodes, progress);
+    ctx.enable_script(args);
+    let failure = ctx.run();
+    let mut errors: Vec<Value> = ctx.warnings.iter().map(|((l, c), m)| json!({ "line": l, "col": c, "message": m, "warning": true })).collect();
+    let mut completed = true;
+    match failure {
+        Some(eval::Fail::Cancelled) => return Err(CANCELLED.into()),
+        Some(eval::Fail::Err((line, col), message)) => {
+            completed = false;
+            errors.push(json!({ "line": line, "col": col, "message": message }));
+        }
+        Some(eval::Fail::Exit) | None => {}
+    }
+    let r = ctx.script_result();
+    Ok(json!({ "edits": r.edits, "output": r.output, "returned": r.returned, "errors": errors, "size": r.size, "completed": completed }))
 }

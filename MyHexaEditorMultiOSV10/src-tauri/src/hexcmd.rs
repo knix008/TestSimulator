@@ -440,6 +440,104 @@ pub struct FileMatch {
     length: u64,
 }
 
+/// The files named in `paths`, folders walked (into sub-folders when `recursive`, at most 64 deep, 200 000 files).
+fn file_list(paths: &[PathBuf], recursive: bool) -> Vec<PathBuf> {
+    fn walk(dir: &Path, recursive: bool, out: &mut Vec<PathBuf>, depth: usize) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            match entry.file_type() {
+                Ok(t) if t.is_file() => out.push(p),
+                Ok(t) if t.is_dir() && recursive && depth < 64 => walk(&p, recursive, out, depth + 1),
+                _ => {}
+            }
+            if out.len() > 200_000 {
+                return;
+            }
+        }
+    }
+    let mut files = Vec::new();
+    for p in paths {
+        if p.is_dir() { walk(p, recursive, &mut files, 0) } else if p.is_file() { files.push(p.clone()) }
+    }
+    files
+}
+
+/// Replaces a pattern in every file (010 Editor "Replace in Files"): each file is read through the piece table,
+/// changed with the same replace-all as a document, and written back — in place when no byte moved, else through a
+/// temporary file swapped in. `backup` keeps the old file as `<name>.bak`. Returns what changed per file.
+#[tauri::command]
+pub async fn hex_replace_in_files(app: AppHandle, paths: Vec<PathBuf>, recursive: bool, pattern: Value, replacement: Value, backup: Option<bool>, op: String) -> Result<Value, String> {
+    blocking(move || {
+        hexcore::search::compile(&pattern)?;
+        let args = json!({ "pattern": pattern, "replacement": replacement });
+        hexcore::search::replacement(&args)?;
+        let files = file_list(&paths, recursive);
+        let total: u64 = files.iter().filter_map(|p| std::fs::metadata(p).ok()).map(|m| m.len()).sum::<u64>().max(1);
+        let mut report = progress(&app, &op);
+        let mut done = 0u64;
+        let mut changed = Vec::new();
+        let mut failed = Vec::new();
+        let mut replaced = 0u64;
+        for path in &files {
+            let one = (|| -> Result<u64, String> {
+                let source = FileSource::open(path)?;
+                let len = source.len();
+                let mut doc = Document::new(Arc::new(source), "");
+                let base = done;
+                let mut sub = |d: u64, _t: u64| report(base + d, total);
+                let n = hexcore::search::replace_all(&mut doc, &args, &mut sub)?;
+                done += len;
+                if n == 0 {
+                    return Ok(0);
+                }
+                if backup.unwrap_or(false) {
+                    let mut name = path.file_name().map(|x| x.to_os_string()).unwrap_or_default();
+                    name.push(".bak");
+                    std::fs::copy(path, path.with_file_name(name)).map_err(|e| tr!("백업을 만들 수 없습니다: {e}", "Could not make the backup: {e}"))?;
+                }
+                if let Some(patches) = doc.patches() {
+                    let mut file = std::fs::OpenOptions::new().write(true).open(path).map_err(|e| tr!("쓸 수 없습니다: {e}", "Could not write: {e}"))?;
+                    for (offset, bytes) in &patches {
+                        use std::io::Seek;
+                        file.seek(std::io::SeekFrom::Start(*offset)).map_err(|e| e.to_string())?;
+                        file.write_all(bytes).map_err(|e| e.to_string())?;
+                    }
+                    file.sync_all().map_err(|e| e.to_string())?;
+                } else {
+                    let temp = temp_beside(path);
+                    if let Err(error) = write_doc(&doc, &temp, &mut |_, _| true) {
+                        let _ = std::fs::remove_file(&temp);
+                        return Err(error);
+                    }
+                    // Let go of the old file before replacing it (Windows keeps open files).
+                    drop(doc);
+                    let mut renamed = std::fs::rename(&temp, path);
+                    for _ in 0..10 {
+                        if renamed.is_ok() {
+                            break;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        renamed = std::fs::rename(&temp, path);
+                    }
+                    renamed.map_err(|e| tr!("파일을 바꿀 수 없습니다({e}). 내용은 {} 에 있습니다.", "Could not replace the file ({e}). The data is in {}.", temp.display()))?;
+                }
+                Ok(n)
+            })();
+            match one {
+                Ok(0) => {}
+                Ok(n) => {
+                    replaced += n;
+                    changed.push(json!({ "path": path.display().to_string(), "count": n }));
+                }
+                Err(error) => failed.push(json!({ "path": path.display().to_string(), "error": error })),
+            }
+        }
+        Ok(json!({ "files": files.len(), "changed": changed, "failed": failed, "replaced": replaced }))
+    })
+    .await
+}
+
 /// Searches files (and folders, `recursive`) for a pattern without opening them as documents.
 /// Returns at most `limit` matches; files that cannot be read are skipped.
 #[tauri::command]
@@ -447,24 +545,7 @@ pub async fn hex_find_in_files(app: AppHandle, paths: Vec<PathBuf>, recursive: b
     blocking(move || {
         let matcher = hexcore::search::compile(&pattern)?;
         let limit = limit.unwrap_or(10_000).max(1);
-        let mut files = Vec::new();
-        fn walk(dir: &Path, recursive: bool, out: &mut Vec<PathBuf>, depth: usize) {
-            let Ok(entries) = std::fs::read_dir(dir) else { return };
-            for entry in entries.flatten() {
-                let p = entry.path();
-                match entry.file_type() {
-                    Ok(t) if t.is_file() => out.push(p),
-                    Ok(t) if t.is_dir() && recursive && depth < 64 => walk(&p, recursive, out, depth + 1),
-                    _ => {}
-                }
-                if out.len() > 200_000 {
-                    return;
-                }
-            }
-        }
-        for p in &paths {
-            if p.is_dir() { walk(p, recursive, &mut files, 0) } else if p.is_file() { files.push(p.clone()) }
-        }
+        let files = file_list(&paths, recursive);
         let total: u64 = files.iter().filter_map(|p| std::fs::metadata(p).ok()).map(|m| m.len()).sum::<u64>().max(1);
         let mut done = 0u64;
         let mut report = progress(&app, &op);

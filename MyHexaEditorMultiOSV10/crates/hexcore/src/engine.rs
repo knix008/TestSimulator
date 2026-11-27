@@ -25,7 +25,7 @@ pub struct Engine {
 }
 
 /// Methods that only read one document (and may run on a snapshot, off the lock, with progress).
-pub const READONLY: &[&str] = &["search", "findAll", "hash", "inspect", "stats", "strings", "detect", "carve", "template", "disasm", "export", "yara", "fsPartitions", "fsInfo", "fsList", "fsFile", "fsRead"];
+pub const READONLY: &[&str] = &["search", "findAll", "hash", "inspect", "stats", "strings", "detect", "carve", "template", "disasm", "export", "yara", "fsPartitions", "fsInfo", "fsList", "fsFile", "fsRead", "script", "patchApply"];
 
 fn file_arg(args: &Value) -> Value {
     let mut a = args.clone();
@@ -55,6 +55,10 @@ pub fn run_readonly(doc: &Document, method: &str, args: &Value, progress: &mut P
         "disasm" => crate::disasm::disasm(src, args),
         "export" => crate::export::export(src, args, progress),
         "yara" => crate::yara::scan(src, args, progress),
+        // 010 Editor-style scripts: the edits come back as a list the app applies as one undo step.
+        "script" => crate::pattern::run_script(src, args, progress),
+        // IPS / IPS32 / UPS / BPS patch files applied to the document (the result is the patched bytes).
+        "patchApply" => crate::patch::apply(src, args, progress),
         "fsPartitions" => crate::fsys::partitions(src, args),
         "fsInfo" => crate::fsys::info(src, args),
         "fsList" => crate::fsys::list(src, args),
@@ -226,6 +230,30 @@ impl Engine {
                 let count = crate::search::replace_all(d, args, progress)?;
                 Ok(json!({ "count": count, "info": self.info(id)? }))
             }
+            // A script's edits (pattern::run_script) as one undo step: each offset counts in the data as it is after
+            // the edits before it, which is what Document::edit expects.
+            "applyEdits" => {
+                let id = Self::id(args)?;
+                let list = args.get("edits").and_then(Value::as_array).ok_or("missing edits")?;
+                let mut edits = Vec::with_capacity(list.len());
+                for e in list {
+                    let offset = e.u64_or("offset", 0);
+                    let data = match e.get("data").and_then(Value::as_str) {
+                        Some(text) if !text.is_empty() => crate::util::unb64(text)?,
+                        _ => Vec::new(),
+                    };
+                    match e.str_or("op", "write") {
+                        "write" => { let n = data.len() as u64; edits.push((offset, n, data)) }
+                        "insert" => edits.push((offset, 0, data)),
+                        "delete" => edits.push((offset, e.u64_or("length", 0), Vec::new())),
+                        other => return Err(format!("unknown edit {other}")),
+                    }
+                }
+                let kind = args.str_or("kind", "script").to_string();
+                let d = self.doc_mut(id)?;
+                let (start, end) = d.edit(&kind, &edits, false)?;
+                Ok(json!({ "count": edits.len(), "start": start, "end": end, "info": self.info(id)? }))
+            }
             "operation" | "transform" => {
                 let id = Self::id(args)?;
                 let d = self.doc(id)?;
@@ -262,6 +290,13 @@ impl Engine {
             "encodeValue" => crate::inspect::encode(args),
             "evaluate" => crate::calc::evaluate(args),
             "yaraCheck" => crate::yara::check(args),
+            "demangle" => crate::demangle::demangle(args),
+            // A patch file from the differences of two documents (IPS, IPS32, UPS, BPS or a text listing).
+            "patchCreate" => {
+                let a = self.doc(args.u64_req("original")? as u32)?;
+                let b = self.doc(args.u64_req("modified")? as u32)?;
+                crate::patch::create(a, b, args, progress)
+            }
             "encode" => Ok(json!({ "data": b64(&crate::codec::encode(args.str_or("text", ""), args.str_or("encoding", "utf8"))?) })),
             "decode" => Ok(json!({ "text": crate::codec::decode(&args.data("data")?, args.str_or("encoding", "utf8")) })),
             _ => Err(format!("unknown method {method}")),

@@ -25,16 +25,63 @@ export function createToolHost(app) {
     if (which === 'selection') { if (!sel.length) throw new Error(t('tool.noSelection')); return { offset: sel.start, length: sel.length }; }
     return { offset: 0, length: tab.doc.len };
   };
+  /**
+   * Several terms at once (WinHex "simultaneous search"): one term per line — "text" in quotes (the chosen
+   * encoding and case), /regex/, anything else hex (with ?? wildcards). Lines starting with # are comments.
+   */
+  const termsOf = (pattern) => String(pattern.value ?? '').split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#')).map((line) => {
+    if (line.length > 1 && line.startsWith('"') && line.endsWith('"')) return { label: line, pattern: { kind: 'text', value: line.slice(1, -1), encoding: pattern.encoding ?? 'utf8', caseSensitive: pattern.caseSensitive !== false } };
+    if (line.length > 2 && line.startsWith('/') && line.lastIndexOf('/') > 0) return { label: line, pattern: { kind: 'regex', value: line.slice(1, line.lastIndexOf('/')), caseSensitive: !line.slice(line.lastIndexOf('/') + 1).includes('i') } };
+    return { label: line, pattern: { kind: 'hex', value: line } };
+  });
+  async function allMulti(tab, pattern, sc, op, countOnly = false) {
+    const terms = termsOf(pattern);
+    if (!terms.length) throw new Error(t('find.empty'));
+    const limit = app.settings().findAllLimit;
+    const all = [];
+    const termOf = new Map();
+    const perTerm = [];
+    let count = 0;
+    let truncated = false;
+    for (const term of terms) {
+      const r = await core('findAll', { id: tab.doc.id, pattern: term.pattern, limit, countOnly, ...sc }, op);
+      count += r.count;
+      perTerm.push({ term: term.label, count: r.count });
+      truncated ||= Boolean(r.truncated);
+      for (const m of r.matches ?? []) { all.push(m); if (!termOf.has(m[0])) termOf.set(m[0], term.label); }
+    }
+    all.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    if (all.length > limit) { all.length = limit; truncated = true; }
+    return { matches: all, count, truncated, terms: perTerm, termOf };
+  }
+  async function findMulti(tab, args, backwards) {
+    let best = null;
+    for (const term of termsOf(args.pattern)) {
+      const r = await find(tab, { ...args, pattern: term.pattern }, backwards, true);
+      // nearest first: a match without wrapping around beats one after the wrap
+      const key = (x) => [x.wrapped ? 1 : 0, backwards ? -x.match.offset : x.match.offset];
+      const better = (x, y) => { const [a1, b1] = key(x); const [a2, b2] = key(y); return a1 < a2 || (a1 === a2 && b1 < b2); };
+      if (r.match && (!best || better(r, best))) best = { ...r, term: term.label };
+    }
+    remember(args.pattern);
+    app.lastSearch = { pattern: args.pattern, wrap: args.wrap, scope: args.scope };
+    if (!best) return { found: false, message: t('find.notFound') };
+    tab.view.select(best.match.offset, best.match.offset + best.match.length, { center: true });
+    tab.lastMatchAt = best.match.offset;
+    return { found: true, message: t('find.multiFound', { term: best.term, offset: best.match.offset.toString(16).toUpperCase() }) };
+  }
   const remember = (pattern) => {
     const list = [{ kind: pattern.kind, value: pattern.value }, ...app.settings().searchHistory.filter((x) => !(x.kind === pattern.kind && x.value === pattern.value))].slice(0, 30);
     app.updateSettings({ searchHistory: list, searchKind: pattern.kind, searchEncoding: pattern.encoding ?? app.settings().searchEncoding, searchCase: pattern.caseSensitive !== false }, { quiet: true });
   };
 
-  async function find(tab, args, backwards) {
+  /** One search from the caret; `probe` only looks (no selection, no history) — used by the multi-term search. */
+  async function find(tab, args, backwards, probe = false) {
     const sc = scope(tab, args.scope);
     const sel = tab.view.selection();
     const from = backwards ? (sel.length ? sel.start : tab.view.caret) : (sel.length ? sel.start + 1 : tab.view.caret + (tab.lastMatchAt === tab.view.caret ? 1 : 0));
     const r = await app.withProgress('progress.search', tab.doc.name, (op) => core('search', { id: tab.doc.id, pattern: args.pattern, from, backwards, wrap: args.wrap !== false, ...sc }, op), { cancellable: true, delay: 400 });
+    if (probe) return { found: Boolean(r.match), match: r.match, wrapped: r.wrapped };
     remember(args.pattern);
     app.lastSearch = { pattern: args.pattern, wrap: args.wrap, scope: args.scope };
     if (!r.match) return { found: false, message: t('find.notFound') };
@@ -51,12 +98,12 @@ export function createToolHost(app) {
     },
     select({ offset, length }) { const tab = need(); tab.view.select(offset, offset + Math.max(1, length), { center: true }); tab.view.focus(); return true; },
     async copy({ text }) { await app.copyText(text); return true; },
-    async findNext(args) { return find(need(), args, false); },
-    async findPrev(args) { return find(need(), args, true); },
+    async findNext(args) { return args.pattern?.kind === 'multi' ? findMulti(need(), args, false) : find(need(), args, false); },
+    async findPrev(args) { return args.pattern?.kind === 'multi' ? findMulti(need(), args, true) : find(need(), args, true); },
     async findAll(args) {
       const tab = need();
       const sc = scope(tab, args.scope);
-      const r = await app.withProgress('progress.search', tab.doc.name, (op) => core('findAll', { id: tab.doc.id, pattern: args.pattern, limit: app.settings().findAllLimit, ...sc }, op), { cancellable: true, delay: 400 });
+      const r = await app.withProgress('progress.search', tab.doc.name, (op) => (args.pattern?.kind === 'multi' ? allMulti(tab, args.pattern, sc, op) : core('findAll', { id: tab.doc.id, pattern: args.pattern, limit: app.settings().findAllLimit, ...sc }, op)), { cancellable: true, delay: 400 });
       remember(args.pattern);
       tab.doc.marks.search = r.matches.slice(0, 50000).map(([o, l]) => ({ start: o, end: o + l }));
       tab.view.schedule();
@@ -67,12 +114,13 @@ export function createToolHost(app) {
         previews.push([...tab.doc.slice(o, 12)].map((b) => b.toString(16).padStart(2, '0').toUpperCase()).join(' '));
       }
       if (r.matches[0]) tab.view.select(r.matches[0][0], r.matches[0][0] + r.matches[0][1], { center: true });
-      return { ...r, previews, message: t('find.results', { n: r.count.toLocaleString() }) };
+      if (r.terms) for (const [i, [o]] of r.matches.slice(0, 300).entries()) previews[i] = `${r.termOf.get(o) ?? ''} · ${previews[i]}`;
+      return { ...r, termOf: undefined, previews, message: t('find.results', { n: r.count.toLocaleString() }) };
     },
     async count(args) {
       const tab = need();
       const sc = scope(tab, args.scope);
-      const r = await app.withProgress('progress.search', tab.doc.name, (op) => core('findAll', { id: tab.doc.id, pattern: args.pattern, countOnly: true, ...sc }, op), { cancellable: true, delay: 400 });
+      const r = await app.withProgress('progress.search', tab.doc.name, (op) => (args.pattern?.kind === 'multi' ? allMulti(tab, args.pattern, sc, op, true) : core('findAll', { id: tab.doc.id, pattern: args.pattern, countOnly: true, ...sc }, op)), { cancellable: true, delay: 400 });
       return { found: r.count > 0, message: t('find.countResult', { n: r.count.toLocaleString() }) };
     },
     async replace(args) {
@@ -281,7 +329,8 @@ export function createToolHost(app) {
             break;
           }
           case 'showHex': need(1); out = ins[0]; break;
-          case 'newTab': need(1); out = ins[0]; await app.editor.openBytesAs(out, p.name || 'processed-data.bin'); break;
+          // a copy: opening hands its buffer to the core's worker
+          case 'newTab': need(1); out = ins[0]; await app.editor.openBytesAs(out.slice(), p.name || 'processed-data.bin'); break;
           case 'writeCaret': {
             need(1);
             out = ins[0];
@@ -309,6 +358,90 @@ export function createToolHost(app) {
         }
         return { nodes: result };
       }, { delay: 300 });
+    },
+    /**
+     * Runs a script (010 Editor style) on the active document. Its edits are applied as one undo step — only when
+     * the script ran to the end; a script stopped by an error changes nothing.
+     */
+    async runScript({ source }) {
+      const tab = need();
+      const sel = tab.view.selection();
+      const r = await app.withProgress('progress.method.script', tab.doc.name, (op) => core('script', { id: tab.doc.id, source, selStart: sel.length ? sel.start : tab.view.caret, selLength: sel.length, cursor: tab.view.caret }, op), { cancellable: true, delay: 300 });
+      const edits = r.edits ?? [];
+      let applied = false;
+      if (edits.length && r.completed !== false && !(r.errors ?? []).some((e) => !e.warning)) {
+        const done = await core('applyEdits', { id: tab.doc.id, edits, kind: 'script' });
+        tab.doc.changed(done.info);
+        tab.view?.schedule();
+        applied = true;
+      }
+      return { output: r.output ?? '', returned: r.returned ?? null, errors: r.errors ?? [], edits: edits.length, applied, completed: r.completed !== false, size: applied ? tab.doc.len : r.size ?? tab.doc.len };
+    },
+    /** A patch file from two open documents (IPS, IPS32, UPS, BPS, or a text listing of the differences). */
+    async patchCreate({ original, modified, format }) {
+      if (original === modified) throw new Error(t('patch.sameDocument'));
+      const r = await app.withProgress('progress.method.patch', t('tool.patch'), (op) => core('patchCreate', { original, modified, format }, op), { cancellable: true, delay: 300 });
+      return { ...r, text: format === 'diff' ? new TextDecoder().decode(fromBase64(r.data)) : null };
+    },
+    async patchSave({ data, format }) {
+      const tab = app.editor.active();
+      const name = `${(tab?.doc.name ?? 'patch').replace(/\.[^.]*$/, '')}.${format === 'diff' ? 'txt' : format}`;
+      if (app.desktop) {
+        const path = await native.chooseSavePath(name, ['all']);
+        if (!path) return false;
+        await native.writeBase64File(path, data, '');
+      } else await native.saveFileWeb(fromBase64(data), { name, saveAs: true, mime: 'application/octet-stream' });
+      app.notify('success', t('notice.saved', { name }));
+      return true;
+    },
+    /** Applies a chosen patch file to the active document: the result in a new tab, or in place as one undo step. */
+    async patchApplyFile({ target, force }) {
+      const tab = need();
+      let patch;
+      let patchName;
+      if (app.desktop) {
+        const [path] = await native.chooseAnyFiles(app.settings().lastDirectory, false);
+        if (!path) return null;
+        patch = await native.readBase64File(path);
+        patchName = baseName(path);
+      } else {
+        const [picked] = await native.pickOpenWeb(false);
+        if (!picked) return null;
+        patch = toBase64(new Uint8Array(await picked.file.arrayBuffer()));
+        patchName = picked.file.name;
+      }
+      return ops.patchApplyData({ patch, target, force, name: patchName, tab });
+    },
+    /** The same with the patch bytes given (base64) — also what the tests use. */
+    async patchApplyData({ patch, target = 'new', force = false, name = 'patch', tab = need() }) {
+      const r = await app.withProgress('progress.method.patch', tab.doc.name, (op) => core('patchApply', { id: tab.doc.id, patch, format: 'auto', force }, op), { cancellable: true, delay: 300 });
+      const bytes = fromBase64(r.data);
+      if (target === 'replace') await app.editor.edit(tab.doc, 'replace', { offset: 0, length: tab.doc.len, data: bytes, kind: 'patch' });
+      else await app.editor.openBytesAs(bytes, `${tab.doc.name.replace(/(\.[^.]*)?$/, '.patched$1')}`);
+      app.notify('success', t('patch.appliedNotice', { name, format: r.format.toUpperCase() }));
+      const checks = r.checks && Object.values(r.checks).some((v) => v != null) ? r.checks : null;
+      return { format: r.format, size: r.size, records: r.records, checks, ok: !checks || Object.values(checks).every((v) => v !== false) };
+    },
+    /** Mangled C++ / Rust names among the document's strings, demangled, with their offsets in the document. */
+    async demangleDocument() {
+      const tab = need();
+      const found = await app.withProgress('progress.strings', tab.doc.name, (op) => core('strings', { id: tab.doc.id, minLength: 4, encodings: ['ascii', 'utf8'], limit: 200000, offset: 0, length: tab.doc.len }, op), { cancellable: true });
+      const list = found.strings ?? found.items ?? found;
+      let text = '';
+      const starts = [];
+      for (const s of list) { starts.push([text.length, s.offset]); text += `${s.text}\n`; }
+      const names = await core('demangle', { text });
+      // back from an offset in the joined text to the document
+      const at = (o) => { let lo = 0; let hi = starts.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (starts[mid][0] <= o) lo = mid; else hi = mid - 1; } return starts[lo] ? starts[lo][1] + (o - starts[lo][0]) : null; };
+      return names.map((x) => ({ ...x, ok: x.ok !== false, offset: x.offset != null ? at(x.offset) : null }));
+    },
+    /** The bytes the visualizer draws: the selection, from the caret, or the document (at most `max`). */
+    visualRange({ source, max }) {
+      const tab = need();
+      const sel = tab.view.selection();
+      if (source === 'selection' && sel.length) return { offset: sel.start, length: Math.min(sel.length, max) };
+      const offset = source === 'caret' ? Math.min(tab.view.caret, tab.doc.len) : 0;
+      return { offset, length: Math.min(tab.doc.len - offset, max) };
     },
     async yaraScan({ rules, scope: which }) {
       const tab = need();
@@ -378,6 +511,44 @@ export function createToolHost(app) {
         return { matches: out, files: list.length, searched: list.length, truncated: out.length >= app.settings().findAllLimit };
       }, { delay: 300 });
     },
+    /**
+     * Replace in files (010 Editor): every match in every chosen file (folders walked on the desktop) is replaced
+     * and the files are written back — after a confirmation, optionally keeping <name>.bak copies (desktop).
+     * Web: files picked through File System Access are written back; others come back as downloads.
+     */
+    async replaceInFiles({ pattern, replacement, files, recursive, backup }) {
+      const choice = await app.ask({ kind: 'replaceInFiles', icon: 'warning', title: t('find.replaceInFiles'), message: t('find.replaceInFilesAsk', { n: files.length, backup: backup ? t('find.withBackup') : t('find.noBackup') }), buttons: [{ id: 'cancel', label: t('common.cancel'), primary: true }, { id: 'replace', label: t('find.replaceInFiles'), icon: 'replaceAll', danger: true }] });
+      if (choice !== 'replace') return null;
+      remember(pattern);
+      if (app.desktop) {
+        return app.withProgress('progress.method.replaceAll', t('find.replaceInFiles'), (op) => native.invoke('hex_replace_in_files', { paths: files.map((f) => f.path), recursive, pattern, replacement, backup: Boolean(backup), op }), { delay: 300, cancellable: true });
+      }
+      return app.withProgress('progress.method.replaceAll', t('find.replaceInFiles'), async (op, report) => {
+        const changed = [];
+        const failed = [];
+        let replaced = 0;
+        for (const [i, f] of files.entries()) {
+          const file = app.webFiles?.[f.web];
+          if (!file) continue;
+          report({ fraction: i / files.length, text: file.name });
+          try {
+            const info = await openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+            try {
+              const n = Number(await core('replaceAll', { id: info.id, pattern, replacement }, 'replace-in-files')) || 0;
+              if (n) {
+                const bytes = fromBase64((await core('slice', { id: info.id }, 'replace-in-files')).data);
+                const handle = app.webHandles?.[f.web];
+                if (handle?.createWritable) { const w = await handle.createWritable(); await w.write(bytes); await w.close(); app.webFiles[f.web] = await handle.getFile(); }
+                else await native.saveFileWeb(bytes, { name: file.name, saveAs: false, mime: 'application/octet-stream' });
+                replaced += n;
+                changed.push({ path: file.name, count: n, downloaded: !handle?.createWritable });
+              }
+            } finally { await core('close', { id: info.id }); }
+          } catch (error) { failed.push({ path: file.name, error: native.errorText(error) }); }
+        }
+        return { files: files.length, changed, failed, replaced };
+      }, { delay: 300 });
+    },
     async openMatch({ path, web, offset, length }) {
       let tab;
       if (app.desktop) tab = await app.editor.openPath(path);
@@ -399,6 +570,8 @@ export function createToolHost(app) {
       }
       const picked = await native.pickOpenWeb(true);
       app.webFiles = [...(app.webFiles ?? []), ...picked.map((x) => x.file)];
+      // File System Access handles (Chrome, Edge) let "replace in files" write the files back.
+      app.webHandles = [...(app.webHandles ?? []), ...picked.map((x) => x.handle ?? null)];
       return picked.map((x) => ({ name: x.file.name, size: x.file.size, web: app.webFiles.indexOf(x.file) }));
     },
     async split({ size }) {

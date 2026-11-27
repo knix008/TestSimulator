@@ -25,7 +25,7 @@ const POPUP_KINDS: &[&str] = &[
     "settings", "about", "confirm", "error", "progress", "recent", "menu", "welcome", "color", "prompt", "print", "suggest",
     // the tool windows (src/tools/toolwin.js TOOL_SIZES)
     "form", "find", "goto", "strings", "disasm", "calc", "carve", "devices", "compare", "template", "history", "filetools", "processor",
-    "filesystem", "yara",
+    "filesystem", "yara", "visualizer", "script", "patch", "demangle",
 ];
 
 #[derive(Default)]
@@ -912,6 +912,7 @@ pub fn run() {
             hexcmd::hex_list_processes,
             hexcmd::hex_process_regions,
             hexcmd::hex_find_in_files,
+            hexcmd::hex_replace_in_files,
             open_render_window,
             take_render_job,
             close_render_window,

@@ -28,6 +28,7 @@ ctr = "0.9"
 ecb = { version = "0.1", features = ["alloc"] }
 cipher = { version = "0.4", features = ["alloc", "block-padding"] }
 miniz_oxide = "0.8"
+lzfse_rust = "0.2"
 blowfish = "0.9"
 twofish = "0.7"
 cast5 = "0.11"
@@ -38,5 +39,17 @@ salsa20 = "0.10"
 iced-x86 = { version = "1", default-features = false, features = ["std", "decoder", "intel", "nasm", "gas", "masm"] }
 yaxpeax-arch = "0.3"
 yaxpeax-arm = "0.3"
+yaxpeax-power = { version = "0.1", default-features = false, features = ["std", "fmt"] }
+yaxpeax-msp430 = "0.2"
+yaxpeax-6502 = "0.0.2"
+yaxpeax-avr = "0.1"
+yaxpeax-superh = { version = "1", default-features = false, features = ["yaxpeax", "std"] }
+# yaxpeax-6502 / -avr / -superh implement the older yaxpeax-arch 0.2 traits
+arch02 = { package = "yaxpeax-arch", version = "0.2", default-features = false, features = ["std"] }
+
+# symbol demangling (C++ Itanium / MSVC, Rust)
+cpp_demangle = "0.6"
+msvc-demangler = "0.11"
+rustc-demangle = "0.1"
 
 [dev-dependencies]

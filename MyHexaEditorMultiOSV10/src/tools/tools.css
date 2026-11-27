@@ -37,6 +37,14 @@
 .tw-asm b { min-width: 7ch; text-align: left; color: var(--accent); }
 .tw-code { flex: 1; min-height: 360px; resize: none; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--chart, var(--surface)); color: var(--text); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; line-height: 1.45; tab-size: 4; white-space: pre; }
 .tw-template .tw-code { height: 470px; }
+.tw-visualizer .vis-wrap { flex: 1; min-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; background: repeating-conic-gradient(var(--surface) 0 25%, var(--chart, var(--surface-2, #eee)) 0 50%) 0 0 / 16px 16px; }
+.tw-visualizer .vis-canvas { display: block; image-rendering: pixelated; cursor: crosshair; }
+.tw-visualizer .tw-field input { width: 72px; }
+.tw-script .script-code { flex: none; height: 330px; }
+.tw-script .script-output { max-height: 180px; overflow: auto; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--chart, var(--surface)); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; white-space: pre-wrap; }
+.tw-demangle .demangle-input { flex: none; height: 150px; }
+.tw-patch .tw-output, .tw-demangle .tw-output { max-height: 220px; overflow: auto; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; white-space: pre; }
+.find-terms { width: 100%; min-height: 96px; height: 110px; flex: none; }
 .tw-yara .yara-code { flex: none; height: 300px; min-height: 200px; }
 .tw-filesystem .fs-parts { max-height: 150px; overflow: auto; }
 .tw-filesystem .tw-item.muted .tw-text { text-decoration: line-through; }

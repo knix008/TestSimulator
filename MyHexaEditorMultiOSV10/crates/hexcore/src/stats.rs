@@ -163,7 +163,7 @@ mod tests {
         let data: Vec<u8> = (0..600_000).map(|_| { x ^= x << 13; x ^= x >> 7; x ^= x << 17; (x >> 24) as u8 }).collect();
         let r = stats(&data, &json!({ "offset": 0 }), &mut no_progress()).unwrap();
         assert!(r["entropy"].as_f64().unwrap() > 7.99);
-        assert!((r["monteCarloPi"].as_f64().unwrap() - 3.14159).abs() < 0.05);
+        assert!((r["monteCarloPi"].as_f64().unwrap() - std::f64::consts::PI).abs() < 0.05);
         assert!(r["serialCorrelation"].as_f64().unwrap().abs() < 0.02);
     }
 }

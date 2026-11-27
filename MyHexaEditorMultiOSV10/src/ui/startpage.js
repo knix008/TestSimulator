@@ -59,7 +59,7 @@ function samplesBody() {
     <p class="start-note muted">${icon('info')}<span>${escapeHtml(t('start.samplesNote'))}</span></p>`;
 }
 
-const TOOL_TILES = [['strings', 'textStrings'], ['disasm', 'cpu'], ['calc', 'calculate'], ['carve', 'recover'], ['devices', 'drive'], ['compare', 'compare'], ['template', 'code'], ['processor', 'operation'], ['filesystem', 'disk'], ['yara', 'shieldCheck'], ['filetools', 'fileTools']];
+const TOOL_TILES = [['strings', 'textStrings'], ['disasm', 'cpu'], ['calc', 'calculate'], ['carve', 'recover'], ['devices', 'drive'], ['compare', 'compare'], ['template', 'code'], ['processor', 'operation'], ['filesystem', 'disk'], ['yara', 'shieldCheck'], ['visualizer', 'image'], ['script', 'code'], ['patch', 'patch'], ['demangle', 'code'], ['filetools', 'fileTools']];
 function toolsBody(app) {
   return `<div class="start-actions start-tools-grid">${TOOL_TILES.filter(([id]) => app.desktop || id !== 'devices').map(([id, glyph]) => tile('tool', glyph, t(`tool.${id}`), t(`start.tool.${id}`), { value: id })).join('')}</div>
     <p class="start-note muted">${icon('info')}<span>${escapeHtml(t('start.toolsNote'))}</span></p>`;

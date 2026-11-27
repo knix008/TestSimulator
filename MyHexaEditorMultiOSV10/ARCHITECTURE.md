@@ -35,10 +35,12 @@
 | `strings.rs` | ASCII·UTF-8·UTF-16 LE/BE 문자열(청크 경계 상태 유지) |
 | `compare.rs` | 같은 위치 비교, Myers 차이(끼워 넣기·삭제) |
 | `magic.rs` | 70가지 형식 감지(세부 정보·템플릿 연결), 26가지 카빙 |
-| `pattern/` | 템플릿 언어(lexer·parser·eval: 사용자 함수, 다차원 배열, `parent`, 정적 `sizeof`)와 내장 템플릿 18가지(`builtin/*.hexpat`) |
+| `pattern/` | 템플릿 언어(lexer·parser·eval: 사용자 함수, 다차원 배열, `parent`, 정적 `sizeof`; 노드에 고쳐 쓰기용 형식·바이트 순서)와 내장 템플릿 18가지(`builtin/*.hexpat`), 스크립트 모드(`script`: Write*·InsertBytes·DeleteBytes·Printf, 편집 목록을 돌려주고 앱은 `applyEdits`로 한 단계에 적용) |
 | `fsys/` | 파티션(`part.rs`: MBR·EBR·GPT)과 파일 시스템(`fat.rs` FAT12/16/32, `exfat.rs`, `ntfs.rs`, `ext.rs` ext2/3/4): 목록·지운 파일·파일 범위(extents)·읽기. 메서드 `fsPartitions`·`fsInfo`·`fsList`·`fsFile`·`fsRead`(파일 id는 `file`) |
+| `patch.rs` | IPS·IPS32·UPS·BPS 패치 만들기·적용(CRC 확인), 차이 목록. `patchCreate`·`patchApply` |
+| `demangle.rs` | C++(Itanium·MSVC)·Rust 심볼 이름 풀기, 글 속에서 찾기. `demangle` |
 | `yara.rs` | YARA 규칙의 흔한 부분집합: 텍스트(nocase·wide·fullword)·16진수(와일드카드·점프·대안)·정규식 문자열, 조건식 전부, 청크 단위 검색과 진행률. 메서드 `yara`·`yaraCheck` |
-| `disasm.rs` | iced-x86(Intel·NASM·MASM·GAS), yaxpeax-arm(A32·Thumb·AArch64) |
+| `disasm.rs` | iced-x86(Intel·NASM·MASM·GAS), yaxpeax-arm(A32·Thumb·AArch64)·power·superh·6502·avr·msp430, 직접 만든 MIPS32/64·RISC-V RV32/64GC·Z80·8080 디코더 (목록은 `src/domain/archs.js`와 같아야 함 — 단위 시험) |
 | `export.rs` | 26가지 내보내기, 가져오기(체크섬 확인) |
 | `calc.rs`, `codec.rs`, `util.rs`, `engine.rs` | 계산기, 인코딩, 공통 도구, 디스패치(`run_readonly`는 스냅숏에서) |
 
@@ -69,6 +71,8 @@
 출력은 열이 맞는 컬러 진행 줄, 범주별 표, 통과율 막대가 있는 요약표이며 모두 영어입니다. 건너뛰는 시험은 없습니다: 디버그 exe가 없으면 먼저 빌드하고, 조건이 안 맞으면 실패로 알립니다.
 
 ## 6. 새 기능을 더할 때
+
+- **기능 점검표** `test/features.mjs`: 기능마다 출처 프로그램, 구현(명령·코어 메서드·호스트 연산·Tauri 명령·파일), 증명하는 시험을 적습니다. `test/unit/features.test.js`가 구현과 시험이 실제로 있는지 확인하므로, 새 기능은 줄 하나와 시험을 함께 더합니다.
 
 - **명령**: `src/app.js`의 `commands`에 `{ icon, label, key, enabled, checked, run }`, 메뉴(`MENUS`/`SUBMENUS`), 툴바(`TOOLBAR` — 도구는 툴바에), 단축키(`SHORTCUTS`, popup.js `SHORTCUT_LIST`), 텍스트는 `src/i18n/app-texts.js`, 아이콘은 `src/icons-hex.js`. 웹 E2E의 "모든 명령" 사례가 자동으로 실행해 봅니다.
 - **바이트를 이해하는 일**은 `crates/hexcore`에 넣고 `engine.rs`에 메서드를 엽니다 — 데스크톱과 웹이 함께 얻습니다.

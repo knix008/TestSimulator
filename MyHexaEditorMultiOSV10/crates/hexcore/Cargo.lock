@@ -47,6 +47,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "bitflags"
+version = "1.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
+
+[[package]]
+name = "bitflags"
+version = "2.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
+
+[[package]]
 name = "bitvec"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -195,6 +207,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
+name = "cpp_demangle"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b0fa7b695ebf7023a5af95490233db9d2987c212ce56ec1cf831763f9deaf80"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -325,17 +346,21 @@ dependencies = [
  "cbc",
  "chacha20",
  "cipher",
+ "cpp_demangle",
  "crc",
  "ctr",
  "des",
  "ecb",
  "encoding_rs",
  "iced-x86",
+ "lzfse_rust",
  "md-5",
  "md4",
  "miniz_oxide",
+ "msvc-demangler",
  "regex",
  "ripemd",
+ "rustc-demangle",
  "salsa20",
  "serde",
  "serde_json",
@@ -343,8 +368,14 @@ dependencies = [
  "sha2",
  "sha3",
  "twofish",
- "yaxpeax-arch",
+ "yaxpeax-6502",
+ "yaxpeax-arch 0.2.8",
+ "yaxpeax-arch 0.3.3",
  "yaxpeax-arm",
+ "yaxpeax-avr",
+ "yaxpeax-msp430",
+ "yaxpeax-power",
+ "yaxpeax-superh",
 ]
 
 [[package]]
@@ -394,6 +425,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
+name = "lzfse_rust"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5edeac3ec657925dececc672bdd58fa2212291886ddcb3e08aa46924c78340c6"
+
+[[package]]
 name = "md-5"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -425,6 +462,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fa76a2c86f704bdb222d66965fb3d63269ce38518b83cb0575fca855ebb6316"
 dependencies = [
  "adler2",
+]
+
+[[package]]
+name = "msvc-demangler"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbeff6bd154a309b2ada5639b2661ca6ae4599b34e8487dc276d2cd637da2d76"
+dependencies = [
+ "bitflags 2.13.2",
+ "itoa",
 ]
 
 [[package]]
@@ -503,6 +550,12 @@ checksum = "bd124222d17ad93a644ed9d011a40f4fb64aa54275c08cc216524a9ea82fb09f"
 dependencies = [
  "digest",
 ]
+
+[[package]]
+name = "rustc-demangle"
+version = "0.1.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b74b56ffa8bb2830709a538c2cbcae9aa062db0d2a42563bfb09bdaae44020eb"
 
 [[package]]
 name = "rustversion"
@@ -672,6 +725,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "yaxpeax-6502"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e89d220a799f57094ad0a58c16b2c3b7730e8f1404665bee5f10e039e7c17c3"
+dependencies = [
+ "yaxpeax-arch 0.2.8",
+]
+
+[[package]]
+name = "yaxpeax-arch"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f005c964432a1f9ee04598e094a3eb5f7568f6b33e89a2762d7bef6fbe8b255"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "yaxpeax-arch"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -691,7 +762,44 @@ dependencies = [
  "bitvec",
  "serde",
  "serde_derive",
- "yaxpeax-arch",
+ "yaxpeax-arch 0.3.3",
+]
+
+[[package]]
+name = "yaxpeax-avr"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94153e4e363dd4b0bea761ce9615647f2a29a9c3d46d3467c776969eb2b4e91c"
+dependencies = [
+ "yaxpeax-arch 0.2.8",
+]
+
+[[package]]
+name = "yaxpeax-msp430"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40c1711ed166c1082be771cf9beb6c24160b83691079704a8f59b6d9cb8bed36"
+dependencies = [
+ "yaxpeax-arch 0.3.3",
+]
+
+[[package]]
+name = "yaxpeax-power"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb6533869ef8881967b51ba3df48452aec2b4d78b6e622b0bf69fdf245f345b7"
+dependencies = [
+ "yaxpeax-arch 0.3.3",
+]
+
+[[package]]
+name = "yaxpeax-superh"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4665f01ebefec9c082f98a15a99c1834de876797c74a7ae2b41716949c45d865"
+dependencies = [
+ "bitflags 1.3.2",
+ "yaxpeax-arch 0.2.8",
 ]
 
 [[package]]

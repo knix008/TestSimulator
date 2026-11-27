@@ -213,6 +213,304 @@ export const cases = [
     },
   },
   {
+    group: 'Tools',
+    name: 'Data visualizer: bytes as a picture in each pixel format, digram, entropy map; a pixel click selects its bytes',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'mixed' }); T.view().select(0x3000, 0x3000); A.run('visualizer'); await T.popupReady('visualizer'); const d = () => T.popupDoc('visualizer');
+        await T.until(() => d().querySelector('[data-vis-canvas]')?.width > 1, 8000, 'pixels');
+        const out = { modes: d().querySelectorAll('[data-tw="vis-mode"] option').length, sizes: {} };
+        for (const mode of ['gray8', 'rgb24', 'rgba32', 'rgb565', 'bits1', 'nibble4', 'digram', 'entropy']) {
+          T.fill('visualizer', '[data-tw="vis-mode"]', mode); await T.frames(2);
+          const c = d().querySelector('[data-vis-canvas]'); out.sizes[mode] = [c.width, c.height];
+        }
+        T.fill('visualizer', '[data-tw="vis-mode"]', 'gray8'); T.fill('visualizer', '[data-tw="vis-width"]', '64'); await T.frames(2);
+        const c = d().querySelector('[data-vis-canvas]'); const box = c.getBoundingClientRect();
+        // the pixel at (3, 2) of a 64-wide 8-bit picture is byte 2*64+3 of the document
+        c.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: box.left + (3.5 / c.width) * box.width, clientY: box.top + (2.5 / c.height) * box.height }));
+        // one byte: the caret moves there (a 1-byte range is the caret in this editor)
+        await T.until(() => T.view().caret === 2 * 64 + 3, 5000, 'selected');
+        const sel = { start: T.view().caret, length: 1 };
+        const nonBlank = [...c.getContext('2d').getImageData(0, 0, c.width, c.height).data].some((x, i) => i % 4 !== 3 && x > 0);
+        await A.popups.closeAll();
+        return { ...out, sel: [sel.start, sel.length], nonBlank };`);
+      assert.equal(r.modes, 11);
+      assert.deepEqual(r.sizes.digram, [256, 256]);
+      assert.equal(r.sizes.gray8[0], 256);
+      assert.ok(r.sizes.rgb24[1] < r.sizes.gray8[1], 'three bytes per RGB pixel');
+      assert.deepEqual(r.sel, [2 * 64 + 3, 1]);
+      assert.ok(r.nonBlank);
+    },
+  },
+  {
+    group: 'Properties',
+    name: 'Structure tree: a value typed in is written with the field\'s type and byte order (PNG width, big-endian u32)',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'png' }); await A.app.runTemplate(A.editor.active(), { template: 'png' }); A.app.setRightTab('structure');
+        await T.until(() => document.querySelector('[data-tp-edit]'), 5000, 'tree');
+        const row = [...document.querySelectorAll('[data-tp-node]')].find((x) => x.querySelector('.nm')?.textContent === 'width');
+        const offset = Number.parseInt(row.querySelector('.of').textContent, 16);
+        row.querySelector('[data-tp-edit]').click(); await T.popupReady('form');
+        T.fill('form', '[data-tw-field="value"]', '100'); T.click('form', '[data-tw-act="form-ok"]');
+        await T.until(async () => (await T.bytes(offset, 4))[3] === 100, 5000, 'written');
+        await T.until(() => [...document.querySelectorAll('[data-tp-node]')].find((x) => x.querySelector('.nm')?.textContent === 'width')?.querySelector('.vl')?.textContent.startsWith('100'), 5000, 'tree refreshed');
+        return { bytes: await T.bytes(offset, 4) };`);
+      assert.deepEqual(r.bytes, [0, 0, 0, 100]);
+    },
+  },
+  {
+    group: 'Editing',
+    name: 'Edit history: three edits listed, jump back to the first step and forward to the last',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'text' }); const d = T.doc(); const orig = await T.bytes(0, 3);
+        for (const [o, v] of [[0, 0x11], [1, 0x22], [2, 0x33]]) await A.editor.edit(d, 'write', { offset: o, data: new Uint8Array([v]), kind: 'test' });
+        const h = await A.toolHost.ops.history();
+        await A.toolHost.ops.gotoHistory({ depth: 1 }); const first = await T.bytes(0, 3);
+        await A.toolHost.ops.gotoHistory({ depth: 0 }); const none = await T.bytes(0, 3);
+        await A.toolHost.ops.gotoHistory({ depth: 3 }); const all = await T.bytes(0, 3);
+        A.run('history'); await T.popupReady('history'); await T.until(() => T.popupDoc('history').querySelectorAll('.tw-item').length >= 3, 5000, 'listed');
+        const rows = T.popupDoc('history').querySelectorAll('.tw-item').length; await A.popups.closeAll();
+        return { steps: h.undo.length, first, none, all, orig, rows };`);
+      assert.equal(r.steps, 3);
+      assert.deepEqual(r.first, [0x11, r.orig[1], r.orig[2]]);
+      assert.deepEqual(r.none, r.orig);
+      assert.deepEqual(r.all, [0x11, 0x22, 0x33]);
+      assert.ok(r.rows >= 3);
+    },
+  },
+  {
+    group: 'Editing',
+    name: 'Select block window: a start and a length (or an end) select exactly that range',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'mixed' }); A.run('selectBlock'); await T.popupReady('form');
+        T.fill('form', '[data-tw-field="start"]', '0x100'); T.fill('form', '[data-tw-field="value"]', '0x20'); T.click('form', '[data-tw-act="form-ok"]');
+        await T.until(() => T.view().selection().length === 0x20, 5000, 'selected'); const a = T.view().selection();
+        A.run('selectBlock'); await T.popupReady('form'); T.popupDoc('form').querySelector('[data-tw-seg="how"][data-value="end"]').click(); await T.sleep(100);
+        T.fill('form', '[data-tw-field="start"]', '16'); T.fill('form', '[data-tw-field="value"]', '31'); T.click('form', '[data-tw-act="form-ok"]');
+        await T.until(() => T.view().selection().start === 16, 5000, 'selected 2'); const b = T.view().selection();
+        return { a: [a.start, a.length], b: [b.start, b.end] };`);
+      assert.deepEqual(r.a, [0x100, 0x20]);
+      assert.equal(r.b[0], 16);
+      assert.ok(r.b[1] === 31 || r.b[1] === 32, `end ${r.b[1]}`);
+    },
+  },
+  {
+    group: 'Editing',
+    name: 'Text mode: the document as text in the text editor, edited and applied back as bytes in one undo step',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'text' }); A.app.updateSettings({ charset: 'utf8' }); const tab = A.app.activeTab(); const len = T.doc().len;
+        await A.run('textMode'); await T.until(() => tab.textEditor, 8000, 'editor');
+        const text = tab.textEditor.text();
+        tab.textEditor.view?.dispatch?.({ changes: { from: 0, to: 0, insert: 'HELLO ' } });
+        if (!tab.textEditor.text().startsWith('HELLO ')) { tab.textValue = 'HELLO ' + text; }
+        document.querySelector('[data-text-apply]').click();
+        await T.until(() => T.doc().len === len + 6, 8000, 'applied');
+        const head = new TextDecoder().decode(new Uint8Array(await T.bytes(0, 6)));
+        if (tab.textMode) await A.run('textMode');
+        await A.run('undo'); const back = T.doc().len;
+        A.app.updateSettings({ charset: 'cp1252' });
+        return { starts: text.slice(0, 12), head, back, len };`);
+      assert.match(r.starts, /MyHexaMaster/);
+      assert.equal(r.head, 'HELLO ');
+      assert.equal(r.back, r.len, 'one undo step');
+    },
+  },
+  {
+    group: 'Tools',
+    name: 'Data processor: a node graph (selection → XOR → hash; text + hex → concat → new tab) evaluates with a preview per node',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'text' }); T.view().select(0, 4);
+        const sel = await T.bytes(0, 4);
+        const graph = { nodes: [
+          { id: 'a', kind: 'selection' }, { id: 'b', kind: 'operation', params: { op: 'xor', operand: '0xFF', width: 1 } }, { id: 'c', kind: 'hash', params: { algorithm: 'crc32' } },
+          { id: 'd', kind: 'constText', params: { text: 'Hi', encoding: 'utf8' } }, { id: 'e', kind: 'constHex', params: { hex: '00 FF' } }, { id: 'f', kind: 'concat' }, { id: 'g', kind: 'newTab', params: { name: 'joined.bin' } },
+          { id: 'h', kind: 'repeat', params: { count: 3 } }, { id: 'i', kind: 'slice', params: { offset: 1, length: 2 } },
+        ], links: [{ from: 'a', to: 'b', port: 0 }, { from: 'b', to: 'c', port: 0 }, { from: 'd', to: 'f', port: 0 }, { from: 'e', to: 'f', port: 1 }, { from: 'f', to: 'g', port: 0 }, { from: 'e', to: 'h', port: 0 }, { from: 'a', to: 'i', port: 0 }] };
+        const tabs = A.editor.tabs.length;
+        const res = await A.toolHost.ops.evaluateGraph({ graph });
+        const opened = A.editor.tabs.length === tabs + 1 ? [...await T.doc().read(0, T.doc().len)] : null;
+        A.run('processor'); await T.popupReady('processor'); const nodesDrawn = T.popupDoc('processor').querySelectorAll('[data-pn-node], .pn-node').length; await A.popups.closeAll();
+        return { sel, n: res.nodes, opened, nodesDrawn };`);
+      assert.equal(r.n.b.hex, r.sel.map((x) => (x ^ 0xFF).toString(16).toUpperCase().padStart(2, '0')).join(' '));
+      assert.equal(r.n.c.length, 4, 'CRC-32 is 4 bytes');
+      assert.deepEqual(r.opened, [0x48, 0x69, 0x00, 0xFF]);
+      assert.equal(r.n.h.length, 6);
+      assert.equal(r.n.i.length, 2);
+      assert.ok(Object.values(r.n).every((x) => !x.error), JSON.stringify(r.n));
+      assert.ok(r.nodesDrawn > 0);
+    },
+  },
+  {
+    group: 'Hex view',
+    name: 'A one-byte selection: selected and drawn, Backspace deletes just that byte, a caret move clears it',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'text' }); A.app.updateSettings({ insertMode: true }); const v = T.view(); const len = T.doc().len; const b = await T.bytes(4, 3);
+        v.select(5, 6); await T.frames(2);
+        const sel = v.selection(); const drawn = document.querySelectorAll('.hx-view .hx-b.s').length;
+        v.focus(); T.key('Backspace'); await v.inputChain;
+        const after = await T.bytes(4, 2);
+        v.select(5, 6); v.setCaret(8); const cleared = v.selection().length;
+        A.app.updateSettings({ insertMode: false });
+        return { sel: [sel.start, sel.length], drawn, len, newLen: T.doc().len, b, after, cleared };`);
+      assert.deepEqual(r.sel, [5, 1]);
+      assert.ok(r.drawn >= 1, 'the byte is drawn as selected');
+      assert.equal(r.newLen, r.len - 1);
+      assert.deepEqual(r.after, [r.b[0], r.b[2]]);
+      assert.equal(r.cleared, 0);
+    },
+  },
+  {
+    group: 'Hex view',
+    name: 'Split view: the same document twice, an edit in one shows in the other; commands follow the view last used',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'text' }); A.app.updateSettings({ insertMode: false }); await A.run('splitView'); await T.frames(3);
+        const views = document.querySelectorAll('.hx-split .hx-view').length;
+        const tab = A.app.activeTab(); const a = tab.view; const b = tab.splitView;
+        b.input.dispatchEvent(new FocusEvent('focusin', { bubbles: true })); b.setCaret(0x20); b.focus(); await T.frames(2);
+        const followed = A.app.activeView() === b;
+        T.key('7'); T.key('7'); await b.inputChain;
+        await T.until(async () => (await T.bytes(0x20, 1))[0] === 0x77, 5000, 'written');
+        await T.frames(3);
+        const shownInA = [...document.querySelectorAll('[data-split="a"] .hx-b')].some((x) => x.textContent.trim() === '77');
+        const independent = a.caret !== b.caret;
+        await A.run('splitView'); await T.frames(2);
+        return { views, followed, shownInA, independent, after: document.querySelectorAll('.hx-split').length };`);
+      assert.equal(r.views, 2);
+      assert.ok(r.followed, 'the focused view is the active view');
+      assert.ok(r.shownInA, 'the edit shows in the other view');
+      assert.ok(r.independent, 'each view has its own caret');
+      assert.equal(r.after, 0);
+    },
+  },
+  {
+    group: 'Hex view',
+    name: 'Keystroke macro: record typing and a move, play it back, repeat it; a saved macro loaded by name plays',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'text' }); localStorage.removeItem('myhexa.macros.v1'); A.app.updateSettings({ insertMode: false }); const v = T.view(); v.setCaret(0); v.focus();
+        await A.run('macroRecord');
+        const recording = Boolean(document.querySelector('.status-recording'));
+        for (const k of ['A', 'B', 'ArrowRight']) T.key(k); await v.inputChain;
+        await A.run('macroRecord');
+        const first = await T.bytes(0, 3);
+        await A.run('macroPlay'); await T.view().inputChain;
+        const second = await T.bytes(2, 2); const caretAfterPlay = T.view().caret;
+        A.run('macroRepeat'); await T.popupReady('form'); T.fill('form', '[data-tw-field="count"]', '3'); T.click('form', '[data-tw-act="form-ok"]');
+        await T.until(() => T.view().caret === caretAfterPlay + 6, 8000, 'repeated');
+        const repeated = await T.bytes(4, 6);
+        // a saved macro, loaded by name through the form and played
+        localStorage.setItem('myhexa.macros.v1', JSON.stringify([{ name: 'ff-twice', steps: [{ type: 'key', key: 'F', shift: false }, { type: 'key', key: 'F', shift: false }] }]));
+        T.view().setCaret(0x40); T.view().focus();
+        A.run('macroLoad'); await T.popupReady('form'); T.popupDoc('form').querySelector('[data-tw-seg="action"][data-value="play"]').click(); await T.sleep(100); T.click('form', '[data-tw-act="form-ok"]');
+        await T.until(async () => (await T.bytes(0x40, 1))[0] === 0xFF, 5000, 'loaded and played');
+        return { recording, first, second, caretAfterPlay, repeated, loaded: (await T.bytes(0x40, 1))[0] };`);
+      assert.ok(r.recording, 'the status bar shows the recording');
+      assert.deepEqual(r.first.slice(0, 1), [0xAB]);
+      assert.deepEqual(r.second, [0xAB, r.second[1]], 'played at the caret: AB written two bytes on');
+      assert.equal(r.caretAfterPlay, 4);
+      assert.deepEqual([r.repeated[0], r.repeated[2], r.repeated[4]], [0xAB, 0xAB, 0xAB]);
+      assert.equal(r.loaded, 0xFF);
+    },
+  },
+  {
+    group: 'Tools',
+    name: 'Script window: an XOR script changes the selection in one undo step, prints output; a failing script changes nothing',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'text' }); const before = await T.bytes(0, 8); T.view().select(0, 8);
+        A.run('script'); await T.popupReady('script'); const d = () => T.popupDoc('script');
+        T.fill('script', '[data-tw="script-example"]', 'xorSelection'); T.click('script', '[data-tw-act="script-example-load"]'); await T.frames(2);
+        T.click('script', '[data-tw-act="script-run"]'); await T.until(() => d().querySelector('[data-script-output]'), 10000, 'output');
+        const output = d().querySelector('[data-script-output]').textContent;
+        const after = await T.bytes(0, 8); const len = T.doc().len;
+        await A.run('undo'); const undone = await T.bytes(0, 8);
+        T.fill('script', '[data-tw="script-source"]', 'WriteU8(0, 0xAA);\\nlet x = 1 / 0;\\nWriteU8(1, 0xBB);');
+        T.click('script', '[data-tw-act="script-run"]'); await T.until(() => d().querySelector('.tw-error'), 10000, 'error');
+        const error = d().querySelector('.tw-error').textContent; const untouched = await T.bytes(0, 2);
+        T.fill('script', '[data-tw="script-source"]', 'InsertBytes(0, 4, 0xEE);\\nWriteString(0, "HDR!");\\nPrint(FileSize());');
+        T.click('script', '[data-tw-act="script-run"]'); await T.until(() => /HDR|[0-9]/.test(d().querySelector('[data-script-output]')?.textContent ?? '') && T.doc().len === len + 4, 10000, 'insert');
+        const head = await T.bytes(0, 6);
+        await A.popups.closeAll();
+        return { before, after, undone, output, error, untouched, head, len, newLen: T.doc().len };`);
+      assert.deepEqual(r.after, r.before.map((b) => b ^ 0x5A));
+      assert.deepEqual(r.undone, r.before, 'one undo step restores all 8 bytes');
+      assert.match(r.output, /XOR 5Ah: 8 bytes/);
+      assert.ok(r.error.length > 3);
+      assert.deepEqual(r.untouched, r.before.slice(0, 2), 'a failing script changes nothing');
+      assert.deepEqual(r.head, [0x48, 0x44, 0x52, 0x21, ...r.before.slice(0, 2)]);
+      assert.equal(r.newLen, r.len + 4);
+    },
+  },
+  {
+    group: 'Tools',
+    name: 'Patch files: IPS, IPS32, UPS, BPS made from two documents turn the original into the modified one; the window draws',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'mixed' }); const a = T.doc();
+        const copy = await A.core('extract', { id: a.id, offset: 0, length: a.len, name: 'modified.bin' }); await A.editor.addDocument(copy, { kind: 'memory' });
+        const b = T.doc(); await A.editor.edit(b, 'write', { offset: 0x200, data: new Uint8Array([1, 2, 3]), kind: 'test' }); await A.editor.edit(b, 'insert', { offset: 0x10, data: new Uint8Array([9, 9]), kind: 'test' });
+        const want = [...await b.read(0, b.len)];
+        const out = {};
+        for (const format of ['ips', 'ips32', 'ups', 'bps']) {
+          const made = await A.toolHost.ops.patchCreate({ original: a.id, modified: b.id, format });
+          A.editor.activate(A.editor.tabs[0].id); await T.frames(2);
+          const res = await A.toolHost.ops.patchApplyData({ patch: made.data, target: 'new', name: format });
+          const got = [...await T.doc().read(0, T.doc().len)];
+          out[format] = { same: got.length === want.length && got.every((x, i) => x === want[i]), ok: res.ok, records: made.records };
+          await A.editor.close(A.editor.active(), { force: true });
+        }
+        const diff = await A.toolHost.ops.patchCreate({ original: a.id, modified: b.id, format: 'diff' });
+        A.run('patch'); await T.popupReady('patch'); await T.until(() => T.popupDoc('patch').querySelectorAll('[data-tw="patch-original"] option').length >= 2, 5000, 'docs');
+        const formats = T.popupDoc('patch').querySelectorAll('[data-tw="patch-format"] option').length;
+        await A.popups.closeAll();
+        return { out, diffLines: diff.text.split('\\n').filter(Boolean).length, formats };`);
+      for (const f of ['ips', 'ips32', 'ups', 'bps']) { assert.ok(r.out[f].same, `${f} result equals the modified document`); assert.ok(r.out[f].ok, `${f} checks`); }
+      assert.ok(r.diffLines > 1);
+      assert.equal(r.formats, 5);
+    },
+  },
+  {
+    group: 'Tools',
+    name: 'Demangler: Itanium, MSVC and Rust names typed in; names found in the document strings',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'text' }); A.run('demangle'); await T.popupReady('demangle'); const d = () => T.popupDoc('demangle');
+        T.click('demangle', '[data-tw-act="dm-run"]'); await T.until(() => d().querySelectorAll('.tw-list .tw-item').length >= 4, 8000, 'results');
+        const shown = [...d().querySelectorAll('.tw-list .tw-item code.tw-text')].map((x) => x.textContent);
+        await A.popups.closeAll();
+        const doc = await A.core('new', { name: 'syms.bin', data: btoa('\\0\\0_ZN3foo3barEi\\0junk\\0?func@@YAHH@Z\\0') }); await A.editor.addDocument(doc, { kind: 'memory' });
+        const found = await A.toolHost.ops.demangleDocument();
+        return { shown, found: found.filter((x) => x.ok).map((x) => [x.output, x.offset]) };`);
+      assert.equal(r.shown[0], 'foo::bar()');
+      assert.match(r.shown[1], /func\(int\)/);
+      assert.match(r.shown[2], /core::fmt::write/);
+      assert.equal(r.found.length, 2, JSON.stringify(r.found));
+      assert.deepEqual(r.found[0], ['foo::bar(int)', 2]);
+    },
+  },
+  {
+    group: 'Find',
+    name: 'Several terms at once (text, hex, regex): find all marks each, find next takes the nearest, count adds them up',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'mixed' }); A.run('find'); await T.popupReady('find'); const d = () => T.popupDoc('find');
+        T.fill('find', '[data-tw="kind"]', 'multi'); await T.until(() => d().querySelector('textarea[data-tw="value"]'), 5000, 'terms box');
+        T.fill('find', 'textarea[data-tw="value"]', '"Device"\\n4D 59 46 57\\n/Serial: [0-9]{4}/\\n# a comment');
+        T.click('find', '[data-tw-act="find-all"]'); await T.until(() => d().querySelectorAll('.tw-list .tw-item').length >= 3, 8000, 'results');
+        const previews = [...d().querySelectorAll('.tw-list .tw-preview')].map((x) => x.textContent);
+        const offsets = [...d().querySelectorAll('.tw-list [data-tw-goto]')].map((x) => Number(x.dataset.twGoto));
+        const replaceShown = Boolean(d().querySelector('[data-tw-act="replace-all"]'));
+        T.view().setCaret(0x10); T.click('find', '[data-tw-act="find-next"]'); await T.until(() => T.view().selection().length > 0 && T.view().selection().start !== 0, 5000, 'next');
+        const next = T.view().selection();
+        const before = d().querySelector('.tw-status')?.textContent ?? '';
+        T.click('find', '[data-tw-act="find-count"]'); await T.until(() => (d().querySelector('.tw-status')?.textContent ?? before) !== before, 5000, 'count');
+        const count = d().querySelector('.tw-status').textContent;
+        await A.popups.closeAll();
+        return { previews, offsets, replaceShown, next: [next.start, next.length], count };`);
+      assert.equal(r.offsets.length, 3, r.previews.join(' | '));
+      assert.deepEqual([...r.offsets].sort((a, b) => a - b), r.offsets, 'in offset order');
+      assert.equal(r.offsets[0], 0, 'MYFW at 0');
+      assert.ok(r.previews.some((p) => p.startsWith('"Device"')) && r.previews.some((p) => p.startsWith('/Serial')), r.previews.join(' | '));
+      assert.equal(r.replaceShown, false, 'no replace for several terms');
+      assert.equal(r.next[0], r.offsets[1], 'next from 10h is the nearest of all terms');
+      assert.match(r.count, /3/);
+    },
+  },
+  {
     group: 'Properties',
     name: 'Hash database: a hash added as notable is flagged, then removed',
     async run(app) {
@@ -436,7 +734,13 @@ const PREP = {
   diffNext: `const a = T.doc().id; await A.app.openSample('png'); await T.until(() => T.doc().id !== a); await A.app.openCompare(a, T.doc().id); await T.until(() => A.app.activeTab()?.kind === 'compare', 8000, 'compare tab');`,
   diffPrev: `const a = T.doc().id; await A.app.openSample('png'); await T.until(() => T.doc().id !== a); await A.app.openCompare(a, T.doc().id); await T.until(() => A.app.activeTab()?.kind === 'compare', 8000, 'compare tab');`,
   columnMode: `await A.run('textMode'); await T.until(() => document.querySelector('.text-mode .cm-editor'), 8000, 'text editor');`,
-  textWrap: `await A.run('textMode'); await T.until(() => document.querySelector('.text-mode .cm-editor'), 8000, 'text editor');`,
+  textWrap: `await A.run('textMode'); await T.until(() => document.querySelector('.text-mode .cm-editor'), 8000, 'text editor');`,  macroPlay: `await A.run('macroRecord'); T.view().focus(); T.key('A'); await T.view().inputChain; await A.run('macroRecord');`,
+  macroRepeat: `await A.run('macroRecord'); T.view().focus(); T.key('A'); await T.view().inputChain; await A.run('macroRecord');`,
+  macroSave: `await A.run('macroRecord'); T.view().focus(); T.key('A'); await T.view().inputChain; await A.run('macroRecord');`,
+};
+/** What a command leaves behind that the next case must not inherit. */
+const CLEANUP = {
+  macroRecord: `if (document.querySelector('.status-recording')) await A.run('macroRecord');`,
 };
 
 export async function commandCases(app) {
@@ -453,6 +757,7 @@ export async function commandCases(app) {
         if (!A.menus.enabled(${JSON.stringify(id)})) { await T.reset(); A.app.updateSettings(settings); return { disabled: true }; }
         const p = A.run(${JSON.stringify(id)}); await Promise.race([p, T.sleep(1200)]);
         const kinds = [...document.querySelectorAll('.web-popup')].map((f) => f.dataset.kind);
+        ${CLEANUP[id] ?? ''}
         await T.reset(); A.app.updateSettings(settings);
         return { error: kinds.includes('error') };`);
       assert.ok(!r.disabled, 'the command is enabled once its state is set up');

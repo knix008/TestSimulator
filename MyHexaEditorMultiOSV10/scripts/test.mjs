@@ -26,7 +26,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // The generated files git does not keep (public/hexcore.wasm, public/doc/) — made first when missing or stale.
-{ const prep = (await import('node:child_process')).spawnSync(process.execPath, [path.join(root, 'scripts', 'prepare.mjs')], { cwd: root, stdio: 'inherit' }); if (prep.status !== 0) process.exit(prep.status ?? 1); }
+// MYHEXA_NO_PREPARE=1 uses them as they are (while the Rust crate is being edited and does not build).
+if (!process.env.MYHEXA_NO_PREPARE) { const prep = (await import('node:child_process')).spawnSync(process.execPath, [path.join(root, 'scripts', 'prepare.mjs')], { cwd: root, stdio: 'inherit' }); if (prep.status !== 0) process.exit(prep.status ?? 1); }
 const color = (process.stdout.isTTY || Boolean(process.env.FORCE_COLOR)) && !process.env.NO_COLOR;
 const paint = (code) => (text) => (color ? `\x1b[${code}m${text}\x1b[0m` : String(text));
 const c = {

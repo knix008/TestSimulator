@@ -316,6 +316,8 @@ export function createEditor(app) {
     }
     if (tab.view) setFilePrefs(tab.doc, { caret: tab.view.caret, bookmarks: tab.doc.bookmarks });
     tab.view?.destroy();
+    tab.splitView?.destroy();
+    tab.viewB?.destroy();
     const i = tabs.indexOf(tab);
     tabs.splice(i, 1);
     // A compare tab only shows documents; a document tab gives its document back to the core when no other tab shows it.

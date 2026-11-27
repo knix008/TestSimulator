@@ -84,6 +84,35 @@ export function createProps(app) {
 
   // ───────── structure (templates)
 
+  /**
+   * A value of the structure tree typed back in (010 Editor / ImHex): numbers through the inspector's encoder with
+   * the field's own type and byte order, char arrays as text cut or padded with zeros to the field's size. The
+   * template runs again so the tree shows the new value.
+   */
+  async function editNode(path) {
+    const tb = tab();
+    const n = nodeAt(path);
+    if (!tb || !n?.edit || tb.doc.readonly) return;
+    const shown = String(n.value ?? '').replace(/^"(.*)"$/s, '$1').replace(/^'(.*)' \(\d+\)$/, '$1').replace(/ \(0x[0-9A-F]+\)$/i, '').replace(/^.*\((-?\d+)\)$/, '$1');
+    const result = await app.popups.open('form', { title: t('template.editTitle', { name: n.name }), icon: 'edit', message: `${n.type} @ ${off(n.offset)} · ${n.size} B${n.edit === 'text' ? '' : ` · ${n.big ? t('endian.be') : t('endian.le')}`}`, fields: [{ key: 'value', type: 'text', label: n.name, value: shown, icon: 'edit' }], okLabel: t('common.apply') });
+    if (!result?.values) return;
+    try {
+      let data;
+      if (n.edit === 'text') {
+        const r = await core('encode', { text: result.values.value, encoding: 'latin1' });
+        const raw = Uint8Array.from(atob(r.data), (ch) => ch.charCodeAt(0));
+        data = new Uint8Array(n.size);
+        data.set(raw.subarray(0, n.size));
+      } else {
+        data = (await core('encodeValue', { type: n.edit, text: result.values.value, endian: n.big ? 'be' : 'le' })).data;
+      }
+      await app.editor.edit(tb.doc, 'write', { offset: n.offset, data, kind: 'template' });
+      const tp = tb.doc.template;
+      await app.runTemplate(tb, { template: tp?.template === 'source' ? 'auto' : tp?.template ?? 'auto', source: tp?.source ?? null, offset: tp?.offset ?? 0, quiet: true });
+      app.rerender();
+    } catch (error) { app.showError('error.value', error); }
+  }
+
   function flatten(nodes, depth, path, out) {
     nodes.forEach((n, i) => {
       const p = `${path}/${i}`;
@@ -114,7 +143,7 @@ export function createProps(app) {
       const kids = n.children?.length;
       return `<div class="tree-node ${state.activeNode === p ? 'active' : ''}" data-tp-node="${h(p)}" style="padding-left:${4 + depth * 14}px" title="${h(`${n.name}: ${n.type} @ ${off(n.offset)} (${n.size})${n.comment ? ` — ${n.comment}` : ''}`)}">
         <span class="tw" ${kids ? `data-tp-toggle="${h(p)}"` : ''}>${kids ? (state.collapsed.has(p) ? '▸' : '▾') : ''}</span>
-        ${n.color ? `<span class="sw" style="background:${h(n.color)}"></span>` : ''}<span class="nm">${h(n.name)}</span><span class="ty">${h(n.type)}</span><span class="vl">${h(n.value ?? '')}</span><span class="of">${h(off(n.offset))}</span></div>`;
+        ${n.color ? `<span class="sw" style="background:${h(n.color)}"></span>` : ''}<span class="nm">${h(n.name)}</span><span class="ty">${h(n.type)}</span><span class="vl">${h(n.value ?? '')}</span><span class="of">${h(off(n.offset))}</span>${n.edit && !tb.doc.readonly ? `<button class="icon-button tp-edit" data-tp-edit="${h(p)}" title="${h(t('template.editValue'))}" aria-label="${h(t('template.editValue'))}">${icon('edit')}</button>` : ''}</div>`;
     }).join('');
     return `${tools}<div class="prop-note">${icon('structureTree')}<span>${h(t('template.result', { name: tp.name ?? '', n: (tp.count ?? 0).toLocaleString() }))}</span></div>${errs}<div class="tree">${rows}</div>`;
   }
@@ -345,6 +374,8 @@ export function createProps(app) {
     if (copy) { app.copyText(copy.dataset.copy); return true; }
     const toggle = target.closest('[data-tp-toggle]');
     if (toggle) { const p = toggle.dataset.tpToggle; if (state.collapsed.has(p)) state.collapsed.delete(p); else state.collapsed.add(p); app.rerender(); return true; }
+    const tpEdit = target.closest('[data-tp-edit]');
+    if (tpEdit) { editNode(tpEdit.dataset.tpEdit); return true; }
     const node = target.closest('[data-tp-node]');
     if (node && tb?.view) { const n = nodeAt(node.dataset.tpNode); state.activeNode = node.dataset.tpNode; if (n) tb.view.select(n.offset, n.offset + Math.max(1, n.size), { center: true }); app.rerender(); return true; }
     const bmColor = target.closest('[data-bookmark-color]');
@@ -387,5 +418,5 @@ export function createProps(app) {
     return true;
   }
 
-  return { html, click, afterRender, caretMoved, refreshInspector, runHashes, runStats, chooseHashes, state, hashDb, resetCollapse: () => state.collapsed.clear() };
+  return { html, click, afterRender, caretMoved, refreshInspector, runHashes, runStats, chooseHashes, state, hashDb, editNode, resetCollapse: () => state.collapsed.clear() };
 }

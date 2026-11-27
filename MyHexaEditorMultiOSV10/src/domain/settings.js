@@ -2,6 +2,7 @@
 // and the popup windows, which watch it): appearance, the hex view (bytes per row, grouping, number bases,
 // character set, colours), editing, the tools' defaults (search, hashes, strings, disassembler, compare) and
 // the start page. Per-file state (bookmarks, last caret, template) is kept per file under FILE_PREFS_KEY.
+import { DISASM_ARCH_IDS } from './archs.js';
 import { normalizeCustom, THEME_IDS } from '../themes.js';
 
 export const STORAGE_KEY = 'myhexa.settings.v1';
@@ -242,7 +243,7 @@ export function normalizeSettings(raw = {}, language) {
   s.hashAlgorithms = Array.isArray(s.hashAlgorithms) && s.hashAlgorithms.length ? s.hashAlgorithms.filter((x) => typeof x === 'string') : DEFAULT_HASHES;
   s.stringsMin = clamp(s.stringsMin, 2, 256, 5);
   s.stringsEncodings = Array.isArray(s.stringsEncodings) && s.stringsEncodings.length ? s.stringsEncodings.filter((x) => ['ascii', 'utf8', 'utf16le', 'utf16be'].includes(x)) : ['ascii', 'utf16le'];
-  s.disasmArch = oneOf(s.disasmArch, ['x86-16', 'x86-32', 'x86-64', 'arm32', 'thumb', 'arm64'], 'x86-64');
+  s.disasmArch = oneOf(s.disasmArch, DISASM_ARCH_IDS, 'x86-64');
   s.disasmSyntax = oneOf(s.disasmSyntax, ['intel', 'nasm', 'gas', 'masm'], 'intel');
   s.compareMode = oneOf(s.compareMode, ['bytes', 'sync'], 'bytes');
   s.statsBlocks = clamp(s.statsBlocks, 16, 4096, 256);

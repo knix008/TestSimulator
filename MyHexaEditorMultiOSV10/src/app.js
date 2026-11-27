@@ -34,6 +34,7 @@ import { HexView, formatOffset } from './hex/hexview.js';
 import { CHARSETS, CHARSET_NAMES } from './hex/charsets.js';
 import { createToolHost, userTemplates } from './tools/host.js';
 import { createTextEditor } from './hex/textmode.js';
+import { createRecorder, describeSteps, loadMacros, putMacro, saveMacros } from './domain/macro.js';
 import { configurePlatform, printDirect, printDocument, printToPdfFile } from './lib/platform.js';
 import './hex/hex.css';
 import './app.css';
@@ -188,7 +189,7 @@ async function runTemplate(tab, { template = 'auto', source = null, offset = 0, 
     args.source = u.source; label = u.name;
   } else { args.template = template; label = state.builtins.find((b) => b.id === template)?.name ?? template; }
   const r = await withProgress('progress.template', tab.doc.name, (op) => core('template', args, op), { cancellable: true, delay: 500 });
-  tab.doc.template = { ...r, template: source ? 'source' : args.template ?? template, name: label };
+  tab.doc.template = { ...r, template: source ? 'source' : args.template ?? template, name: label, source: source ?? null, offset };
   // Colour the template's fields in the hex view (the top level and one level down).
   const marks = [];
   const walk = (nodes, depth) => { for (const n of nodes ?? []) { if (n.color && n.size && n.size <= 65536) marks.push({ start: n.offset, end: n.offset + n.size, color: n.color }); if (depth < 2) walk(n.children, depth + 1); } };
@@ -517,6 +518,97 @@ async function runPrint(job) {
   } finally { printing = false; }
 }
 
+// ───────────────────────── keystroke macros (UltraEdit)
+
+const recorder = createRecorder();
+let playing = false;
+let lastMacro = [];
+
+function toggleRecording() {
+  if (recorder.recording) {
+    lastMacro = recorder.stop();
+    const n = describeSteps(lastMacro);
+    notify('success', t('macro.recorded', { keys: n.key, texts: n.text, commands: n.command }));
+  } else {
+    recorder.start();
+    notify('info', t('macro.recording'));
+  }
+  renderToolbarState();
+  renderStatus();
+}
+
+/** Plays steps into the active hex view: keys and text as if typed, commands as if chosen. */
+async function playSteps(steps) {
+  const tab = activeTab();
+  if (!tab?.view || !steps?.length) return false;
+  playing = true;
+  try {
+    for (const step of steps) {
+      const view = activeTab()?.view;
+      if (!view) break;
+      if (step.type === 'key') view.input.dispatchEvent(new KeyboardEvent('keydown', { key: step.key, shiftKey: step.shift, bubbles: true, cancelable: true }));
+      else if (step.type === 'text') { view.input.value = step.text; view.input.dispatchEvent(new InputEvent('input', { bubbles: true, data: step.text })); }
+      else if (step.type === 'command') await run(step.id);
+      // typing goes through the view's queue: wait until it has been written
+      await view.inputChain;
+    }
+  } finally { playing = false; }
+  return true;
+}
+
+async function playMacro(steps = lastMacro) {
+  if (recorder.recording) toggleRecording();
+  if (!steps?.length) { notify('warning', t('macro.empty')); return; }
+  await playSteps(steps);
+}
+
+/** Plays the macro n times, or until the caret stops moving forward / reaches the end of the document. */
+async function repeatMacro() {
+  if (!lastMacro.length) { notify('warning', t('macro.empty')); return; }
+  const r = await popups.open('form', { title: t('macro.repeat'), icon: 'repeat', fields: [
+    { key: 'mode', type: 'segmented', label: t('macro.repeatMode'), value: 'count', options: [['count', t('macro.times')], ['end', t('macro.untilEnd')]] },
+    { key: 'count', type: 'text', label: t('macro.count'), value: '10', icon: 'hash', when: { mode: ['count'] } },
+  ], okLabel: t('macro.play') });
+  if (!r?.values) return;
+  const tab = activeTab();
+  const untilEnd = r.values.mode === 'end';
+  const count = untilEnd ? 1_000_000 : Math.max(1, Math.min(1_000_000, Number.parseInt(r.values.count, 10) || 1));
+  let done = 0;
+  await withProgress('macro.playing', tab.doc.name, async (op, report) => {
+    for (; done < count; done += 1) {
+      const before = tab.view.caret;
+      await playSteps(lastMacro);
+      if (untilEnd && (tab.view.caret >= tab.doc.len || tab.view.caret <= before)) { done += 1; break; }
+      if (done % 16 === 0) report({ fraction: untilEnd ? tab.view.caret / Math.max(1, tab.doc.len) : done / count, text: t('macro.played', { n: done }) });
+    }
+  }, { delay: 400 });
+  notify('success', t('macro.played', { n: done }));
+}
+
+async function saveMacro() {
+  if (!lastMacro.length) { notify('warning', t('macro.empty')); return; }
+  const name = await promptText({ title: t('macro.save'), value: 'macro', glyph: 'save' });
+  if (!name) return;
+  saveMacros(putMacro(loadMacros(), name, lastMacro));
+  notify('success', t('notice.saved', { name }));
+}
+
+async function loadMacro() {
+  const list = loadMacros();
+  if (!list.length) { notify('info', t('macro.noneSaved')); return; }
+  const r = await popups.open('form', { title: t('macro.load'), icon: 'folderOpen', fields: [
+    { key: 'name', type: 'select', label: t('macro.name'), value: list[0].name, icon: 'macro', options: list.map((m) => { const n = describeSteps(m.steps); return [m.name, `${m.name} — ${t('macro.summary', { keys: n.key, texts: n.text, commands: n.command })}`]; }) },
+    { key: 'action', type: 'segmented', label: t('macro.then'), value: 'load', options: [['load', t('macro.useIt')], ['play', t('macro.play')], ['delete', t('macro.delete')]] },
+  ], okLabel: t('common.apply') });
+  if (!r?.values) return;
+  const m = list.find((x) => x.name === r.values.name);
+  if (!m) return;
+  if (r.values.action === 'delete') { saveMacros(list.filter((x) => x !== m)); notify('success', t('macro.deleted', { name: m.name })); return; }
+  lastMacro = m.steps;
+  if (r.values.action === 'play') await playMacro(m.steps);
+  else notify('info', t('macro.loaded', { name: m.name }));
+}
+
 // ───────────────────────── compare
 
 async function openCompare(aId, bId, mode = settings().compareMode) {
@@ -583,6 +675,8 @@ async function toggleTextMode() {
 
 async function applyText(tab) {
   if (!tab?.textEditor) return;
+  // Mixed line endings cannot all be kept by the editor: say so before the bytes change.
+  if (tab.textEditor.lineEnding === 'mixed' && await ask({ kind: 'mixedLineEndings', icon: 'warning', title: t('textMode.apply'), message: t('textMode.mixedEndings'), buttons: [{ id: 'cancel', label: t('common.cancel'), primary: true }, { id: 'apply', label: t('textMode.apply'), icon: 'check' }] }) !== 'apply') return;
   const r = await core('encode', { text: tab.textEditor.text(), encoding: ['utf16le', 'utf16be', 'utf8', 'cp1252', 'latin1', 'ascii', 'euc-kr', 'shift_jis', 'ebcdic', 'cp437'].includes(settings().charset) ? settings().charset : 'utf8' }).catch((error) => { showError('error.encode', error); return null; });
   if (!r) return;
   if (!tab.doc.resizable && fromBase64(r.data).length !== tab.doc.len) return notify('warning', t('edit.fixedSize'));
@@ -606,6 +700,8 @@ const commands = {
   open: { icon: 'folderOpen', label: 'action.open', key: 'Ctrl+O', run: () => openFileDialog() },
   openReadonly: { icon: 'lock', label: 'action.openReadonly', hidden: !desktop, run: async () => { const [p] = await native.chooseAnyFiles(settings().lastDirectory, false); if (p) openFile(p, { readonly: true }); } },
   openDisk: { icon: 'disk', label: 'action.openDisk', hidden: !desktop, run: tool('devices', { tab: 'disks' }) },
+  // WinHex "interpret image file as disk": a raw image (dd, .img, .bin) read and written in sectors like a disk.
+  openImageAsDisk: { icon: 'disk', label: 'action.openImageAsDisk', hidden: !desktop, run: async () => { const [p] = await native.chooseAnyFiles(settings().lastDirectory, false); if (p) await editor.openDisk({ path: p, name: baseName(p) }).catch((e) => showError('error.open', e)); } },
   openProcess: { icon: 'memory', label: 'action.openProcess', hidden: !desktop, run: tool('devices', { tab: 'processes' }) },
   save: { icon: 'save', label: 'action.save', key: 'Ctrl+S', enabled: () => hasDoc() && activeDoc().modified, run: () => editor.save() },
   saveAs: { icon: 'saveAs', label: 'action.saveAs', key: 'Ctrl+Shift+S', enabled: hasDoc, run: () => editor.save(activeTab(), { as: true }) },
@@ -685,12 +781,22 @@ const commands = {
   filetools: { icon: 'fileTools', label: 'tool.filetools', run: tool('filetools') },
   processor: { icon: 'operation', label: 'tool.processor', run: tool('processor') },
   filesystem: { icon: 'disk', label: 'tool.filesystem', enabled: hasDoc, run: tool('filesystem') },
+  patch: { icon: 'patch', label: 'tool.patch', enabled: hasDoc, run: tool('patch') },
+  demangle: { icon: 'code', label: 'tool.demangle', run: tool('demangle') },
+  script: { icon: 'code', label: 'tool.script', key: 'Ctrl+Shift+R', enabled: hasDoc, run: tool('script') },
+  visualizer: { icon: 'image', label: 'tool.visualizer', enabled: hasDoc, run: tool('visualizer') },
   yara: { icon: 'shieldCheck', label: 'tool.yara', key: 'Ctrl+Shift+Y', enabled: hasDoc, run: tool('yara') },
   diffNext: { icon: 'diffNext', label: 'compare.next', key: 'F8', enabled: isCompare, run: () => stepDiff(1) },
   diffPrev: { icon: 'diffPrev', label: 'compare.prev', key: 'Shift+F8', enabled: isCompare, run: () => stepDiff(-1) },
   // view
   columnMode: { icon: 'columns', label: 'textMode.columnMode', key: 'Alt+C', enabled: () => Boolean(activeTab()?.textMode), checked: () => Boolean(activeTab()?.columnMode), run: () => { const tb = activeTab(); tb.columnMode = !tb.columnMode; renderTabBar(); } },
   textWrap: { icon: 'textMode', label: 'textMode.wrapLines', enabled: () => Boolean(activeTab()?.textMode), checked: () => Boolean(activeTab()?.textWrap), run: () => { const tb = activeTab(); tb.textWrap = !tb.textWrap; tb.textEditor?.setWrap(tb.textWrap); renderTabBar(); } },
+  macroRecord: { icon: 'record', label: 'macro.record', key: 'Ctrl+Shift+M', enabled: () => Boolean(activeView()), checked: () => recorder.recording, run: () => toggleRecording() },
+  macroPlay: { icon: 'play', label: 'macro.play', key: 'Ctrl+Shift+G', enabled: () => Boolean(activeView()) && lastMacro.length > 0, run: () => playMacro() },
+  macroRepeat: { icon: 'repeat', label: 'macro.repeatMenu', enabled: () => Boolean(activeView()) && lastMacro.length > 0, run: () => repeatMacro() },
+  macroSave: { icon: 'save', label: 'macro.save', enabled: () => lastMacro.length > 0, run: () => saveMacro() },
+  macroLoad: { icon: 'folderOpen', label: 'macro.load', run: () => loadMacro() },
+  splitView: { icon: 'columns', label: 'view.splitView', key: 'Ctrl+Shift+E', enabled: () => activeTab()?.kind === 'hex' && !activeTab()?.textMode, checked: () => Boolean(activeTab()?.split), run: () => { const tb = activeTab(); tb.split = !tb.split; const caret = tb.view?.caret ?? 0; renderCenter(); tb.view?.setCaret(Math.min(caret, tb.doc.len), { reveal: true }); } },
   textMode: { icon: 'textMode', label: 'action.textMode', key: 'Ctrl+M', enabled: () => activeTab()?.kind === 'hex', checked: () => Boolean(activeTab()?.textMode), run: () => toggleTextMode() },
   ...Object.fromEntries(BYTES_PER_ROW.map((n) => [`bpr:${n}`, { icon: 'columns', label: n ? 'view.bprN' : 'view.bprAuto', labelArgs: { n }, checked: () => settings().bytesPerRow === n, run: () => updateSettings({ bytesPerRow: n }) }])),
   ...Object.fromEntries(GROUP_SIZES.map((n) => [`group:${n}`, { icon: 'group', label: 'view.groupN', labelArgs: { n }, checked: () => settings().groupSize === n, run: () => updateSettings({ groupSize: n }) }])),
@@ -751,6 +857,7 @@ function commandTip(id) {
 async function run(id, context) {
   const c = commands[id];
   if (!c || !commandEnabled(id)) return undefined;
+  if (!playing) recorder.command(id);
   try { const result = await c.run(context); renderToolbarState(); return result; } catch (error) { return showError('error.command', error, labelOf(id)); }
 }
 
@@ -788,7 +895,7 @@ async function commandPalette() {
 // ───────────────────────── menus
 
 const SUBMENUS = {
-  openMore: { icon: 'folderOpen', items: ['openReadonly', 'openDisk', 'openProcess', 'saveImage', '-', 'newSized'] },
+  openMore: { icon: 'folderOpen', items: ['openReadonly', 'openDisk', 'openImageAsDisk', 'openProcess', 'saveImage', '-', 'newSized'] },
   exportAs: { icon: 'exportHex', items: ['exportMenu', 'saveSelection', 'import', '-', 'print'] },
   copyAs: { icon: 'copyHex', items: ['copy:hex', 'copy:hexSpaced', 'copy:text', 'copy:c', 'copy:python', 'copy:base64', 'copy:escaped'] },
   pasteAs: { icon: 'pasteHex', items: ['paste:hex', 'paste:text'] },
@@ -815,9 +922,9 @@ const MENUS = {
   file: ['newFile', 'open', sub('openMore'), '-', 'save', 'saveAs', 'saveAll', 'reload', '-', sub('exportAs'), 'print', '-', 'revealSystem', 'copyPath', '-', 'close', 'closeAll', '-', 'startPage', 'exit'],
   edit: ['undo', 'redo', 'history', '-', 'cut', 'copy', sub('copyAs'), 'paste', sub('pasteAs'), '-', 'selectAll', 'selectBlock', 'deleteSel', '-', 'fill', 'insertBytes', 'insertMode', 'readonly'],
   search: ['find', 'replace', 'findNext', 'findPrev', '-', 'goto', sub('bookmarksMenu'), '-', 'strings', 'carve'],
-  view: ['textMode', 'columnMode', 'textWrap', '-', sub('bytesPerRow'), sub('grouping'), sub('offsetBase'), sub('valueBase'), sub('charset'), sub('endian'), sub('columns'), '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', sub('rightTabs'), sub('bottomTabs'), '-', sub('zoom'), sub('appearance'), 'fullscreen'],
+  view: ['textMode', 'columnMode', 'textWrap', 'splitView', '-', sub('bytesPerRow'), sub('grouping'), sub('offsetBase'), sub('valueBase'), sub('charset'), sub('endian'), sub('columns'), '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', sub('rightTabs'), sub('bottomTabs'), '-', sub('zoom'), sub('appearance'), 'fullscreen'],
   data: [sub('ops'), sub('swaps'), '-', sub('crypto'), sub('compression'), sub('encodings'), '-', 'checksums', 'statistics', 'extract'],
-  tools: ['toolFind', 'goto', 'strings', 'disasm', 'calc', 'carve', 'filesystem', 'yara', 'devices', '-', 'compare', 'diffNext', 'diffPrev', '-', 'template', 'runTemplate', 'processor', '-', 'history', 'filetools', '-', 'commandPalette'],
+  tools: ['toolFind', 'goto', 'strings', 'disasm', 'calc', 'carve', 'filesystem', 'yara', 'visualizer', 'devices', '-', 'compare', 'diffNext', 'diffPrev', '-', 'template', 'runTemplate', 'script', 'processor', 'patch', 'demangle', '-', 'history', 'filetools', '-', 'macroRecord', 'macroPlay', 'macroRepeat', 'macroSave', 'macroLoad', '-', 'commandPalette'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', search: 'search', view: 'eye', data: 'operation', tools: 'tools', help: 'question' };
@@ -830,7 +937,7 @@ const TOOLBAR = [
   ['cut', 'copy', 'paste'],
   ['insertMode', 'fill', 'operations', 'readonly'],
   ['toolFind', 'goto', 'bookmarkToggle'],
-  ['strings', 'disasm', 'calc', 'carve', 'filesystem', 'yara', 'devices', 'compare', 'template', 'processor', 'history', 'filetools'],
+  ['strings', 'disasm', 'demangle', 'calc', 'carve', 'filesystem', 'yara', 'visualizer', 'script', 'patch', 'devices', 'compare', 'template', 'processor', 'history', 'filetools'],
   ['checksums', 'textMode'],
 ];
 const MENUBAR_PANELS = ['leftPanel', 'bottomPanel', 'rightPanel'];
@@ -1029,6 +1136,29 @@ function renderCenter() {
     tab.textEditor.focus();
     return;
   }
+  tab.splitView?.destroy();
+  tab.splitView = null;
+  if (tab.split) {
+    // Split view (Okteta, 010 Editor): the same document in two hex views, each with its own caret and scroll.
+    // The view last used is `tab.view`, so menus, tools and the panels follow it.
+    body.innerHTML = '<div class="hex-tab"><div class="hex-tab-bar"></div><div class="hx-split"><div class="hx-slot" data-split="a"></div><div class="hx-split-bar"></div><div class="hx-slot" data-split="b"></div></div></div>';
+    tab.view = null;
+    editor.mount(tab, body.querySelector('[data-split="a"]'));
+    const twin = { ...tab, view: null };
+    tab.splitView = editor.mount(twin, body.querySelector('[data-split="b"]'));
+    tab.splitView.opts.onCaret = () => { if (tab.view === tab.splitView) props.caretMoved(); renderStatus(); };
+    const a = tab.view;
+    const b = tab.splitView;
+    const use = (view) => { if (tab.view === view) return; const other = tab.view; tab.view = view; tab.splitView = other; props.caretMoved(); renderStatus(); };
+    body.querySelector('[data-split="a"]').addEventListener('focusin', () => use(a));
+    body.querySelector('[data-split="b"]').addEventListener('focusin', () => use(b));
+    body.querySelector('[data-split="a"]').addEventListener('pointerdown', () => use(a), true);
+    body.querySelector('[data-split="b"]').addEventListener('pointerdown', () => use(b), true);
+    renderTabBar();
+    tab.view.focus();
+    props.caretMoved();
+    return;
+  }
   body.innerHTML = '<div class="hex-tab"><div class="hex-tab-bar"></div><div class="hx-slot"></div></div>';
   tab.view = null;
   editor.mount(tab, body.querySelector('.hx-slot'));
@@ -1178,6 +1308,7 @@ function renderStatus() {
     items.push(`<span class="status-item">${icon('globe')}<span>${h(CHARSET_NAMES[s.charset])}</span></span>`);
   }
   items.push(`<span class="status-item">${icon('palette')}<span>${h(themeName(s.theme, getLanguage()))}</span></span>`);
+  if (recorder.recording) items.push(`<span class="status-item status-recording" data-command="macroRecord">${icon('record')}<span>${h(t('status.recording'))}</span></span>`);
   items.push(`<span class="status-item">${icon(getLanguage() === 'ko' ? 'flagKr' : 'flagUk')}<span>${h(t('status.language'))}</span></span>`);
   if (s.statusClock) items.push(`<span class="status-item clock">${icon('clock')}<span id="status-clock">${h(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</span></span>`);
   bar.innerHTML = items.join('');
@@ -1658,6 +1789,10 @@ function bindEvents() {
 
   window.addEventListener('resize', frameThrottle(() => { fitToolbar(); if (desktop && state.minWidth && window.innerWidth < state.minWidth - 1) native.setMinimumSize(state.minWidth, 600).catch(() => {}); }));
   document.addEventListener('keydown', onKeyDown, true);
+  // Macro recording: what is typed into a hex view (before the view handles it).
+  document.addEventListener('keydown', (event) => { if (recorder.recording && !playing && event.target.closest?.('.hx-view')) recorder.key(event); }, true);
+  document.addEventListener('input', (event) => { if (recorder.recording && !playing && event.target.closest?.('.hx-view') && !event.isComposing) recorder.text(event.target.value); }, true);
+  document.addEventListener('compositionend', (event) => { if (recorder.recording && !playing && event.target.closest?.('.hx-view')) recorder.text(event.target.value); }, true);
   window.addEventListener('storage', (event) => {
     if (event.key === STORAGE_KEY) { const previous = state.settings; state.settings = loadSettings(globalThis.localStorage); applySettings(previous); }
     else if (event.key === RECENT_KEY) { state.recent = loadJson(RECENT_KEY, []); if (onStart()) renderStartPage(); }
@@ -1689,7 +1824,7 @@ const SHORTCUTS = [
   ['z', false, false, 'undo'], ['y', false, false, 'redo'], ['z', true, false, 'redo'], ['x', false, false, 'cut'], ['c', false, false, 'copy'], ['c', true, false, 'copy:text'], ['v', false, false, 'paste'], ['v', true, false, 'paste:text'],
   ['a', false, false, 'selectAll'], ['b', false, false, 'selectBlock'], ['f', false, false, 'find'], ['h', false, false, 'replace'], ['g', false, false, 'goto'], ['d', false, false, 'bookmarkToggle'],
   ['e', false, false, 'fill'], ['i', false, false, 'insertBytes'], ['r', false, false, 'readonly'], ['k', false, false, 'compare'], ['t', false, false, 'template'], ['d', true, false, 'disasm'], ['t', true, false, 'strings'],
-  ['f', true, false, 'carve'], ['y', true, false, 'yara'], ['k', true, false, 'checksums'], ['m', false, false, 'textMode'], ['p', false, false, 'print'], ['p', true, false, 'commandPalette'], [',', false, false, 'settings'], ['l', true, false, 'language'],
+  ['f', true, false, 'carve'], ['y', true, false, 'yara'], ['e', true, false, 'splitView'], ['m', true, false, 'macroRecord'], ['g', true, false, 'macroPlay'], ['r', true, false, 'script'], ['k', true, false, 'checksums'], ['m', false, false, 'textMode'], ['p', false, false, 'print'], ['p', true, false, 'commandPalette'], [',', false, false, 'settings'], ['l', true, false, 'language'],
   ['!', true, false, 'leftPanel'], ['1', true, false, 'leftPanel'], ['@', true, false, 'rightPanel'], ['2', true, false, 'rightPanel'], ['j', false, false, 'bottomPanel'],
   ['h', true, false, 'startPage'], ['b', true, false, 'shuffleBackground'], ['=', false, false, 'zoomIn'], ['+', false, false, 'zoomIn'], ['-', false, false, 'zoomOut'], ['0', false, false, 'zoomReset'],
   ['tab', false, false, 'nextTab'], ['tab', true, false, 'prevTab'], ['q', false, false, 'exit'],

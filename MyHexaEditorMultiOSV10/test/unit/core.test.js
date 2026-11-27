@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { b64, createCore, unb64 } from './helpers/core.mjs';
 import { SAMPLES, sampleBytes, crc32 } from '../../src/domain/samples.js';
+import { DISASM_ARCH_IDS } from '../../src/domain/archs.js';
 
 const core = createCore();
 const read = (id, offset = 0, length = 64) => unb64(core('read', { id, offset, length }).data);
@@ -210,4 +211,39 @@ rule Broken { strings: $a = { 4D 5 } condition: $a }`;
   assert.equal(mz.strings.find((s) => s.id === '$mz').offset, 0);
   assert.equal(r.errors.length, 1);
   assert.ok(r.errors[0].line >= 4, JSON.stringify(r.errors));
+});
+
+test('disassembler: the app lists every core architecture and each decodes a known instruction', () => {
+  assert.deepEqual(core('archs').map((a) => a.id).sort(), [...DISASM_ARCH_IDS].sort());
+  const hex = (s) => Uint8Array.from(s.match(/../g), (x) => parseInt(x, 16));
+  const cases = [
+    ['x86-64', '4889e5', /^mov/], ['x86-32', '55', /^push/], ['x86-16', 'b80100', /^mov/], ['arm64', 'c0035fd6', /^ret/], ['arm32', '1eff2fe1', /^bx/], ['thumb', '7047', /^bx/],
+    ['mips32be', '27bdffe8', /^addiu/], ['mips32le', 'e8ffbd27', /^addiu/], ['mips64be', 'dfbf0008', /^ld/], ['mips64le', '0800bfdf', /^ld/],
+    ['riscv32', '13050000', /^li|^addi/], ['riscv64', '8280', /^ret|^c\.jr|^jr/], ['ppc32', '7c0802a6', /^mflr/], ['ppc64', '4e800020', /^blr/], ['ppc64le', 'a602087c', /^mflr/],
+    ['sh4', '0b00', /^rts/], ['sh4be', '000b', /^rts/], ['6502', 'a901', /^lda/], ['avr', '0000', /^nop/], ['msp430', '3041', /^ret/], ['z80', '3e01', /^ld/], ['8080', '3e01', /^mvi/],
+  ];
+  for (const [arch, bytes, re] of cases) {
+    const { id } = core.open(hex(bytes), `${arch}.bin`);
+    const r = core('disasm', { id, arch, offset: 0, length: bytes.length / 2, max: 4 });
+    const first = r.items ?? r.instructions ?? r;
+    assert.match(first[0].mnemonic, re, `${arch}: ${first[0].text ?? first[0].mnemonic}`);
+  }
+});
+
+test('patches, demangling and scripts through the core API', () => {
+  const a = core.open(Uint8Array.from({ length: 300 }, (_, i) => i & 255), 'a.bin');
+  const b = core.open(Uint8Array.from({ length: 310 }, (_, i) => (i === 7 ? 0xEE : i & 255)), 'b.bin');
+  for (const format of ['ips', 'ips32', 'ups', 'bps']) {
+    const p = core('patchCreate', { original: a.id, modified: b.id, format });
+    const r = core('patchApply', { id: a.id, patch: p.data, format: 'auto' });
+    assert.deepEqual([...unb64(r.data)], [...core.bytes(b.id, 0, 310)], format);
+  }
+  const names = core('demangle', { names: ['_ZN3foo3barEv', '?func@@YAHH@Z', 'plain'] });
+  assert.deepEqual(names.map((x) => [x.scheme, x.ok]), [['itanium', true], ['msvc', true], ['none', false]]);
+  const s = core('script', { id: a.id, source: 'for (let i = 0; i < 4; i++) WriteU8(i, 0xFF - ReadU8(i));\nPrintf("done %d", FileSize());', selStart: 0, selLength: 0 });
+  assert.equal(s.output, 'done 300');
+  core('applyEdits', { id: a.id, edits: s.edits });
+  assert.deepEqual([...core.bytes(a.id, 0, 5)], [255, 254, 253, 252, 4]);
+  core('undo', { id: a.id });
+  assert.deepEqual([...core.bytes(a.id, 0, 5)], [0, 1, 2, 3, 4], 'one undo step');
 });

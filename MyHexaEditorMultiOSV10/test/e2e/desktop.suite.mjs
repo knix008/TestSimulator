@@ -174,6 +174,46 @@ export const desktopCases = [
   },
   {
     group: 'Tools',
+    name: 'Replace in files: a folder and its sub-folder, same-length in place and longer rewritten, .bak backups kept',
+    async run(app) {
+      const top = path.join(dir, 'rif');
+      const sub = path.join(top, 'sub');
+      fs.mkdirSync(sub, { recursive: true });
+      fs.writeFileSync(path.join(top, 'a.bin'), Buffer.from('xxCAFExxCAFE'));
+      fs.writeFileSync(path.join(sub, 'b.bin'), Buffer.from('..CAFE..'));
+      fs.writeFileSync(path.join(sub, 'c.txt'), Buffer.from('nothing here'));
+      const r = await app.run(`await T.reset(); const inv = window.__TAURI_INTERNALS__.invoke;
+        const same = await inv('hex_replace_in_files', { paths: [${js(top)}], recursive: true, pattern: { kind: 'text', value: 'CAFE', encoding: 'utf8' }, replacement: { kind: 'text', value: 'BEEF', encoding: 'utf8' }, backup: true, op: '' });
+        const longer = await inv('hex_replace_in_files', { paths: [${js(path.join(top, 'a.bin'))}], recursive: false, pattern: { kind: 'text', value: 'BEEF', encoding: 'utf8' }, replacement: { kind: 'hex', value: '42 45 45 46 21' }, backup: false, op: '' });
+        return { same, longer };`);
+      assert.equal(r.same.replaced, 3);
+      assert.equal(r.same.changed.length, 2);
+      assert.equal(r.same.failed.length, 0);
+      assert.equal(fs.readFileSync(path.join(sub, 'b.bin'), 'utf8'), '..BEEF..');
+      assert.equal(fs.readFileSync(path.join(sub, 'b.bin.bak'), 'utf8'), '..CAFE..', 'backup of the old file');
+      assert.equal(fs.readFileSync(path.join(sub, 'c.txt'), 'utf8'), 'nothing here');
+      assert.equal(fs.existsSync(path.join(sub, 'c.txt.bak')), false, 'unchanged files get no backup');
+      assert.equal(r.longer.replaced, 2);
+      assert.equal(fs.readFileSync(path.join(top, 'a.bin'), 'utf8'), 'xxBEEF!xxBEEF!', 'a longer replacement rewrites the file');
+      assert.equal(fs.readdirSync(top).filter((n) => n.includes('.myhexa-')).length, 0, 'no temporary file left');
+    },
+  },
+  {
+    group: 'Devices',
+    name: 'Open image file as disk: the tab is a read-only disk document of the image',
+    async run(app) {
+      const img = file('as-disk.img', Array.from({ length: 16 * 512 }, (_, i) => (i * 3) & 255));
+      const r = await app.run(`await T.reset(); await A.editor.openDisk({ path: ${js(img)}, name: 'as-disk.img' }); await T.until(() => T.doc()?.len === 8192, 8000, 'disk tab');
+        const d = T.doc(); return { kind: d.source.kind, readonly: d.readonly, len: d.len, b: await T.bytes(511, 3), enabled: A.menus.enabled('saveImage') };`);
+      assert.equal(r.kind, 'disk');
+      assert.equal(r.readonly, true);
+      assert.equal(r.len, 8192);
+      assert.deepEqual(r.b, [(511 * 3) & 255, (512 * 3) & 255, (513 * 3) & 255]);
+      assert.ok(r.enabled, 'Save as image is offered for a disk');
+    },
+  },
+  {
+    group: 'Tools',
     name: 'File systems of a disk image file on disk: list, read a file and a deleted one',
     async run(app) {
       const { sampleBytes } = await import('../../src/domain/samples.js');

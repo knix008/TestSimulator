@@ -1,7 +1,9 @@
 //! ext2 / ext3 / ext4: superblock, group descriptors (32 / 64-bit), inodes, extent trees and classic block maps,
-//! inline data, linear directories (htree directories read linearly), deleted entries found in record slack.
+//! inline data (i_block, continued in the `system.data` xattr), linear directories (htree directories read leaf by leaf,
+//! their dx_root / dx_node index data skipped), inline directories, deleted entries found in record slack.
 //! ids: inode numbers (root "2").
 use super::{assemble, push_extent, u16le, u32le, unix_text, Entry, Info, Listing, Vol};
+use std::collections::BTreeSet;
 
 struct Geo {
     bs: u64,
@@ -25,6 +27,8 @@ struct Inode {
     ctime: u32,
     mtime: u32,
     crtime: Option<u32>,
+    /// The whole on-disk inode (for in-inode extended attributes).
+    raw: Vec<u8>,
 }
 
 impl Geo {
@@ -59,7 +63,8 @@ impl Geo {
         let gdt = (self.first_block + 1) * self.bs;
         let desc = vol.read(gdt + group * self.desc_size, self.desc_size as usize)?;
         let table = u32le(&desc, 8) as u64 | if self.desc_size >= 64 { (u32le(&desc, 0x28) as u64) << 32 } else { 0 };
-        let b = vol.read(table * self.bs + index * self.inode_size, self.inode_size as usize)?;
+        let at = table.checked_mul(self.bs).and_then(|t| t.checked_add(index * self.inode_size)).ok_or("ext: bad inode table")?;
+        let b = vol.read(at, self.inode_size as usize)?;
         let extra = if self.inode_size > 128 { u16le(&b, 128) as usize } else { 0 };
         Ok(Inode {
             mode: u16le(&b, 0),
@@ -71,6 +76,7 @@ impl Geo {
             ctime: u32le(&b, 12),
             mtime: u32le(&b, 16),
             crtime: if extra >= 24 { Some(u32le(&b, 144)) } else { None },
+            raw: b,
         })
     }
 
@@ -181,7 +187,15 @@ impl Geo {
             return Entry { name, id: n.to_string(), deleted, ..Default::default() };
         };
         let dir = ino.mode & 0xF000 == 0x4000;
-        let resident = if ino.flags & 0x1000_0000 != 0 || (ino.mode & 0xF000 == 0xA000 && ino.size < 60 && ino.flags & 0x80000 == 0) {
+        let resident = if ino.flags & 0x1000_0000 != 0 {
+            // Inline data: i_block, then the value of the system.data xattr.
+            let mut d = ino.block[..(ino.size as usize).min(60)].to_vec();
+            if ino.size > 60 {
+                d.extend_from_slice(&inline_xattr(&ino).unwrap_or_default());
+                d.truncate(ino.size.min(1 << 20) as usize);
+            }
+            Some(d)
+        } else if ino.mode & 0xF000 == 0xA000 && ino.size < 60 && ino.flags & 0x80000 == 0 {
             Some(ino.block[..(ino.size as usize).min(60)].to_vec())
         } else {
             None
@@ -202,6 +216,7 @@ impl Geo {
             deleted: deleted || ino.dtime != 0 || ino.links == 0,
             resident,
             extents,
+            ..Default::default()
         }
     }
 
@@ -211,41 +226,143 @@ impl Geo {
         if ino.mode & 0xF000 != 0x4000 {
             return Err(format!("inode {n} is not a directory"));
         }
+        let mut d = Dirents { filetype: self.incompat & 0x2 != 0, inodes: self.inodes, live: Vec::new(), gone: Vec::new(), parent: None };
+        let none = BTreeSet::new();
+        if ino.flags & 0x1000_0000 != 0 {
+            // Inline directory: the parent inode, then entries in the rest of i_block and in the system.data xattr.
+            d.parent = Some(u32le(&ino.block, 0) as u64);
+            d.parse(&ino.block[4..], 56, false, &none);
+            if let Some(x) = inline_xattr(&ino) {
+                if !x.is_empty() {
+                    d.parse(&x, x.len(), false, &none);
+                }
+            }
+            return Ok((d.live, d.gone, d.parent));
+        }
         let mut e = Entry { size: ino.size.min(8 << 20), ..Default::default() };
         for (b, c) in self.runs(vol, &ino) {
             push_extent(&mut e.extents, if b < 0 { -1 } else { vol.abs(b as u64 * self.bs) as i64 }, c * self.bs);
         }
         let data = assemble(vol.src, &e)?;
-        let filetype = self.incompat & 0x2 != 0;
-        let name_at = |pos: usize, len: usize| -> String { String::from_utf8_lossy(&data[pos + 8..pos + 8 + len]).into_owned() };
-        let (mut live, mut gone, mut parent) = (Vec::new(), Vec::new(), None);
-        let mut pos = 0usize;
-        while pos + 8 <= data.len() {
-            let inode = u32le(&data, pos) as u64;
-            let rec = u16le(&data, pos + 4) as usize;
-            let name_len = if filetype { data[pos + 6] as usize } else { u16le(&data, pos + 6) as usize };
-            if rec < 8 || pos + rec > data.len() || rec % 4 != 0 {
-                pos = (pos / self.bs as usize + 1) * self.bs as usize;
+        let bs = self.bs as usize;
+        // An htree directory (EXT4_INDEX_FL): its leaves are ordinary blocks read in order; the index data (dx_root after
+        // "..", dx_node blocks behind a fake empty entry) is skipped so it is not taken for deleted entries.
+        let mut index = BTreeSet::new();
+        let dx_root = ino.flags & 0x1000 != 0 && htree_index(&data, bs, &mut index);
+        d.parse(&data, bs, dx_root, &index);
+        Ok((d.live, d.gone, d.parent))
+    }
+}
+
+/// The value of the `system.data` extended attribute held in the inode body (ext4 inline data).
+fn inline_xattr(ino: &Inode) -> Option<Vec<u8>> {
+    let b = &ino.raw;
+    if b.len() <= 128 {
+        return None;
+    }
+    let start = 128 + u16le(b, 128) as usize;
+    if start + 4 > b.len() || u32le(b, start) != 0xEA02_0000 {
+        return None;
+    }
+    let first = start + 4;
+    let mut pos = first;
+    for _ in 0..256 {
+        if pos + 16 > b.len() || u32le(b, pos) == 0 {
+            break;
+        }
+        let (name_len, index) = (b[pos] as usize, b[pos + 1]);
+        let (voff, vinum, vsize) = (u16le(b, pos + 2) as usize, u32le(b, pos + 4), u32le(b, pos + 8) as usize);
+        let name = b.get(pos + 16..pos + 16 + name_len)?;
+        if index == 7 && name == b"data" && vinum == 0 {
+            return (first + voff).checked_add(vsize).and_then(|end| b.get(first + voff..end)).map(|v| v.to_vec());
+        }
+        pos += (16 + name_len + 3) & !3;
+    }
+    None
+}
+
+/// The logical blocks of an htree directory that hold index nodes (dx_node); false when block 0 is not a dx_root.
+fn htree_index(data: &[u8], bs: usize, out: &mut BTreeSet<usize>) -> bool {
+    // dx_root: "." (12 bytes), ".." covering the rest of the block, dx_root_info at 24 (info_length 8 at 29, levels at 30).
+    if bs < 64 || data.len() < bs || u16le(data, 4) != 12 || u16le(data, 16) as usize != bs - 12 || data[29] != 8 {
+        return false;
+    }
+    let levels = data[30].min(3);
+    // Entries: limit / count over the first one's hash, then (hash, block) pairs.
+    let blocks_at = |blk: &[u8], at: usize| -> Vec<usize> {
+        let count = (u16le(blk, at + 2) as usize).min((blk.len().saturating_sub(at)) / 8);
+        (0..count).map(|i| (u32le(blk, at + 8 * i + 4) & 0x00FF_FFFF) as usize).collect()
+    };
+    let mut frontier = blocks_at(&data[..bs], 32);
+    for level in 0..levels {
+        let mut next = Vec::new();
+        for b in frontier {
+            if b == 0 || out.len() >= 100_000 || !out.insert(b) {
                 continue;
             }
-            if name_len > 0 && pos + 8 + name_len <= pos + rec {
+            if level + 1 < levels {
+                if let Some(node) = b.checked_mul(bs).and_then(|o| data.get(o..o + bs)) {
+                    next.extend(blocks_at(node, 8));
+                }
+            }
+        }
+        frontier = next;
+    }
+    true
+}
+
+struct Dirents {
+    filetype: bool,
+    inodes: u64,
+    live: Vec<(u64, String)>,
+    gone: Vec<(u64, String)>,
+    parent: Option<u64>,
+}
+
+impl Dirents {
+    /// Directory entries in `data`, records never crossing a `region` boundary (the block size; the inline areas);
+    /// regions in `skip` are index blocks. `dx_root`: the ".." entry of block 0 holds the htree root, not slack.
+    fn parse(&mut self, data: &[u8], region: usize, dx_root: bool, skip: &BTreeSet<usize>) {
+        if region == 0 {
+            return;
+        }
+        let ft = self.filetype;
+        let name_len_at = |pos: usize| if ft { data[pos + 6] as usize } else { u16le(data, pos + 6) as usize };
+        let name_at = |pos: usize, len: usize| -> String { String::from_utf8_lossy(&data[pos + 8..pos + 8 + len]).into_owned() };
+        let mut pos = 0usize;
+        while pos + 8 <= data.len() {
+            if pos.is_multiple_of(region) && skip.contains(&(pos / region)) {
+                pos += region;
+                continue;
+            }
+            let inode = u32le(data, pos) as u64;
+            let rec = u16le(data, pos + 4) as usize;
+            let name_len = name_len_at(pos);
+            let region_end = (pos / region + 1) * region;
+            if rec < 8 || pos + rec > data.len() || pos + rec > region_end || !rec.is_multiple_of(4) {
+                pos = region_end;
+                continue;
+            }
+            let mut slack = true;
+            if name_len > 0 && 8 + name_len <= rec {
                 let name = name_at(pos, name_len);
                 if name == ".." {
-                    parent = Some(inode);
+                    self.parent = Some(inode);
+                    slack = !(dx_root && pos < region);
                 } else if name != "." {
-                    if inode != 0 { live.push((inode, name)) } else { gone.push((0, name)) }
+                    if inode != 0 { self.live.push((inode, name)) } else { self.gone.push((0, name)) }
                 }
             }
             // Slack after this entry: entries removed from the directory often stay there.
             let ideal = (8 + name_len + 3) & !3;
             let mut s = pos + ideal;
-            while s + 12 <= pos + rec {
-                let ino2 = u32le(&data, s) as u64;
-                let nl = if filetype { data[s + 6] as usize } else { u16le(&data, s + 6) as usize };
+            while slack && s + 12 <= pos + rec {
+                let ino2 = u32le(data, s) as u64;
+                let nl = name_len_at(s);
                 if ino2 != 0 && ino2 <= self.inodes && nl > 0 && s + 8 + nl <= pos + rec {
                     let name = name_at(s, nl);
                     if name.chars().all(|c| !c.is_control()) && name != "." && name != ".." {
-                        gone.push((ino2, name));
+                        self.gone.push((ino2, name));
                         s += (8 + nl + 3) & !3;
                         continue;
                     }
@@ -254,7 +371,6 @@ impl Geo {
             }
             pos += rec;
         }
-        Ok((live, gone, parent))
     }
 }
 

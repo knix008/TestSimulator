@@ -35,6 +35,12 @@ const GUIDE = {
   export: `await T.reset({ sample: 'png' }); T.view().select(0, 64); A.run('exportMenu'); await T.sleep(1200);`,
   print: `await T.reset({ sample: 'png' }); A.run('print'); await T.popupReady('print'); await T.until(() => T.popupDoc('print').querySelector('.print-frame'), 10000, 'preview'); await T.sleep(1500);`,
   settings: `await T.reset(); A.run('settings'); await T.popupReady('settings'); await T.sleep(300);`,
+  visualizer: `await T.reset({ sample: 'mixed' }); A.run('visualizer'); await T.popupReady('visualizer'); await T.until(() => T.popupDoc('visualizer').querySelector('[data-vis-canvas]')?.width > 1, 8000, 'pixels'); T.fill('visualizer', '[data-tw="vis-zoom"]', '4'); await T.sleep(300);`,
+  script: `await T.reset({ sample: 'zip' }); A.run('script'); await T.popupReady('script'); T.fill('script', '[data-tw="script-example"]', 'report'); T.click('script', '[data-tw-act="script-example-load"]'); await T.frames(2); T.click('script', '[data-tw-act="script-run"]'); await T.until(() => T.popupDoc('script').querySelector('[data-script-output]'), 8000, 'output');`,
+  patch: `await T.reset({ sample: 'png' }); await A.app.openSample('bmp'); A.run('patch'); await T.popupReady('patch'); await T.sleep(400);`,
+  demangle: `await T.reset({ sample: 'pe' }); A.run('demangle'); await T.popupReady('demangle'); T.click('demangle', '[data-tw-act="dm-run"]'); await T.until(() => T.popupDoc('demangle').querySelector('.tw-list .tw-item'), 8000, 'names');`,
+  split: `await T.reset({ sample: 'elf' }); await A.run('splitView'); await T.frames(3); A.app.activeTab().splitView.setCaret(0x40, { reveal: true }); await T.sleep(300);`,
+  multisearch: `await T.reset({ sample: 'mixed' }); A.run('find'); await T.popupReady('find'); T.fill('find', '[data-tw="kind"]', 'multi'); await T.until(() => T.popupDoc('find').querySelector('textarea[data-tw="value"]'), 5000, 'terms'); T.fill('find', 'textarea[data-tw="value"]', '"Device"\\n4D 59 46 57\\n/Serial: [0-9]{4}/'); T.click('find', '[data-tw-act="find-all"]'); await T.until(() => T.popupDoc('find').querySelectorAll('.tw-list .tw-item').length >= 3, 8000, 'results');`,
 };
 
 async function shot(app, file) {

@@ -5,6 +5,8 @@ use crate::util::Progress;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
+mod script;
+
 const MAX_ITERATIONS: u64 = 1_000_000;
 /// Children kept per array (the rest are summed up in one "…" node).
 const MAX_ELEMENTS: usize = 10_000;
@@ -102,6 +104,32 @@ struct RNode {
     comment: Option<String>,
     children: Vec<usize>,
     hidden: bool,
+    /// How the value can be typed back in (the app's structure tree): an inspector type id or "text", and the
+    /// byte order it was read with.
+    edit: Option<&'static str>,
+    big: bool,
+}
+
+/// The data inspector type a primitive is written back as (crate::inspect::encode), if it has a fixed size.
+fn edit_of(p: Prim) -> Option<&'static str> {
+    Some(match p {
+        Prim::U(1) => "uint8",
+        Prim::U(2) => "uint16",
+        Prim::U(3) => "uint24",
+        Prim::U(4) => "uint32",
+        Prim::U(8) => "uint64",
+        Prim::S(1) => "int8",
+        Prim::S(2) => "int16",
+        Prim::S(3) => "int24",
+        Prim::S(4) => "int32",
+        Prim::S(8) => "int64",
+        Prim::F16 => "float16",
+        Prim::F32 => "float32",
+        Prim::F64 => "float64",
+        Prim::Bool | Prim::Char => "uint8",
+        Prim::WChar => "uint16",
+        _ => return None,
+    })
 }
 
 enum Binding {
@@ -125,6 +153,8 @@ impl Frame {
 pub enum Fail {
     Err(Pos, String),
     Cancelled,
+    /// `Exit()` in a script: stops without an error.
+    Exit,
 }
 
 enum Flow {
@@ -160,6 +190,8 @@ pub struct Ctx<'a, 'p> {
     depth: usize,
     /// The struct bodies being read, outermost first: (frame index, struct node); the root is (0, None).
     scopes: Vec<(usize, Option<usize>)>,
+    /// Script mode (`run_script`): the edits so far, which reads see, and the output.
+    script: Option<Box<script::Script<'a>>>,
 }
 
 /// How deep user functions may call each other.
@@ -350,6 +382,7 @@ impl<'a, 'p> Ctx<'a, 'p> {
             ret: None,
             depth: 0,
             scopes: vec![(0, None)],
+            script: None,
         }
     }
 
@@ -391,7 +424,7 @@ impl<'a, 'p> Ctx<'a, 'p> {
         let children: Vec<Value> = if depth < 64 { n.children.iter().filter(|c| !self.nodes[**c].hidden).map(|c| self.node_json(*c, depth + 1)).collect() } else { Vec::new() };
         json!({
             "name": n.name, "type": n.ty, "offset": n.offset, "size": n.size, "value": value,
-            "color": n.color, "comment": n.comment,
+            "color": n.color, "comment": n.comment, "edit": n.edit, "big": n.big,
             "children": if children.is_empty() && !matches!(n.kind, NK::Struct | NK::Array) { Value::Null } else { Value::Array(children) },
         })
     }
@@ -408,7 +441,11 @@ impl<'a, 'p> Ctx<'a, 'p> {
     fn read_bytes(&self, offset: u64, n: u64, pos: Pos) -> R<Vec<u8>> {
         self.need(offset, n, pos)?;
         let mut buf = vec![0u8; n as usize];
-        self.src.read(offset, &mut buf).map_err(|e| Fail::Err(pos, e))?;
+        match &self.script {
+            Some(s) => s.overlay.read(offset, &mut buf),
+            None => self.src.read(offset, &mut buf),
+        }
+        .map_err(|e| Fail::Err(pos, e))?;
         Ok(buf)
     }
 
@@ -507,8 +544,12 @@ impl<'a, 'p> Ctx<'a, 'p> {
         if self.iterations > MAX_ITERATIONS {
             return fail(pos, format!("stopped after {MAX_ITERATIONS} loop iterations (endless loop?)"));
         }
-        if self.iterations % 4096 == 0 && !(self.progress)(self.cursor.min(self.len), self.len) {
-            return Err(Fail::Cancelled);
+        if self.iterations % 4096 == 0 {
+            // A script's loops rarely move the cursor: report the iterations used instead.
+            let (done, total) = if self.script.is_some() { (self.iterations, MAX_ITERATIONS) } else { (self.cursor.min(self.len), self.len) };
+            if !(self.progress)(done, total) {
+                return Err(Fail::Cancelled);
+            }
         }
         Ok(())
     }
@@ -629,7 +670,7 @@ impl<'a, 'p> Ctx<'a, 'p> {
     }
 
     fn blank(&self, key: &str, ty: String, offset: u64, kind: NK) -> RNode {
-        RNode { key: key.into(), name: key.into(), ty, offset, size: 0, kind, color: None, comment: None, children: Vec::new(), hidden: false }
+        RNode { key: key.into(), name: key.into(), ty, offset, size: 0, kind, color: None, comment: None, children: Vec::new(), hidden: false, edit: None, big: false }
     }
 
     fn apply_attrs(&mut self, idx: usize, attrs: &'a [Attr]) -> R<()> {
@@ -814,6 +855,7 @@ impl<'a, 'p> Ctx<'a, 'p> {
                     units.iter().map(|u| char::from_u32(*u).unwrap_or('?')).collect()
                 };
                 let mut node = self.blank(key, format!("{tname}[{count}]"), start, NK::Str(text));
+                node.edit = Some("text");
                 node.size = self.cursor - start;
                 self.new_node(node, pos)
             }
@@ -941,6 +983,8 @@ impl<'a, 'p> Ctx<'a, 'p> {
                 let (nk, size) = self.read_prim(*p, start, big, pos)?;
                 let mut node = self.blank(key, tname.to_string(), start, nk);
                 node.size = size;
+                node.edit = edit_of(*p);
+                node.big = big;
                 self.cursor = start + size;
                 self.new_node(node, pos)
             }
@@ -957,6 +1001,8 @@ impl<'a, 'p> Ctx<'a, 'p> {
                 let name = e.members.iter().find(|(_, m)| *m == v).map(|(n, _)| n.clone());
                 let mut node = self.blank(key, format!("enum {}", e.name), start, NK::Enum(name, v));
                 node.size = size;
+                node.edit = edit_of(base);
+                node.big = big;
                 self.cursor = start + size;
                 self.new_node(node, pos)
             }
@@ -1345,6 +1391,11 @@ impl<'a, 'p> Ctx<'a, 'p> {
     /// Kept out of line: its large frame must not sit on every level of a recursive user function.
     #[inline(never)]
     fn builtin(&mut self, name: &str, args: &'a [Expr], pos: Pos) -> R<Val> {
+        if self.script.is_some() {
+            if let Some(result) = self.script_builtin(name, args, pos) {
+                return result;
+            }
+        }
         let read_at = |me: &mut Self, args: &'a [Expr]| -> R<u64> { if args.is_empty() { Ok(me.cursor) } else { me.arg_u64(args, 0, pos) } };
         let int_read = |me: &mut Self, args: &'a [Expr], p: Prim, big: Option<bool>| -> R<Val> {
             let off = read_at(me, args)?;

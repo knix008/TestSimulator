@@ -179,7 +179,9 @@ export class HexView {
   }
 
   selection() {
-    if (this.anchor == null || this.anchor === this.caret) return { start: this.caret, end: this.caret, length: 0 };
+    if (this.anchor == null) return { start: this.caret, end: this.caret, length: 0 };
+    // anchor on the caret: one byte when select() chose exactly one, else nothing selected
+    if (this.anchor === this.caret) return this.single ? { start: this.caret, end: Math.min(this.doc.len, this.caret + 1), length: Math.min(1, this.doc.len - this.caret) } : { start: this.caret, end: this.caret, length: 0 };
     const start = Math.min(this.anchor, this.caret);
     const end = Math.min(this.doc.len, Math.max(this.anchor, this.caret) + 1);
     return { start, end, length: end - start };
@@ -190,7 +192,8 @@ export class HexView {
     const len = this.doc.len;
     start = Math.max(0, Math.min(len, start));
     end = Math.max(start, Math.min(len, end));
-    if (end - start <= 1) { this.anchor = null; this.caret = start; } else { this.anchor = start; this.caret = end - 1; }
+    this.single = end - start === 1;
+    if (end - start < 1) { this.anchor = null; this.caret = start; } else if (this.single) { this.anchor = start; this.caret = start; } else { this.anchor = start; this.caret = end - 1; }
     this.nibble = 0;
     if (reveal) this.reveal(start, { center });
     this.changed();
@@ -200,6 +203,7 @@ export class HexView {
     const max = this.doc.resizable && !this.doc.readonly ? this.doc.len : Math.max(0, this.doc.len - 1);
     const next = Math.max(0, Math.min(max, offset));
     if (extend) { if (this.anchor == null) this.anchor = this.caret; } else this.anchor = null;
+    this.single = false;
     this.caret = next;
     this.nibble = 0;
     if (reveal) this.reveal(next);
@@ -371,7 +375,7 @@ export class HexView {
         const box = this.body.getBoundingClientRect();
         const y = Math.max(box.top + 2, Math.min(box.bottom - 2, e.clientY));
         const hit = this.hit(e.clientX, y);
-        if (hit && hit.offset !== this.caret) { if (this.anchor == null) this.anchor = this.caret; this.caret = Math.min(hit.offset, Math.max(0, this.doc.len - 1)); this.changed(); }
+        if (hit && hit.offset !== this.caret) { if (this.anchor == null) this.anchor = this.caret; this.single = false; this.caret = Math.min(hit.offset, Math.max(0, this.doc.len - 1)); this.changed(); }
       };
       const up = () => { this.dragging = false; clearInterval(auto); this.body.removeEventListener('pointermove', move); this.body.removeEventListener('pointerup', up); this.body.removeEventListener('pointercancel', up); };
       this.body.addEventListener('pointermove', move);
@@ -474,7 +478,7 @@ export class HexView {
     const insert = this.s.insertMode;
     if (!this.canEdit(insert || this.caret >= this.doc.len)) return;
     const sel = this.selection();
-    if (sel.length > 1) {
+    if (sel.length > 1 || (sel.length === 1 && this.single)) {
       if (insert) { await this.opts.edit('delete', { offset: sel.start, length: sel.length }); }
       this.anchor = null;
       this.caret = sel.start;

@@ -38,6 +38,8 @@ pub mod export;
 pub mod calc;
 pub mod fsys;
 pub mod yara;
+pub mod patch;
+pub mod demangle;
 pub mod engine;
 
 pub use doc::{Bytes, Document};
