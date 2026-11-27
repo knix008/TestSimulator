@@ -146,6 +146,7 @@ export function createModel(ctx) {
       if (c) info.faces.forEach((f, i) => { if ((f.body === c.a && f.other === c.b) || (f.body === c.b && f.other === c.a)) colors.set(i, 'pick'); });
     }
     view.setFaceColors(colors);
+    showMover();
     const hidden = (state.project?.bodies ?? []).filter((b) => b.hidden).map((b) => b.id);
     view.setHiddenBodies(hidden);
   }
@@ -203,6 +204,7 @@ export function createModel(ctx) {
     const d = displayOf(item, r, meshSize(info));
     shown = { kind: 'result', meshInfo: info, sysId: sys.id, item, display: d, scale: 0 };
     view.setFaceColors(new Map());
+    view.setMoveTarget(null);
     view.setHiddenBodies((state.project?.bodies ?? []).filter((b) => b.hidden).map((b) => b.id));
     const us = unitSystem();
     const spec = RESULTS[item.quantity];
@@ -315,6 +317,25 @@ export function createModel(ctx) {
 
   function applySection(sec) { view.setSection(sec); }
 
+  /** Move handles on the selected body (setup view): dragging moves it; release commits the move. */
+  function showMover() {
+    if (!view) return;
+    const sel = ctx.selected();
+    const info = shown?.meshInfo;
+    const b = sel?.kind === 'body' && !shownResult() ? state.project?.bodies.find((x) => x.id === sel.id && !x.tool) : null;
+    if (!b || !info?.positions) { view.setMoveTarget(null); return; }
+    // The body's box from its surface nodes.
+    const lo = [Infinity, Infinity, Infinity]; const hi = [-Infinity, -Infinity, -Infinity];
+    const tris = info.tris; const tf = info.triFace; const pos = info.positions;
+    for (let t = 0; t < tf.length; t++) {
+      if (info.faces[tf[t]]?.body !== b.id) continue;
+      for (let k = 0; k < 3; k++) { const n = tris[3 * t + k]; for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], pos[3 * n + c]); hi[c] = Math.max(hi[c], pos[3 * n + c]); } }
+    }
+    if (!Number.isFinite(lo[0])) { view.setMoveTarget(null); return; }
+    const center = lo.map((v, k) => (v + hi[k]) / 2);
+    view.setMoveTarget({ center, box: [lo, hi], snap: state.settings.moveSnap ?? 1, onCommit: (d) => ctx.moveBody?.(b.id, d) });
+  }
+
   /** The project's lights (and their sun markers) in the view. */
   function showLights() {
     if (!view) return;
@@ -326,6 +347,7 @@ export function createModel(ctx) {
   function showProbes() {
     if (!view) return;
     showLights();
+    showMover();
     const sys = shownResult() ? ctx.systemById(shown.sysId) : ctx.activeSystem();
     const probes = state.settings.showProbes === false ? [] : sys?.probes ?? [];
     const info = shown?.meshInfo;

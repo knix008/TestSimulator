@@ -323,7 +323,7 @@ pub fn generate(bodies: &[BodyMesh], opt: &MeshOptions, ctx: &mut crate::Ctx) ->
             snap(&mut mesh, bodies, &hloc, &incident, air);
             // Spikes: elements near a surface with a corner still well outside their body (a node the
             // snapping could not move) go, so the surface is found again without them.
-            let spikes = drop_spikes(&mut mesh, bodies, &hloc, air);
+            let spikes = drop_spikes(&mut mesh, bodies, &hloc, air) | drop_folds(&mut mesh, bodies, &hloc, air);
             let dropped = drop_slivers(&mut mesh, air) || spikes;
             if dropped {
                 let (tris, tri_region, tri_other) = boundary(&mesh.tets, &mesh.region);
@@ -345,6 +345,7 @@ pub fn generate(bodies: &[BodyMesh], opt: &MeshOptions, ctx: &mut crate::Ctx) ->
     if opt.smooth > 0 { let incident = node_tets(&mesh); smooth(&mut mesh, &incident, opt.smooth); }
     ctx.step(0.65, "progress.mesh")?;
     group_faces(&mut mesh, bodies, air, opt.feature_angle);
+    if opt.snap { smooth_surface(&mut mesh, bodies, &hloc, air, 6); }
     ctx.step(0.75, "progress.mesh")?;
     if opt.order == 2 { make_quadratic(&mut mesh, bodies, air); }
     if !opt.split.is_empty() { pair_contact_nodes(&mut mesh, &opt.split); }
@@ -462,6 +463,47 @@ fn drop_spikes(mesh: &mut Mesh, bodies: &[BodyMesh], hloc: &[f64], air: u32) -> 
     true
 }
 
+/// Removes folds: elements with all four corners on the surface that show a face turned into their
+/// body (the surface folds back over them; drawn as dark specks). Inside an enclosure they join the air.
+fn drop_folds(mesh: &mut Mesh, bodies: &[BodyMesh], hloc: &[f64], air: u32) -> bool {
+    let mut outer: std::collections::HashSet<[u32; 3]> = std::collections::HashSet::new();
+    let mut on_boundary = vec![false; mesh.nodes.len()];
+    for (ti, t) in mesh.tris.iter().enumerate() {
+        for &n in t { on_boundary[n as usize] = true; }
+        if mesh.tri_other[ti] == NONE || mesh.tri_other[ti] == air { let mut k = *t; k.sort_unstable(); outer.insert(k); }
+    }
+    let mut changed = false;
+    let mut keep = vec![true; mesh.tets.len()];
+    for e in 0..mesh.tets.len() {
+        let r = mesh.region[e];
+        if r == air || r as usize >= bodies.len() { continue; }
+        let t = mesh.tets[e];
+        if !t.iter().all(|&n| on_boundary[n as usize]) { continue; }
+        let solid = bodies[r as usize].solid;
+        for lf in TET_FACES {
+            let f = [t[lf[0]], t[lf[1]], t[lf[2]]];
+            let mut k = f; k.sort_unstable();
+            if !outer.contains(&k) { continue; }
+            let (a, b, c) = (mesh.nodes[f[0] as usize], mesh.nodes[f[1] as usize], mesh.nodes[f[2] as usize]);
+            let nrm = cross(sub(b, a), sub(c, a));
+            let cen = [0, 1, 2].map(|q| (a[q] + b[q] + c[q]) / 3.0);
+            let hl = hloc[f[0] as usize].max(1e-12);
+            if dot(nrm, solid.gradient(cen, hl * 1e-3)) < 0.0 { keep[e] = false; changed = true; break; }
+        }
+    }
+    if !changed { return false; }
+    if air != NONE {
+        for e in 0..mesh.tets.len() { if !keep[e] { mesh.region[e] = air; } }
+        return true;
+    }
+    let mut tets = Vec::with_capacity(mesh.tets.len());
+    let mut region = Vec::with_capacity(mesh.tets.len());
+    for e in 0..mesh.tets.len() { if keep[e] { tets.push(mesh.tets[e]); region.push(mesh.region[e]); } }
+    mesh.tets = tets;
+    mesh.region = region;
+    true
+}
+
 /// Drops nodes no element uses any more.
 fn compact_nodes(mesh: &mut Mesh, hloc: &mut Vec<f64>) {
     let mut used = vec![u32::MAX; mesh.nodes.len()];
@@ -517,6 +559,136 @@ fn boundary(tets: &[[u32; 4]], region: &[u32]) -> (Vec<[u32; 3]>, Vec<u32>, Vec<
         to.push(r1);
     }
     (tris, tr, to)
+}
+
+/// Evens out the surface after the faces are known: nodes inside a face move towards the average of
+/// their neighbours on that face and back onto the true surface (no bumps from uneven triangles); nodes
+/// on an edge between two faces move along it towards their two edge neighbours, and on a convex edge
+/// (a cylinder's rim) land exactly on the edge curve. Corners stay. Every move keeps the elements valid.
+fn smooth_surface(mesh: &mut Mesh, bodies: &[BodyMesh], hloc: &[f64], air: u32, rounds: usize) {
+    if mesh.faces.is_empty() { return; }
+    let nn = mesh.nodes.len();
+    // Faces and solid side of each surface node (only outer surfaces: not between two bodies).
+    let mut node_faces: Vec<Vec<u32>> = vec![Vec::new(); nn];
+    let mut node_body = vec![NONE; nn];
+    let mut blocked = vec![false; nn];
+    let mut on_boundary = vec![false; nn];
+    for (ti, t) in mesh.tris.iter().enumerate() {
+        let (r, o) = (mesh.tri_region[ti], mesh.tri_other[ti]);
+        for &n in t { on_boundary[n as usize] = true; }
+        let outer = (r as usize) < bodies.len() && (o == NONE || o == air);
+        for &n in t {
+            let n = n as usize;
+            if !outer { if r != air { blocked[n] = true; } continue; }
+            if node_body[n] == NONE { node_body[n] = r; } else if node_body[n] != r { blocked[n] = true; }
+            let f = mesh.tri_face[ti];
+            if !node_faces[n].contains(&f) { node_faces[n].push(f); }
+        }
+    }
+    // Same-face neighbours and feature-edge neighbours.
+    let mut face_nbrs: Vec<Vec<u32>> = vec![Vec::new(); nn];
+    let mut edge_tris: HashMap<(u32, u32), Vec<u32>> = HashMap::new();
+    for (ti, t) in mesh.tris.iter().enumerate() {
+        if !((mesh.tri_region[ti] as usize) < bodies.len() && (mesh.tri_other[ti] == NONE || mesh.tri_other[ti] == air)) { continue; }
+        for (a, b) in [(t[0], t[1]), (t[1], t[2]), (t[2], t[0])] {
+            edge_tris.entry((a.min(b), a.max(b))).or_default().push(ti as u32);
+        }
+    }
+    let mut edge_nbrs: Vec<Vec<u32>> = vec![Vec::new(); nn];
+    for (&(a, b), ts) in &edge_tris {
+        let faces: Vec<u32> = ts.iter().map(|&t| mesh.tri_face[t as usize]).collect();
+        let same = faces.iter().all(|f| *f == faces[0]);
+        if same {
+            if !face_nbrs[a as usize].contains(&b) { face_nbrs[a as usize].push(b); }
+            if !face_nbrs[b as usize].contains(&a) { face_nbrs[b as usize].push(a); }
+        } else {
+            edge_nbrs[a as usize].push(b);
+            edge_nbrs[b as usize].push(a);
+        }
+    }
+    let mut node_tris: Vec<Vec<u32>> = vec![Vec::new(); nn];
+    for (ti, t) in mesh.tris.iter().enumerate() { for &n in t { node_tris[n as usize].push(ti as u32); } }
+    let incident = node_tets(mesh);
+    for _ in 0..rounds {
+        let orig: Vec<f64> = (0..mesh.tets.len()).map(|e| mesh.tet_volume(e)).collect();
+        for n in 0..nn {
+            if blocked[n] || node_body[n] == NONE { continue; }
+            let solid = bodies[node_body[n] as usize].solid;
+            let p = mesh.nodes[n];
+            let hl = hloc[n].max(0.5 * mesh.h);
+            let avg = |list: &[u32]| -> V3 { let mut c = [0.0; 3]; for &m in list { for k in 0..3 { c[k] += mesh.nodes[m as usize][k]; } } c.map(|v| v / list.len() as f64) };
+            let target = match node_faces[n].len() {
+                1 if face_nbrs[n].len() >= 3 => {
+                    let c = avg(&face_nbrs[n]);
+                    let mid = [0, 1, 2].map(|k| p[k] + 0.5 * (c[k] - p[k]));
+                    solid.project(mid, hl * 1e-3)
+                }
+                2 if edge_nbrs[n].len() == 2 => {
+                    let c = avg(&edge_nbrs[n]);
+                    let mid = [0, 1, 2].map(|k| p[k] + 0.5 * (c[k] - p[k]));
+                    // The two faces' normals at this node: their sum points out of a convex edge.
+                    let mut m = [0.0; 3];
+                    for &t in &node_tris[n] { let (nr, _, _) = tri_normal_area(mesh, &mesh.tris[t as usize]); for k in 0..3 { m[k] += nr[k]; } }
+                    let m = normalize(m);
+                    let out = [0, 1, 2].map(|k| mid[k] + m[k] * 0.3 * hl);
+                    if solid.sdf(out) > 0.2 * hl {
+                        // Convex: from outside the corner the nearest surface point is on the edge.
+                        solid.project(out, hl * 1e-3)
+                    } else { continue; }
+                }
+                _ => continue,
+            };
+            if norm(sub(target, p)) > hl { continue; }
+            if solid.sdf(target).abs() > 0.05 * hl { continue; }
+            let _ = (&orig, &on_boundary);
+            if worst_quality(mesh, &incident[n], n, target) < worst_quality(mesh, &incident[n], n, p).min(0.15) { continue; }
+            // Every surface triangle at the node still faces out of the body.
+            let faces_out = node_tris[n].iter().all(|&t| {
+                let tri = mesh.tris[t as usize];
+                if !((mesh.tri_region[t as usize] as usize) < bodies.len() && (mesh.tri_other[t as usize] == NONE || mesh.tri_other[t as usize] == air)) { return true; }
+                let q: Vec<V3> = tri.iter().map(|&i| if i as usize == n { target } else { mesh.nodes[i as usize] }).collect();
+                let nrm = cross(sub(q[1], q[0]), sub(q[2], q[0]));
+                let cen = [0, 1, 2].map(|k| (q[0][k] + q[1][k] + q[2][k]) / 3.0);
+                dot(nrm, bodies[mesh.tri_region[t as usize] as usize].solid.gradient(cen, hl * 1e-3)) > 0.0
+            });
+            if faces_out { mesh.nodes[n] = target; }
+        }
+    }
+    // Face centroids, normals and areas follow the moved nodes.
+    refresh_faces(mesh);
+}
+
+/// The worst quality of a node's elements with the node at `pos` (0 or less when one turns over).
+fn worst_quality(mesh: &Mesh, incident: &[u32], node: usize, pos: V3) -> f64 {
+    let mut w = f64::INFINITY;
+    for &e in incident {
+        let t = mesh.tets[e as usize];
+        let p: Vec<V3> = t.iter().map(|&i| if i as usize == node { pos } else { mesh.nodes[i as usize] }).collect();
+        let v = volume(p[0], p[1], p[2], p[3]);
+        let mut sum = 0.0;
+        for (a, b) in [(0, 1), (1, 2), (0, 2), (0, 3), (1, 3), (2, 3)] { let d = sub(p[a], p[b]); sum += dot(d, d); }
+        w = w.min(if v <= 0.0 || sum <= 0.0 { -1.0 } else { 12.0 * (3.0 * v).powf(2.0 / 3.0) / sum });
+    }
+    w
+}
+
+/// Centroid, area and normal of every face again (after its nodes moved).
+fn refresh_faces(mesh: &mut Mesh) {
+    for fi in 0..mesh.faces.len() {
+        let mut area = 0.0;
+        let mut c = [0.0; 3];
+        let mut nrm = [0.0; 3];
+        for &t in &mesh.faces[fi].tris {
+            let (n, a, cc) = tri_normal_area(mesh, &mesh.tris[t as usize]);
+            area += a;
+            for k in 0..3 { c[k] += cc[k] * a; nrm[k] += n[k] * a; }
+        }
+        for k in 0..3 { c[k] /= area.max(1e-300); }
+        let f = &mut mesh.faces[fi];
+        f.area = area;
+        f.centroid = c;
+        f.normal = normalize(nrm);
+    }
 }
 
 fn node_tets(mesh: &Mesh) -> Vec<Vec<u32>> {
@@ -824,7 +996,7 @@ mod tests {
         let mut ctx = crate::Ctx::silent();
         let m = generate(&[b], &opts(1.0), &mut ctx).unwrap();
         let v: f64 = (0..m.tets.len()).map(|e| m.tet_volume(e)).sum();
-        assert!((v - 80.0).abs() < 1e-6, "volume {v}");
+        assert!((v - 80.0).abs() < 80.0 * 1e-5, "volume {v}");
         assert_eq!(m.faces.len(), 6);
         assert!(m.tets.iter().enumerate().all(|(e, _)| m.tet_volume(e) > 0.0));
     }
@@ -853,12 +1025,19 @@ mod tests {
     fn curved_surfaces_have_no_spikes() {
         // Every surface node of a sphere and a torus lies on the surface (within a third of a cell):
         // no element corner is left sticking out.
-        for (shape, size) in [(r#"{"type":"sphere","radius":25}"#, 2.2), (r#"{"type":"sphere","radius":25}"#, 3.7), (r#"{"type":"torus","major":40,"minor":10}"#, 2.5)] {
+        for (shape, size) in [(r#"{"type":"sphere","radius":25}"#, 2.2), (r#"{"type":"sphere","radius":25}"#, 3.7), (r#"{"type":"torus","major":40,"minor":10}"#, 2.5), (r#"{"type":"cone","r1":25,"r2":10,"height":50}"#, 2.17), (r#"{"type":"cylinder","radius":20,"height":60}"#, 2.06)] {
             let s = solid(shape);
             let b = BodyMesh { solid: &s, planes: [vec![], vec![], vec![]], size: None };
             let m = generate(&[b], &opts(size), &mut crate::Ctx::silent()).unwrap();
             let worst = m.tris.iter().flat_map(|t| t.iter()).map(|&n| s.sdf(m.nodes[n as usize]).abs()).fold(0.0, f64::max);
             assert!(worst < size / 3.0, "{shape} h {size}: a surface node {worst} off the surface");
+            // No surface triangle faces into the body (a fold, drawn as a dark speck).
+            let folds = m.tris.iter().filter(|t| {
+                let (a, b, c) = (m.nodes[t[0] as usize], m.nodes[t[1] as usize], m.nodes[t[2] as usize]);
+                let cen = [0, 1, 2].map(|k| (a[k] + b[k] + c[k]) / 3.0);
+                dot(cross(sub(b, a), sub(c, a)), s.gradient(cen, size * 1e-3)) < 0.0
+            }).count();
+            assert_eq!(folds, 0, "{shape} h {size}: folded surface triangles");
             assert!(m.tets.iter().enumerate().all(|(e, _)| m.tet_volume(e) > 0.0));
         }
     }

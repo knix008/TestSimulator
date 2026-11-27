@@ -30,6 +30,7 @@ function available(spec, r) {
     case 'frames': return Boolean(r.transient?.frames?.length);
     case 'transientMax': return Boolean(r.transient?.maxVonMises);
     case 'explicitFrames': return Boolean(r.explicit?.frames?.length);
+    case 'rigidFrames': return Boolean(r.rigid?.frames?.length);
     case 'thermalFrames': return Boolean(r.transient?.frames?.length);
     case 'topology': return Boolean(r.topology);
     case 'fluid': return Boolean(r.fluid?.fields?.[spec.field]);
@@ -88,6 +89,17 @@ export function displayOf(item, result, modelSize) {
       out.range = [0, mx];
       out.frameScale = Math.max(...out.frames.map((f) => maxLen(f.vector)));
       if (spec.source === 'explicitFrames') out.trueScale = true;
+      break;
+    }
+    case 'rigidFrames': {
+      // The bodies moving rigidly, coloured by how far each point has moved.
+      const mag = (v) => { const o = new Float32Array(v.length / 3); for (let i = 0; i < o.length; i++) o[i] = Math.hypot(v[3 * i], v[3 * i + 1], v[3 * i + 2]); return o; };
+      out.frames = r.rigid.frames.map((f) => ({ vector: toModel(f.vector), values: mag(f.vector), time: f.time }));
+      out.values = out.frames.at(-1).values;
+      out.vector = out.frames.at(-1).vector;
+      let mx = 0; for (const f of out.frames) for (const v of f.values) mx = Math.max(mx, v);
+      out.range = [0, mx];
+      out.trueScale = true;
       break;
     }
     case 'thermalFrames': {
@@ -200,6 +212,15 @@ export function chartsOf(sys, r) {
     const loads = c.map((p) => p.load);
     const series = r.nonlinear.probes?.length > 1 ? r.nonlinear.probes.map((q, i) => ({ name: names(r.nonlinear.probes)[i], x: q.displacement, y: loads })) : [{ name: 'load', x: c.map((p) => p.displacement), y: loads }];
     charts.push({ id: 'curve', titleKey: 'chart.loadDisplacement', x: 'displacement', y: 'percent', series });
+  }
+  if (r.rigid?.history?.length) {
+    const h = r.rigid.history;
+    const names = (r.rigid.bodies ?? []).map((b) => sys?.bodies?.find?.((x) => x.id === b.id)?.name ?? b.id);
+    const tt = h.map((p) => p.time);
+    charts.push({ id: 'rigidAngle', titleKey: 'chart.rigidAngle', x: 'time', y: 'angle', series: (r.rigid.bodies ?? []).map((b, i) => ({ name: names[i] || `#${i + 1}`, x: tt, y: h.map((p) => (p.bodies[i].angle * 180) / Math.PI) })) });
+    charts.push({ id: 'rigidPosition', titleKey: 'chart.rigidPosition', x: 'time', y: 'displacement', series: (r.rigid.bodies ?? []).flatMap((b, i) => ['x', 'z'].map((c, k) => ({ name: `${names[i] || `#${i + 1}`} ${c}`, x: tt, y: h.map((p) => p.bodies[i].position[k * 2] - h[0].bodies[i].position[k * 2]) }))) });
+    if (r.rigid.joints?.length) charts.push({ id: 'jointForce', titleKey: 'chart.jointForce', x: 'time', y: 'force', series: r.rigid.joints.map((j, i) => ({ name: `J${i + 1}`, x: tt, y: j.force })) });
+    charts.push({ id: 'rigidEnergy', titleKey: 'chart.energy', x: 'time', y: 'energy', series: [{ name: 'kinetic', x: tt, y: h.map((p) => p.kinetic) }, { name: 'potential', x: tt, y: h.map((p) => p.potential) }, { name: 'total', x: tt, y: h.map((p) => p.kinetic + p.potential) }] });
   }
   if (r.creep?.history?.length) {
     const h = r.creep.history;

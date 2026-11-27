@@ -561,6 +561,47 @@ pub fn summary(model: &Model, out: &mut Out) -> Result<(), String> {
 
 // ───────────────────────── analyses
 
+/// One-way fluid–structure interaction: the flow first, then the bodies under the flow's pressure on
+/// their outer surfaces (with the supports and any other structural loads). The flow results stay.
+pub fn run_fsi(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), String> {
+    let psurf = ctx.sub(0.0, 0.7, |c| crate::cfd::run_fluid_with(model, out, c))?;
+    if let Some(r) = out.json.remove("result") { out.set("fluidResult", r); }
+    let scale = model.setting_f("pressureScale", 1.0);
+    let mut asm = ctx.sub(0.7, 0.8, |c| assemble(model, false, None, c))?;
+    // Pressure on the outer faces of the bodies: f = −p n A / 3 at each corner (linear triangles) — on
+    // TET10 meshes the corner share goes to the mid-side nodes, as for a pressure condition.
+    let mesh = &model.mesh;
+    let quad = mesh.order() == 2;
+    let mut total = [0.0; 3];
+    for (ti, t) in mesh.tris.iter().enumerate() {
+        let (r, o) = (mesh.tri_region[ti], mesh.tri_other[ti]);
+        if !model.is_body(r) || !(o == crate::mesh::NONE || o == model.air) { continue; }
+        let (a, b, c) = (model.x[t[0] as usize], model.x[t[1] as usize], model.x[t[2] as usize]);
+        let nrm = geom::cross(geom::sub(b, a), geom::sub(c, a));
+        let area = 0.5 * geom::norm(nrm);
+        if area <= 0.0 { continue; }
+        let n = geom::normalize(nrm);
+        let p = scale * (psurf[t[0] as usize] + psurf[t[1] as usize] + psurf[t[2] as usize]) / 3.0;
+        let fv = geom::scale(n, -p * area);
+        for k in 0..3 { total[k] += fv[k]; }
+        if quad {
+            for &m in &mesh.tri_mid[ti] { for k in 0..3 { asm.f[3 * m as usize + k] += fv[k] / 3.0; } }
+        } else {
+            for &c in t { for k in 0..3 { asm.f[3 * c as usize + k] += fv[k] / 3.0; } }
+        }
+    }
+    let u = ctx.sub(0.8, 0.95, |c| solve_static(model, &asm, c))?;
+    let st = stresses(model, &u, None)?;
+    let mut res = put_fields(model, out, &u, &st, "");
+    let pv = out.f32s(&psurf);
+    res["fields"]["fluidPressure"] = pv;
+    out.set("result", res);
+    out.set("reactions", reactions(model, &asm, &u));
+    out.set("fsi", json!({ "fluidForce": total, "pressureScale": scale }));
+    summary(model, out)?;
+    Ok(())
+}
+
 /// Whether the job has contact that only a nonlinear solution handles exactly (it can open or slide).
 pub fn has_nonlinear_contact(model: &Model) -> bool {
     !model.mesh.contact_nodes.is_empty() && model.contact_ids.iter().any(|&i| matches!(model.job.contacts[i].kind.as_str(), "frictionless" | "frictional"))
@@ -1572,5 +1613,25 @@ mod tests {
         let lh = h["fatigue"]["minLife"].as_f64().unwrap();
         assert!(lh < l1 / 1.5 && lh > l1 / 2.0, "history {lh} vs {l1}");
         assert!(h["fatigue"]["cycles"].as_array().unwrap().len() >= 2);
+    }
+
+    #[test]
+    fn fsi_flap_bends_downstream() {
+        // A flap fixed at its base in a 20 m/s air stream: pushed (and bent) downstream.
+        let job = r#"{ "analysis": "fsi", "unit": 0.001,
+          "bodies": [{ "id": "f", "material": "aluminum", "shape": { "type": "box", "size": [4, 40, 60], "placement": { "position": [0, 0, 30] } } }],
+          "mesh": { "size": 3, "order": 1 },
+          "materials": { "air": { "name": "Air", "density": 1.225, "viscosity": 1.81e-5, "conductivity": 0.0262, "specificHeat": 1006 } },
+          "bcs": [ { "type": "fixed", "faces": [{ "body": "f", "c": [0, 0, 0], "n": [0, 0, -1], "a": 160 }] } ],
+          "settings": { "fluid": "air", "inletVelocity": [20, 0, 0], "maxSteps": 200, "cellSize": 6,
+            "boundaries": { "xmin": { "type": "inlet", "velocity": [20, 0, 0] }, "xmax": { "type": "outlet" }, "zmin": { "type": "wall" } } } }"#;
+        let (v, _) = crate::out::decode(&run_job_json(job, &mut |_, _| true).unwrap()).unwrap();
+        let fx = v["fsi"]["fluidForce"][0].as_f64().unwrap();
+        assert!(fx > 0.05, "fluid force {fx}");
+        // The support takes the fluid's push.
+        let rx = v["reactions"][0]["force"][0].as_f64().unwrap();
+        assert!((rx + fx).abs() < 0.05 * fx.abs() + 1e-3, "reaction {rx} vs {fx}");
+        assert!(v["result"]["max"]["displacement"].as_f64().unwrap() > 0.0);
+        assert!(v["fluid"]["forces"].is_array());
     }
 }

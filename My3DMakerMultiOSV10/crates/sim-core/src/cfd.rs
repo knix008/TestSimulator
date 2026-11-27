@@ -82,6 +82,11 @@ fn sample_cell(g: &Grid, f: &[f64], p: V3, mask_fluid: bool) -> f64 {
 }
 
 pub fn run_fluid(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), String> {
+    run_fluid_with(model, out, ctx).map(|_| ())
+}
+
+/// The flow solution; returns the pressure (Pa, relative to the outlet) at every corner node of the bodies.
+pub fn run_fluid_with(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<Vec<f64>, String> {
     let unit = model.unit();
     let s = &model.job.settings;
     let internal = s.get("flowType").and_then(|v| v.as_str()) == Some("internal");
@@ -601,7 +606,7 @@ pub fn run_fluid(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), Stri
         "turbulent": turbulent, "thermal": thermal,
     }));
     out.set("result", json!({ "fields": { "pressure": ps, "temperature": ts }, "max": { "pressure": psurf.iter().cloned().fold(f64::NEG_INFINITY, f64::max) } }));
-    Ok(())
+    Ok(psurf)
 }
 
 fn point_tri(p: V3, t: &[V3; 3]) -> f64 {

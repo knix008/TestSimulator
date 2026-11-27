@@ -45,7 +45,7 @@ export function addSystem(project, type, { name = '', from = null } = {}) {
   if (!def) throw new Error(`unknown system ${type}`);
   const sys = {
     id: newId('s'), type, name: name || '', settings: defaultSettings(type), bcs: [], contacts: [],
-    mesh: { size: 0, order: def.linearOnly ? 1 : 2 }, enclosure: { enabled: Boolean(def.enclosure && type !== 'fluid'), padding: 0 },
+    mesh: { size: 0, order: def.linearOnly ? 1 : 2 }, enclosure: { enabled: Boolean(def.enclosure && type !== 'fluid' && type !== 'fsi'), padding: 0 },
     probes: [], status: 'setup', position: null,
   };
   if (from) {
@@ -86,7 +86,7 @@ export function buildJob(project, sys, { analysis = null, preview = false } = {}
     if (f.kind === 'length' && typeof settings[f.key] === 'number') settings[f.key] /= UNIT;
     if (f.kind === 'area' && typeof settings[f.key] === 'number') settings[f.key] /= UNIT * UNIT;
   }
-  if (sys.type === 'fluid' && settings.flowType !== 'internal') {
+  if ((sys.type === 'fluid' || sys.type === 'fsi') && settings.flowType !== 'internal') {
     // External flow: the sides of the flow box. Internal flow: the fluid body's own faces are walls
     // (except the picked inlets and outlets), so no side conditions go to the solver.
     settings.boundaries = Object.fromEntries(['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'].map((side, i) => {
@@ -94,6 +94,9 @@ export function buildJob(project, sys, { analysis = null, preview = false } = {}
       const v = settings.inletVelocity ?? [5, 0, 0];
       return [side, { type: kind, velocity: kind === 'inlet' ? v : [0, 0, 0], temperature: settings.inletTemperature ?? 22 }];
     }));
+  }
+  if (sys.type === 'fluid' || sys.type === 'fsi') {
+    // Unset sizes: the solver chooses them.
     if (!(settings.cellSize > 0)) delete settings.cellSize;
     if (!(settings.referenceArea > 0)) delete settings.referenceArea;
   }
@@ -102,12 +105,18 @@ export function buildJob(project, sys, { analysis = null, preview = false } = {}
   // Tool bodies are used up by the booleans of the body that names them.
   const bodies = project.bodies.filter((b) => !b.suppressed && !b.tool);
   const used = new Set(bodies.map((b) => b.material));
-  if (sys.type === 'fluid') used.add(settings.fluid ?? 'air');
+  if (sys.type === 'fluid' || sys.type === 'fsi') used.add(settings.fluid ?? 'air');
   const materials = {};
   for (const id of used) { const m = project.materials.find((x) => x.id === id) ?? MATERIALS.find((x) => x.id === id); if (m) materials[id] = solverMaterial(m); }
   const bcs = (sys.bcs ?? []).filter((b) => !b.suppressed && BCS[b.type]).map((b) => {
     const out = { ...structuredClone(b), type: BCS[b.type].solverType ?? b.type };
     if (b.type === 'wall' && Array.isArray(out.point)) out.point = out.point.map((v) => v / UNIT);
+    if (b.type === 'joint' && Array.isArray(out.point)) out.point = out.point.map((v) => v / UNIT);
+    if (b.type === 'spring') {
+      for (const k of ['pointA', 'pointB']) if (Array.isArray(out[k])) out[k] = out[k].map((v) => v / UNIT);
+      if (out.initialLength || !(out.length >= 0)) delete out.length; else out.length /= UNIT;
+      delete out.initialLength;
+    }
     if (b.type === 'remoteForce' || b.type === 'remoteDisplacement') {
       // The remote point in model units; at the faces' centroid when asked (the solver's default).
       if (out.atCentroid || !Array.isArray(out.point)) delete out.point; else out.point = out.point.map((v) => v / UNIT);
@@ -217,6 +226,7 @@ export function outputsOf(sys, result) {
   if (result.fatigue) put('minLife', result.fatigue.minLife);
   if (result.harmonic) put('peakFrequency', result.harmonic.frequency);
   if (result.topology) { put('compliance', result.topology.history?.at(-1)?.compliance); put('keptFraction', result.topology.keptFraction); }
+  if (result.fsi) put('maxDisplacement', r.max?.displacement);
   if (result.fluid) {
     const f = result.fluid.forces?.[0];
     if (f) { put('drag', f.drag); put('lift', f.lift); put('cd', f.cd); }

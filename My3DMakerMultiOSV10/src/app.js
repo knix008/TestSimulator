@@ -99,6 +99,7 @@ const ctx = {
   facePicked: (hit, ev) => facePicked(hit, ev),
   parameterCandidates: () => parameterCandidates(),
   addProbeAt: (p) => addProbeAt(p),
+  moveBody: (id, d) => moveBody(id, d),
   noteText: (k) => noteText(k),
   studyChart: () => studyChart(),
 };
@@ -450,6 +451,14 @@ function facePicked(hit, event) {
 }
 
 // ───────────────────────── probes, section plane, booleans
+
+/** Moves a body (dragged with the handles in the 3D view) by d (model units), rounded to 0.1 mm. */
+function moveBody(id, d) {
+  const b = state.project?.bodies.find((x) => x.id === id);
+  if (!b) return;
+  change('op.moveBody', () => { b.position = b.position.map((v, k) => Number((v + d[k]).toFixed(1))); }, { geometry: true });
+  notify('info', t('notice.moved', { name: b.name, x: fmt(d[0], 4), y: fmt(d[1], 4), z: fmt(d[2], 4) }));
+}
 
 /** A solver note (message key, optionally "key:argument") in the user's language. */
 function noteText(note) {
@@ -1964,7 +1973,7 @@ async function start() {
 window.__my3dmaker = {
   state, commands, run, popups, t,
   get model() { return model; },
-  actions: { addLightNear, openSample, newProject, addSystemOf, addCondition, addTemplateBody, solve, select, setTab, change, undo, redo, saveProject, openContent, updateSettings, facePicked, runStudy, fitStudy, addParameter, meshActive, addProbeAt, setSection, addBooleanOp, removeBooleanOp },
+  actions: { addLightNear, moveBody, openSample, newProject, addSystemOf, addCondition, addTemplateBody, solve, select, setTab, change, undo, redo, saveProject, openContent, updateSettings, facePicked, runStudy, fitStudy, addParameter, meshActive, addProbeAt, setSection, addBooleanOp, removeBooleanOp },
   menus: { MENUS, SUBMENUS: Object.fromEntries(Object.entries(SUBMENUS).map(([k, f]) => [k, f()])) },
 };
 

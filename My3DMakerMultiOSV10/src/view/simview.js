@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Guides } from './guides.js';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 
 export const VIEWS = {
   iso: [1, -1, 0.8], front: [0, -1, 0], back: [0, 1, 0], top: [0, 0, 1], bottom: [0, 0, -1], right: [1, 0, 0], left: [-1, 0, 0],
@@ -125,7 +126,7 @@ export class SimView {
     let down = null;
     this.canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, b: e.button }; });
     this.canvas.addEventListener('pointerup', (e) => {
-      if (down && down.b === 0 && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) this.onPick?.(this.pickAt(e), e);
+      if (down && down.b === 0 && !this.moving && !this.mover?.axis && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) this.onPick?.(this.pickAt(e), e);
       down = null;
     });
     this.canvas.addEventListener('pointermove', (e) => {
@@ -201,6 +202,7 @@ export class SimView {
     this.camera.position.copy(from.position);
     this.camera.zoom = 1;
     this.controls.object = this.camera;
+    if (this.mover) this.mover.camera = this.camera;
     this.updateOrtho();
     this.controls.update();
     this.render();
@@ -509,6 +511,7 @@ export class SimView {
   get animating() { return Boolean(this.anim); }
 
   clearResultObjects() {
+    this.moveBox = null;
     for (const o of [...this.overlay.children]) { this.overlay.remove(o); o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }
     this.undeformed = null;
     this.labels.innerHTML = '';
@@ -718,6 +721,56 @@ export class SimView {
     this.render();
   }
 
+
+  /**
+   * The move handles of a selected body: arrows (and planes) at its centre. While dragging, the body's
+   * outline box follows; on release `onCommit(delta)` gets the move (model units, snapped to `snap`).
+   * null removes them.
+   */
+  setMoveTarget(target) {
+    if (!this.mover) {
+      this.mover = new TransformControls(this.camera, this.canvas);
+      this.mover.setMode('translate');
+      this.mover.setSize(1.5);
+      this.moverHelper = this.mover.getHelper();
+      this.scene.add(this.moverHelper);
+      this.moverAnchor = new THREE.Object3D();
+      this.scene.add(this.moverAnchor);
+      this.mover.addEventListener('change', () => this.render());
+      this.mover.addEventListener('dragging-changed', (e) => {
+        this.controls.enabled = !e.value;
+        this.moving = e.value;
+        if (e.value) { this.moveStart = this.moverAnchor.position.clone(); return; }
+        const d = this.moverAnchor.position.clone().sub(this.moveStart);
+        const t = this.moveTarget;
+        if (t && d.lengthSq() > 0) t.onCommit?.(d.toArray());
+      });
+      this.mover.addEventListener('objectChange', () => {
+        const t = this.moveTarget;
+        if (!t || !this.moveBox) return;
+        const d = this.moverAnchor.position.clone().sub(new THREE.Vector3(...t.center));
+        this.moveBox.position.copy(d);
+        this.moveTarget.onMove?.(d.toArray());
+      });
+    }
+    if (this.moveBox) { this.overlay.remove(this.moveBox); this.moveBox.geometry.dispose(); this.moveBox.material.dispose(); this.moveBox = null; }
+    this.moveTarget = target;
+    if (!target) { this.mover.detach(); this.moverHelper.visible = false; this.render(); return; }
+    this.mover.camera = this.camera;
+    this.mover.setTranslationSnap(target.snap ?? 1);
+    this.moverAnchor.position.set(...target.center);
+    this.mover.attach(this.moverAnchor);
+    this.moverHelper.visible = true;
+    // The body's box, moving with the handles while dragging.
+    const [lo, hi] = target.box;
+    const g = new THREE.EdgesGeometry(new THREE.BoxGeometry(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]).translate((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2));
+    this.moveBox = new THREE.LineSegments(g, new THREE.LineDashedMaterial({ color: 0x1f7ae0, dashSize: 2, gapSize: 1.5, transparent: true, opacity: 0.9, depthTest: false }));
+    this.moveBox.computeLineDistances();
+    this.moveBox.renderOrder = 9;
+    this.moveBox.userData.moveBox = true;
+    this.overlay.add(this.moveBox);
+    this.render();
+  }
 
   /** Probe markers: small spheres at points (model units), radius r. */
   setMarkers(points, r = 1, color = '#f6a23a') {

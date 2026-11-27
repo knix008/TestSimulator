@@ -23,7 +23,20 @@ fn main() {
                 worst = worst.max(d);
             }
         }
+        // Surface triangles turned against the surface (their normal into the body).
+        let mut flipped = 0;
+        let mut tiny = 0;
+        for (ti, t) in m.tris.iter().enumerate() {
+            let r = m.tri_region[ti] as usize;
+            if r >= solids.len() || m.tri_other[ti] != sim_core::mesh::NONE { continue; }
+            let (a, b, c) = (m.nodes[t[0] as usize], m.nodes[t[1] as usize], m.nodes[t[2] as usize]);
+            let nrm = sim_core::geom::cross(sim_core::geom::sub(b, a), sim_core::geom::sub(c, a));
+            let cen = [0, 1, 2].map(|k| (a[k] + b[k] + c[k]) / 3.0);
+            let g = solids[r].gradient(cen, h * 1e-3);
+            if sim_core::geom::norm(nrm) < 1e-3 * h * h { tiny += 1; }
+            if sim_core::geom::dot(nrm, g) < 0.0 { flipped += 1; }
+        }
         let qmin = (0..m.tets.len()).map(|e| m.quality(e)).fold(1.0, f64::min);
-        println!("{:<16} h {:>6.2} worst {:>5.2} h  off-surface nodes {:>4} (outside {:>4})  q min {:.3}", f.file_stem().unwrap().to_string_lossy(), h, worst, bad, out_n, qmin);
+        println!("{:<16} h {:>6.2} worst {:>5.2} h  off-surface nodes {:>4} (outside {:>4})  q min {:.3}  flipped {} tiny {}", f.file_stem().unwrap().to_string_lossy(), h, worst, bad, out_n, qmin, flipped, tiny);
     }
 }

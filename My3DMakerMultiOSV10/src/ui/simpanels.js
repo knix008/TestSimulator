@@ -421,7 +421,7 @@ function probeSection(ctx) {
 function visibleSetting(s, f) {
   const st = s.settings;
   if (!fieldShown(f, st)) return false;
-  if (s.type === 'fluid') {
+  if (s.type === 'fluid' || s.type === 'fsi') {
     if (['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'].includes(f.key)) return st.flowType !== 'internal';
     if (f.key === 'endTime') return !st.steady;
     if (['buoyancy', 'inletTemperature', 'initialTemperature', 'gravity'].includes(f.key)) return Boolean(st.thermal);
