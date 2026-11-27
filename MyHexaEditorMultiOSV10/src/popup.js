@@ -269,7 +269,7 @@ function renderSettings() {
 
 function settingsGeneral() {
   return [
-    row('globe', t('settings.language'), segmented('language', [['ko', '한국어'], ['en', 'English']], s().language)),
+    row('globe', t('settings.language'), segmented('language', [['ko', '한국어', 'flagKr'], ['en', 'English', 'flagUk']], s().language)),
     toggle('restoreSession', t('settings.restoreSession'), 'refresh'),
     toggle('openReadonly', t('settings.openReadonly'), 'lock'),
     toggle('rememberCaret', t('settings.rememberCaret'), 'locate'),
@@ -485,6 +485,7 @@ export const SHORTCUT_LIST = [
   ['Ctrl+K', 'tool.compare'], ['Ctrl+T', 'tool.template'], ['Ctrl+Shift+D', 'tool.disasm'], ['Ctrl+Shift+T', 'tool.strings'], ['Ctrl+M', 'action.textMode'], ['Ctrl+P', 'action.print'],
   ['Ctrl+= / Ctrl+-', 'shortcut.zoom'], ['Ctrl+Shift+1 / 2', 'shortcut.panels'], ['Ctrl+J', 'action.bottomPanel'], ['Ctrl+Shift+L', 'action.language'], ['Ctrl+Shift+H', 'action.startPage'], ['Ctrl+,', 'action.settings'],
   ['Shift+F1', 'action.tutorial'], ['F1', 'action.about'], ['F11', 'view.fullscreen'], ['Ctrl+Tab', 'tab.next'], ['Ctrl+Shift+P', 'action.commandPalette'], ['Ctrl+Shift+F', 'tool.carve'],
+  ['Ctrl+Shift+Y', 'tool.yara'], ['Ctrl+Shift+K', 'action.checksums'], ['Alt+C', 'textMode.columnMode'],
 ];
 
 function settingsShortcuts() {

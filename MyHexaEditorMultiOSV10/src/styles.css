@@ -1742,3 +1742,7 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .start-speed .slider-step { flex: none; width: 22px; height: 22px; padding: 0; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font: 600 14px/1 inherit; cursor: pointer; }
 .start-speed .slider-step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .start-speed .slider-step:disabled { opacity: 0.4; cursor: default; }
+
+/* Language flags drawn as icons (menus, settings, status bar): 3:2, a thin outline so white parts show. */
+svg.icon.flag { width: 1.35em; height: 0.9em; flex: none; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); vertical-align: -0.1em; }
+.segment svg.icon.flag { margin-right: 5px; }

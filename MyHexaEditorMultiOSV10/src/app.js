@@ -24,7 +24,7 @@ import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
 import { Tutorial } from './ui/tutorial.js';
-import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
+import { DOC_KINDS, docLabel, docUrl, docWindowTitle, printableHelpPage } from './domain/helpdocs.js';
 import { call as core, fromBase64, loadWasm, onCoreProgress, setLongCallHook, toBase64 } from './core/core.js';
 import { openSuggest, isOpen as paletteOpen, promptText, useWindows, fuzzy } from './ui/palette.js';
 import { createExplorer } from './panels/explorer.js';
@@ -456,28 +456,65 @@ async function printHtml() {
 }
 
 let printJobHtml = null;
+let printJobName = '';
+let printing = false;
+/** The hex dump of the active document in the print window (an OS window of its own). */
 async function printDump() {
   try {
     printJobHtml = await printHtml();
-    await popups.open('print', { title: activeDoc().name });
+    printJobName = activeDoc()?.name ?? 'hexdump';
+    await popups.open('print', { title: printJobName });
+  } catch (error) { showError('error.print', error); }
+}
+
+/** A help document (user's guide, tutorial) in the same print window: asked for by the document window. */
+async function printHelpDoc({ doc, lang }) {
+  try {
+    const url = docUrl(DOC_KINDS[doc] ? doc : 'guide', lang === 'en' ? 'en' : 'ko');
+    if (!url) return;
+    const absolute = new URL(url, location.href).href;
+    const page = await (await fetch(absolute)).text();
+    printJobHtml = printableHelpPage(page, absolute);
+    printJobName = (/<title>([^<]*)<\/title>/i.exec(page)?.[1] ?? docLabel?.(doc) ?? doc).trim();
+    await popups.open('print', { title: printJobName });
   } catch (error) { showError('error.print', error); }
 }
 async function sendPrintContent() {
   const printers = await native.listPrinters().catch(() => ({ printers: [], defaultPrinter: '', filePrinters: [] }));
   popups.post('print', { type: 'print-content', html: printJobHtml ?? (hasDoc() ? await printHtml() : '<p></p>'), printers });
 }
+/**
+ * The print window's buttons: "Print" sends the pages straight to the chosen printer (no second dialog), a file
+ * printer (PDF, XPS) or "Save as PDF" asks for the file, "System dialog" opens the OS dialog. The page setup of the
+ * window (paper, orientation, margins, scale …) comes as `job.css`.
+ */
 async function runPrint(job) {
+  if (printing) return;
+  printing = true;
   try {
-    const html = printJobHtml ?? await printHtml();
-    if (!desktop || !job.printer) { await printDocument({ html }); return; }
-    if ((job.filePrinters ?? []).includes(job.printer) || /pdf|xps/i.test(job.printer)) {
-      const path = await native.chooseSavePath(`${activeDoc()?.name ?? 'hexdump'}.pdf`, ['pdf']);
-      if (path) { await printToPdfFile({ html, path, widthMm: job.widthMm, heightMm: job.heightMm }); notify('success', t('notice.exported', { name: baseName(path) })); }
-      return;
+    const body = printJobHtml ?? await printHtml();
+    const html = body.includes('</head>') ? body.replace('</head>', `${job.css ?? ''}</head>`) : `${job.css ?? ''}${body}`;
+    const printers = await native.listPrinters().catch(() => ({ printers: [], defaultPrinter: '', filePrinters: [] }));
+    let mode = job.mode ?? 'direct';
+    if (!desktop) mode = 'dialog';
+    else if (mode === 'direct' && (!printers.printers.length || !job.printer)) mode = 'dialog';
+    else if (mode === 'direct' && ((printers.filePrinters ?? []).includes(job.printer) || /pdf|xps/i.test(job.printer))) mode = 'pdf';
+    if (mode === 'pdf') {
+      const path = await native.chooseSavePath(`${String(printJobName || 'hexdump').replace(/[\\/:*?"<>|]+/g, '_')}.pdf`, ['pdf']);
+      if (!path) { popups.post('print', { type: 'print-done', ok: false, error: t('common.cancel'), keep: true }); return; }
+      await printToPdfFile({ html, path, widthMm: job.widthMm, heightMm: job.heightMm });
+      notify('success', t('notice.exported', { name: baseName(path) }));
+    } else if (mode === 'dialog') {
+      await printDocument({ html });
+    } else {
+      await printDirect({ html, printer: job.printer, copies: job.copies, widthMm: job.widthMm, heightMm: job.heightMm, pageRanges: job.pageRanges });
+      notify('success', t('print.sent', { printer: job.printer }));
     }
-    await printDirect({ html, printer: job.printer, copies: job.copies, widthMm: job.widthMm, heightMm: job.heightMm, pageRanges: job.pageRanges });
-    notify('success', t('print.sent', { printer: job.printer }));
-  } catch (error) { showError('error.print', error); }
+    popups.post('print', { type: 'print-done', ok: true });
+  } catch (error) {
+    popups.post('print', { type: 'print-done', ok: false, error: native.errorText(error), keep: true });
+    showError('error.print', error);
+  } finally { printing = false; }
 }
 
 // ───────────────────────── compare
@@ -685,7 +722,7 @@ const commands = {
   // appearance, help
   theme: { icon: 'palette', label: 'action.themeRandom', run: () => updateSettings({ theme: randomThemeId(settings().theme) }) },
   themeMenu: { icon: 'chevronDown', label: 'action.themeChoose', run: (c) => openThemePicker(c?.anchor) },
-  language: { icon: 'globe', label: 'action.language', key: 'Ctrl+Shift+L', run: () => updateSettings({ language: getLanguage() === 'ko' ? 'en' : 'ko' }) },
+  language: { get icon() { return getLanguage() === 'ko' ? 'flagUk' : 'flagKr'; }, label: 'action.language', key: 'Ctrl+Shift+L', run: () => updateSettings({ language: getLanguage() === 'ko' ? 'en' : 'ko' }) },
   shuffleBackground: { icon: 'dice', label: 'action.shuffleBackground', key: 'Ctrl+Shift+B', run: () => shuffleBackground() },
   backgroundImage: { icon: 'imageBg', label: 'action.backgroundImage', run: () => chooseBackground() },
   clearBackground: { icon: 'imageClear', label: 'action.clearBackground', enabled: () => Boolean(settings().backgroundImage) || settings().backgroundKind !== 'none', run: () => removeBackground() },
@@ -1141,7 +1178,7 @@ function renderStatus() {
     items.push(`<span class="status-item">${icon('globe')}<span>${h(CHARSET_NAMES[s.charset])}</span></span>`);
   }
   items.push(`<span class="status-item">${icon('palette')}<span>${h(themeName(s.theme, getLanguage()))}</span></span>`);
-  items.push(`<span class="status-item">${icon('globe')}<span>${h(t('status.language'))}</span></span>`);
+  items.push(`<span class="status-item">${icon(getLanguage() === 'ko' ? 'flagKr' : 'flagUk')}<span>${h(t('status.language'))}</span></span>`);
   if (s.statusClock) items.push(`<span class="status-item clock">${icon('clock')}<span id="status-clock">${h(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</span></span>`);
   bar.innerHTML = items.join('');
 }
@@ -1671,6 +1708,8 @@ function onKeyDown(event) {
     if (shortcut) { event.preventDefault(); event.stopPropagation(); run(shortcut[3]); }
     return;
   }
+  // Alt+C: column (block) selection in the text editor (by key position, so a Korean layout works too).
+  if (event.altKey && !event.shiftKey && event.code === 'KeyC' && activeTab()?.textMode) { event.preventDefault(); run('columnMode'); return; }
   const fkeys = { f1: event.shiftKey ? 'tutorial' : 'about', f2: event.shiftKey ? 'bookmarkPrev' : 'bookmarkNext', f3: event.shiftKey ? 'findPrev' : 'findNext', f8: event.shiftKey ? 'diffPrev' : 'diffNext', f11: 'fullscreen' };
   if (fkeys[key]) { event.preventDefault(); run(fkeys[key]); return; }
   if (editing && key === 'escape') event.target.blur();
@@ -1693,6 +1732,7 @@ function bindPopupActions() {
   popups.on('open-external', (data) => native.openExternal(data.url));
   popups.on('print-content', () => sendPrintContent());
   popups.on('print-run', (job) => runPrint(job));
+  popups.on('doc-print', (data) => printHelpDoc(data));
   popups.on('tool', (data) => toolHost.handle(data));
   popups.on('raise-test-panic', () => native.invoke('raise_test_panic').catch((error) => showError('error.unexpected', error)));
 }

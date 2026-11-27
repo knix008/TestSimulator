@@ -30,40 +30,43 @@
 | `search.rs` | 16진수(`??`, 니블)·텍스트(인코딩·대소문자)·정규식(바이트)·정수·실수, 앞/뒤로, 청크 경계 겹침, 모두 찾기, 모두 바꾸기(한 단계) |
 | `hash.rs` | 36가지 체크섬·CRC·해시를 한 번 읽어 동시에 |
 | `inspect.rs` | 데이터 검사기 34가지 해석과 값 → 바이트 |
-| `ops.rs` | 바이트 연산 19가지, 변환 21가지(암호화·압축·인코딩) |
+| `ops.rs` | 바이트 연산 19가지, 변환 35가지(AES·DES·3DES·Blowfish·Twofish·CAST5·Camellia·TEA·XTEA·RC4·ChaCha20·Salsa20, 압축, 인코딩) |
 | `stats.rs` | 히스토그램, 엔트로피(전체·블록), ent 통계 |
 | `strings.rs` | ASCII·UTF-8·UTF-16 LE/BE 문자열(청크 경계 상태 유지) |
 | `compare.rs` | 같은 위치 비교, Myers 차이(끼워 넣기·삭제) |
 | `magic.rs` | 70가지 형식 감지(세부 정보·템플릿 연결), 26가지 카빙 |
-| `pattern/` | 템플릿 언어(lexer·parser·eval)와 내장 템플릿 18가지(`builtin/*.hexpat`) |
+| `pattern/` | 템플릿 언어(lexer·parser·eval: 사용자 함수, 다차원 배열, `parent`, 정적 `sizeof`)와 내장 템플릿 18가지(`builtin/*.hexpat`) |
+| `fsys/` | 파티션(`part.rs`: MBR·EBR·GPT)과 파일 시스템(`fat.rs` FAT12/16/32, `exfat.rs`, `ntfs.rs`, `ext.rs` ext2/3/4): 목록·지운 파일·파일 범위(extents)·읽기. 메서드 `fsPartitions`·`fsInfo`·`fsList`·`fsFile`·`fsRead`(파일 id는 `file`) |
+| `yara.rs` | YARA 규칙의 흔한 부분집합: 텍스트(nocase·wide·fullword)·16진수(와일드카드·점프·대안)·정규식 문자열, 조건식 전부, 청크 단위 검색과 진행률. 메서드 `yara`·`yaraCheck` |
 | `disasm.rs` | iced-x86(Intel·NASM·MASM·GAS), yaxpeax-arm(A32·Thumb·AArch64) |
 | `export.rs` | 26가지 내보내기, 가져오기(체크섬 확인) |
 | `calc.rs`, `codec.rs`, `util.rs`, `engine.rs` | 계산기, 인코딩, 공통 도구, 디스패치(`run_readonly`는 스냅숏에서) |
 
 ## 3. 데스크톱 — `src-tauri`
 
-- `hexcmd.rs` — `CoreState`(Engine 하나). `core_call`: 읽기 전용 작업(찾기·해시·템플릿 …)은 문서 스냅숏으로 잠금 밖에서 돌며 `io-progress`를 보내고 `core_cancel`로 멈춤. `hex_open`/`hex_open_disk`/`hex_open_process`/`hex_reload`, `hex_save`(제자리 패치 또는 임시 파일 후 교체, 프로세스는 `write_back`), `hex_save_range`, `hex_split`/`hex_concat`/`hex_wipe`, `hex_list_disks`/`hex_list_processes`.
-- `sources.rs` — `FileSource`(위치 지정 읽기), `DiskSource`(섹터 단위 읽기, 읽기 전용), `ProcessSource`(영역 지도, 읽을 수 없는 곳은 구멍).
-- `devices.rs` — Windows(GetLogicalDrives·DeviceIoControl·Toolhelp·VirtualQueryEx·Read/WriteProcessMemory), Linux(/sys/block·/proc), macOS(/dev/disk·ps; 프로세스 메모리는 지원하지 않음).
+- `hexcmd.rs` — `CoreState`(Engine 하나). `core_call`: 읽기 전용 작업(찾기·해시·템플릿 …)은 문서 스냅숏으로 잠금 밖에서 돌며 `io-progress`를 보내고 `core_cancel`로 멈춤. `hex_open`/`hex_open_disk`/`hex_open_process`/`hex_reload`, `hex_save`(제자리 패치 또는 임시 파일 후 교체, 프로세스는 `write_back`), `hex_save_range`, `hex_split`/`hex_concat`/`hex_wipe`, `hex_list_disks`/`hex_list_processes`, `hex_find_in_files`(폴더를 돌며 백엔드에서 검색).
+- `sources.rs` — `FileSource`(위치 지정 읽기), `DiskSource`(섹터 단위 읽기, 풀면 `write_back`으로 바뀐 섹터만 씀: `devices::write_disk`가 볼륨을 잠그고 마운트 해제), `ProcessSource`(영역 지도, 읽을 수 없는 곳은 구멍).
+- `devices.rs` — Windows(GetLogicalDrives·DeviceIoControl·Toolhelp·VirtualQueryEx·Read/WriteProcessMemory), Linux(/sys/block·/proc), macOS(/dev/disk·ps, 프로세스 메모리는 Mach `task_for_pid`·`mach_vm_region`·`mach_vm_read_overwrite`·`mach_vm_write`).
 - `lib.rs` — 창(프레임 없는 주 창, 팝업 OS 창 `POPUP_KINDS`, 문서 창, 인쇄용 렌더 창), 글꼴, 클립보드, 배경, 창 끌기, 여러 실행. `printing.rs`, `window_state.rs`, `instance.rs`, `explorer.rs`.
 
 ## 4. 웹
 
 - 파일은 File System Access(Chrome·Edge, 같은 파일에 다시 저장) 또는 `<input>`·끌어 놓기로 읽어 `hx_open`으로 코어에 넣고, 저장은 `hx_bytes`로 꺼내 핸들에 쓰거나 내려받기.
+- 코어는 Web Worker(`src/core/core-worker.js`)에서 돌아 긴 작업에도 화면이 멈추지 않고, `env.hx_progress`로 진행률을 보냅니다.
 - 팝업은 같은 페이지의 iframe 창(`src/platform/popups.js` PopupHost).
 
 ## 5. 테스트 — `npm test`
 
 | 범주 | 내용 |
 | --- | --- |
-| unit | `test/unit/*.test.js` — 실제 코어(wasm)를 Node에서: 문서·편집·실행 취소, 검색, 해시, 검사기, 연산·변환 왕복, 내보내기·가져오기 왕복, 모든 예제의 형식 감지와 템플릿, 문자열·카빙·엔트로피·디스어셈블러, 비교, 계산기; 문자 집합·숫자 형식·설정 |
+| unit | `test/unit/*.test.js` — 실제 코어(wasm)를 Node에서: 문서·편집·실행 취소, 검색, 해시, 검사기, 연산·변환(새 암호 포함) 왕복, 내보내기·가져오기 왕복, 모든 예제의 형식 감지와 템플릿, 문자열·카빙·엔트로피·디스어셈블러, 비교, 계산기, 디스크 예제의 파티션·FAT 파일·지운 파일, YARA; 해시 데이터베이스; 문자 집합·숫자 형식·설정 |
 | i18n | 쓰는 키가 한/영 모두 있는지 |
 | rust | `crates/hexcore` + `src-tauri --lib` |
-| web | 헤드리스 Edge + 자체 Vite: 시작 화면, 입력·끼워 넣기·실행 취소, 대용량 문서, 보기 설정, 클립보드, 속성 패널, 모든 도구 창, 비교, 템플릿 편집기, 연산·변환·가져오기, 설정 창, 패널 배치, 영어 + **모든 명령 한 번씩** |
+| web | 헤드리스 Edge + 자체 Vite: 시작 화면, 입력·끼워 넣기·실행 취소, 대용량 문서, 보기 설정, 클립보드, 속성 패널, 모든 도구 창, 비교, 템플릿 편집기, 연산·변환·가져오기, 설정 창, 패널 배치, 파일 시스템 창, YARA 창, 해시 데이터베이스, 영어 + **모든 명령 한 번씩**(명령마다 필요한 상태를 먼저 만들어 건너뛰는 것이 없음) |
 | tutorial | 튜토리얼 모든 단계 |
-| desktop | `--desktop`: 디버그 exe + WebView2 CDP, 임시 폴더의 파일로 열기·제자리 저장·재작성 저장·새 파일 저장·200 MB 파일·나누기/합치기/완전 삭제, 디스크·프로세스 목록과 자기 프로세스 메모리 읽기 |
+| desktop | `--desktop`: 디버그 exe + WebView2 CDP, 임시 폴더의 파일로 열기·제자리 저장·재작성 저장·새 파일 저장·200 MB 파일·나누기/합치기/완전 삭제, 디스크·프로세스 목록과 자기 프로세스 메모리 읽기, 디스크 이미지를 디스크로 열어 풀고 섹터 쓰기·이미지 저장, 다시 읽기, 폴더에서 찾기, 실제 파일의 파일 시스템 |
 
-출력은 열이 맞는 컬러 진행 줄, 범주별 표, 통과율 막대가 있는 요약표이며 모두 영어입니다.
+출력은 열이 맞는 컬러 진행 줄, 범주별 표, 통과율 막대가 있는 요약표이며 모두 영어입니다. 건너뛰는 시험은 없습니다: 디버그 exe가 없으면 먼저 빌드하고, 조건이 안 맞으면 실패로 알립니다.
 
 ## 6. 새 기능을 더할 때
 

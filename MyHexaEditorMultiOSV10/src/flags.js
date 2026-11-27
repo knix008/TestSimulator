@@ -31,4 +31,21 @@ const korea = `<svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
 </svg>`;
 
 /** Flag for the button that switches away from `language`. */
-export const switchFlag = (language) => (language === 'ko' ? unitedKingdom : korea);
+export const switchFlag = (language) => flagIcon(language === 'ko' ? 'en' : 'ko', 'flag');
+
+let flagSeq = 0;
+/**
+ * The flag of a language as an icon (`icon('flagKr')`, `icon('flagUk')`): its ids are made unique per drawing, so a
+ * flag inside a hidden menu never blanks another copy that points at the same clip path.
+ */
+export function flagIcon(language, className = 'icon') {
+  flagSeq += 1;
+  const n = flagSeq;
+  return (language === 'ko' ? korea : unitedKingdom)
+    .replace('class="flag"', `class="${className} flag" data-icon="${language === 'ko' ? 'flagKr' : 'flagUk'}"`)
+    .replace(/id="(flag-[a-z-]+)"/g, `id="$1-${n}"`)
+    .replace(/(url\(#|href="#)(flag-[a-z-]+)/g, `$1$2-${n}`);
+}
+
+/** Flag of the language itself (settings, status bar). */
+export const languageFlag = (language, className) => flagIcon(language, className);

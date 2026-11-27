@@ -29,6 +29,9 @@
   th { background: var(--code); }
   .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
   .step b { color: var(--accent); }
+  img { display: block; max-width: 100%; height: auto; margin: 10px 0 18px; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+  .step img { margin: 8px 0 2px; }
+  @media print { img { break-inside: avoid; box-shadow: none; } }
   .muted { color: var(--muted); }
 </style>
 </head>
@@ -38,39 +41,39 @@
 <h1>MyHexaMaster — Tutorial</h1>
 <p class="muted">The same steps the tutorial shows in the program (Help › Tutorial, Shift+F1).</p>
 <h2 id="start">Start page</h2>
-<div class="step"><h3 id="step-welcome">1. MyHexaMaster</h3><p>A hex editor for files of any size, disks and process memory, byte by byte — with templates, a disassembler, search, compare, checksums and recovery.</p></div>
-<div class="step"><h3 id="step-actions">2. What to do</h3><p>Open a file, start a new one, open a disk or process memory, compare or import from here. Dropping a file on the window opens it too.</p></div>
-<div class="step"><h3 id="step-samples">3. Sample files</h3><p>Samples — PNG, ZIP, ELF, PE, a disk image, firmware — let you try the templates and tools at once.</p></div>
-<div class="step"><h3 id="step-toolsCard">4. Tools</h3><p>Strings, disassembler, calculator, recovery, disks, compare, templates and file tools are also on the toolbar; each opens in its own window.</p></div>
+<div class="step"><h3 id="step-welcome">1. MyHexaMaster</h3><p>A hex editor for files of any size, disks and process memory, byte by byte — with templates, a disassembler, search, compare, checksums and recovery.</p><img src="images/en/tutorial-welcome.webp" alt="MyHexaMaster" loading="lazy"></div>
+<div class="step"><h3 id="step-actions">2. What to do</h3><p>Open a file, start a new one, open a disk or process memory, compare or import from here. Dropping a file on the window opens it too.</p><img src="images/en/tutorial-actions.webp" alt="What to do" loading="lazy"></div>
+<div class="step"><h3 id="step-samples">3. Sample files</h3><p>Samples — PNG, ZIP, ELF, PE, a disk image, firmware — let you try the templates and tools at once.</p><img src="images/en/tutorial-samples.webp" alt="Sample files" loading="lazy"></div>
+<div class="step"><h3 id="step-toolsCard">4. Tools</h3><p>Strings, disassembler, calculator, recovery, disks, compare, templates and file tools are also on the toolbar; each opens in its own window.</p><img src="images/en/tutorial-toolsCard.webp" alt="Tools" loading="lazy"></div>
 <h2 id="view">The hex view</h2>
-<div class="step"><h3 id="step-hexview">5. The hex view</h3><p>Offsets on the left, bytes in the middle, characters on the right. 00 is dim; control characters, high values and FF have colours. The wheel and scroll bar move through files of any size at once.</p></div>
-<div class="step"><h3 id="step-textcol">6. Text column and character sets</h3><p>The text column reads ASCII, Windows-1252, UTF-8, UTF-16, EUC-KR, Shift_JIS, EBCDIC and more. One Korean character takes three bytes in UTF-8.</p></div>
-<div class="step"><h3 id="step-editing">7. Editing</h3><p>Type hex digits to change bytes; changed bytes turn red. Insert switches insert / overwrite, Tab types in the text column. Undo is unlimited.</p></div>
-<div class="step"><h3 id="step-inspector">8. Data inspector</h3><p>The bytes at the caret read as integers, floats, dates, GUIDs, IPs, colours… Double-click a value to change it. LE/BE switches the byte order.</p></div>
-<div class="step"><h3 id="step-explorer">9. Explorer</h3><p>The left panel shows the computer's folders and the open documents. Double-click a file to open it.</p></div>
+<div class="step"><h3 id="step-hexview">5. The hex view</h3><p>Offsets on the left, bytes in the middle, characters on the right. 00 is dim; control characters, high values and FF have colours. The wheel and scroll bar move through files of any size at once.</p><img src="images/en/tutorial-hexview.webp" alt="The hex view" loading="lazy"></div>
+<div class="step"><h3 id="step-textcol">6. Text column and character sets</h3><p>The text column reads ASCII, Windows-1252, UTF-8, UTF-16, EUC-KR, Shift_JIS, EBCDIC and more. One Korean character takes three bytes in UTF-8.</p><img src="images/en/tutorial-textcol.webp" alt="Text column and character sets" loading="lazy"></div>
+<div class="step"><h3 id="step-editing">7. Editing</h3><p>Type hex digits to change bytes; changed bytes turn red. Insert switches insert / overwrite, Tab types in the text column. Undo is unlimited.</p><img src="images/en/tutorial-editing.webp" alt="Editing" loading="lazy"></div>
+<div class="step"><h3 id="step-inspector">8. Data inspector</h3><p>The bytes at the caret read as integers, floats, dates, GUIDs, IPs, colours… Double-click a value to change it. LE/BE switches the byte order.</p><img src="images/en/tutorial-inspector.webp" alt="Data inspector" loading="lazy"></div>
+<div class="step"><h3 id="step-explorer">9. Explorer</h3><p>The left panel shows the computer's folders and the open documents. Double-click a file to open it.</p><img src="images/en/tutorial-explorer.webp" alt="Explorer" loading="lazy"></div>
 <h2 id="structure">Structure</h2>
-<div class="step"><h3 id="step-template">10. Structure (templates)</h3><p>For a known file type, a template takes the structure apart, shows it as a tree on the right and colours the hex view. Click an item to select its bytes.</p></div>
-<div class="step"><h3 id="step-templateEditor">11. Template editor</h3><p>Write structures in a C-like language, run them and keep them as your own templates (010 Editor / ImHex style).</p></div>
-<div class="step"><h3 id="step-info">12. File information</h3><p>Size, type, MIME, source, modified state, caret and selection at a glance.</p></div>
-<div class="step"><h3 id="step-bookmarks">13. Bookmarks</h3><p>Ctrl+D puts a coloured bookmark on the caret or selection; F2 moves between them. They are kept per file.</p></div>
+<div class="step"><h3 id="step-template">10. Structure (templates)</h3><p>For a known file type, a template takes the structure apart, shows it as a tree on the right and colours the hex view. Click an item to select its bytes.</p><img src="images/en/tutorial-template.webp" alt="Structure (templates)" loading="lazy"></div>
+<div class="step"><h3 id="step-templateEditor">11. Template editor</h3><p>Write structures in a C-like language, run them and keep them as your own templates (010 Editor / ImHex style).</p><img src="images/en/tutorial-templateEditor.webp" alt="Template editor" loading="lazy"></div>
+<div class="step"><h3 id="step-info">12. File information</h3><p>Size, type, MIME, source, modified state, caret and selection at a glance.</p><img src="images/en/tutorial-info.webp" alt="File information" loading="lazy"></div>
+<div class="step"><h3 id="step-bookmarks">13. Bookmarks</h3><p>Ctrl+D puts a coloured bookmark on the caret or selection; F2 moves between them. They are kept per file.</p><img src="images/en/tutorial-bookmarks.webp" alt="Bookmarks" loading="lazy"></div>
 <h2 id="tools">Tools</h2>
-<div class="step"><h3 id="step-find">14. Find and replace</h3><p>Find hex (with ?? wildcards), text in many encodings, regular expressions, integers and floats. Find all lists and marks every match.</p></div>
-<div class="step"><h3 id="step-goto">15. Go to</h3><p>Go to an offset: from the start, forward, back or from the end, hex or decimal, optionally selecting from the caret.</p></div>
-<div class="step"><h3 id="step-strings">16. Strings</h3><p>Finds every ASCII, UTF-8 and UTF-16 string. Click a line to go there.</p></div>
-<div class="step"><h3 id="step-disasm">17. Disassembler</h3><p>Decodes x86 (16/32/64) and ARM (32, Thumb, 64) code in Intel, NASM, MASM or GAS syntax.</p></div>
-<div class="step"><h3 id="step-carve">18. File recovery</h3><p>Finds files inside disk images or dumps by their headers, to open in a tab or save.</p></div>
-<div class="step"><h3 id="step-compare">19. Compare</h3><p>Two documents side by side with the different bytes coloured; F8 goes to the next difference. Insertions and deletions can be found too.</p></div>
-<div class="step"><h3 id="step-calc">20. Calculator</h3><p>Evaluates expressions and shows hex, decimal, octal, binary, signed, float and text. Take the value at the caret or write it there.</p></div>
+<div class="step"><h3 id="step-find">14. Find and replace</h3><p>Find hex (with ?? wildcards), text in many encodings, regular expressions, integers and floats. Find all lists and marks every match.</p><img src="images/en/tutorial-find.webp" alt="Find and replace" loading="lazy"></div>
+<div class="step"><h3 id="step-goto">15. Go to</h3><p>Go to an offset: from the start, forward, back or from the end, hex or decimal, optionally selecting from the caret.</p><img src="images/en/tutorial-goto.webp" alt="Go to" loading="lazy"></div>
+<div class="step"><h3 id="step-strings">16. Strings</h3><p>Finds every ASCII, UTF-8 and UTF-16 string. Click a line to go there.</p><img src="images/en/tutorial-strings.webp" alt="Strings" loading="lazy"></div>
+<div class="step"><h3 id="step-disasm">17. Disassembler</h3><p>Decodes x86 (16/32/64) and ARM (32, Thumb, 64) code in Intel, NASM, MASM or GAS syntax.</p><img src="images/en/tutorial-disasm.webp" alt="Disassembler" loading="lazy"></div>
+<div class="step"><h3 id="step-carve">18. File recovery</h3><p>Finds files inside disk images or dumps by their headers, to open in a tab or save.</p><img src="images/en/tutorial-carve.webp" alt="File recovery" loading="lazy"></div>
+<div class="step"><h3 id="step-compare">19. Compare</h3><p>Two documents side by side with the different bytes coloured; F8 goes to the next difference. Insertions and deletions can be found too.</p><img src="images/en/tutorial-compare.webp" alt="Compare" loading="lazy"></div>
+<div class="step"><h3 id="step-calc">20. Calculator</h3><p>Evaluates expressions and shows hex, decimal, octal, binary, signed, float and text. Take the value at the caret or write it there.</p><img src="images/en/tutorial-calc.webp" alt="Calculator" loading="lazy"></div>
 <h2 id="data">Data</h2>
-<div class="step"><h3 id="step-operations">21. Operations and transforms</h3><p>Apply XOR, add, shifts, byte swaps, AES/DES/RC4, zlib/gzip and Base64 to the selection.</p></div>
-<div class="step"><h3 id="step-checksums">22. Checksums and hashes</h3><p>Computes 36 algorithms at once: CRCs, Adler, MD5, SHA-1, SHA-2, SHA-3, BLAKE and more.</p></div>
-<div class="step"><h3 id="step-stats">23. Statistics and entropy</h3><p>The byte histogram and the per-block entropy graph show compressed or encrypted parts. Click the graph to go there.</p></div>
-<div class="step"><h3 id="step-export">24. Export</h3><p>Export as a hex dump, source arrays (C, Python…), Base64, Intel HEX, S-record or HTML, and import them back.</p></div>
+<div class="step"><h3 id="step-operations">21. Operations and transforms</h3><p>Apply XOR, add, shifts, byte swaps, AES/DES/RC4, zlib/gzip and Base64 to the selection.</p><img src="images/en/tutorial-operations.webp" alt="Operations and transforms" loading="lazy"></div>
+<div class="step"><h3 id="step-checksums">22. Checksums and hashes</h3><p>Computes 36 algorithms at once: CRCs, Adler, MD5, SHA-1, SHA-2, SHA-3, BLAKE and more.</p><img src="images/en/tutorial-checksums.webp" alt="Checksums and hashes" loading="lazy"></div>
+<div class="step"><h3 id="step-stats">23. Statistics and entropy</h3><p>The byte histogram and the per-block entropy graph show compressed or encrypted parts. Click the graph to go there.</p><img src="images/en/tutorial-stats.webp" alt="Statistics and entropy" loading="lazy"></div>
+<div class="step"><h3 id="step-export">24. Export</h3><p>Export as a hex dump, source arrays (C, Python…), Base64, Intel HEX, S-record or HTML, and import them back.</p><img src="images/en/tutorial-export.webp" alt="Export" loading="lazy"></div>
 <h2 id="finish">Finish</h2>
-<div class="step"><h3 id="step-status">25. Status bar</h3><p>Caret offset, selection size, byte value, file size, INS/OVR and character set. Click an item for its window.</p></div>
-<div class="step"><h3 id="step-theme">26. Themes</h3><p>Choose among many light and dark themes, or make your own.</p></div>
-<div class="step"><h3 id="step-settings">27. Settings</h3><p>Bytes per row, grouping, bases, fonts, colours, copy format and the tools' defaults.</p></div>
-<div class="step"><h3 id="step-finish">28. Done</h3><p>You can start the tutorial again here at any time. Enjoy!</p></div>
+<div class="step"><h3 id="step-status">25. Status bar</h3><p>Caret offset, selection size, byte value, file size, INS/OVR and character set. Click an item for its window.</p><img src="images/en/tutorial-status.webp" alt="Status bar" loading="lazy"></div>
+<div class="step"><h3 id="step-theme">26. Themes</h3><p>Choose among many light and dark themes, or make your own.</p><img src="images/en/tutorial-theme.webp" alt="Themes" loading="lazy"></div>
+<div class="step"><h3 id="step-settings">27. Settings</h3><p>Bytes per row, grouping, bases, fonts, colours, copy format and the tools' defaults.</p><img src="images/en/tutorial-settings.webp" alt="Settings" loading="lazy"></div>
+<div class="step"><h3 id="step-finish">28. Done</h3><p>You can start the tutorial again here at any time. Enjoy!</p><img src="images/en/tutorial-finish.webp" alt="Done" loading="lazy"></div>
 
 </main></div>
 <script>

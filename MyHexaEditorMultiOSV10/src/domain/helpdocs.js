@@ -121,3 +121,18 @@ export function entryAt(entries, time) {
 
 /** Left offsets (0…100 %) of chapter marks on a timeline. */
 export const markOffsets = (entries, duration) => (duration > 0 ? entries.map((entry) => Math.min(100, Math.max(0, (entry.start / duration) * 100))) : []);
+
+/**
+ * A help page made ready for the print window: pictures load at once (a lazy picture outside the view never
+ * loads, and the page layout waits for every picture), no page script, no side table of contents, and a <base>
+ * so its pictures and links still resolve when the page is printed from elsewhere.
+ */
+export function printableHelpPage(html, baseUrl) {
+  let page = String(html)
+    .replace(/\sloading="lazy"/g, '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+    .replace(/<nav class="toc"[\s\S]*?<\/nav>/i, '');
+  const base = `<base href="${baseUrl}">`;
+  page = page.includes('<head>') ? page.replace('<head>', `<head>${base}`) : `${base}${page}`;
+  return page;
+}

@@ -149,6 +149,51 @@ export const cases = [
     },
   },
   {
+    group: 'Print',
+    name: 'The user\'s guide prints through the print window (printer, page setup, preview with its pictures) — never printed',
+    async run(app) {
+      const r = await app.run(`await T.reset(); A.popups.inline = true; const frame = await A.app.openDocWindow('guide'); A.popups.inline = false;
+        const doc = () => frame.querySelector('iframe').contentDocument;
+        await T.until(() => doc()?.querySelector('[data-viewer="print"]') && doc().querySelector('.viewer-frame')?.contentDocument?.querySelector('h2'), 15000, 'guide');
+        doc().querySelector('[data-viewer="print"]').click();
+        await T.popupReady('print', 15000);
+        const p = () => T.popupDoc('print');
+        await T.until(() => p().querySelector('.print-frame')?.contentDocument?.querySelector('img'), 20000, 'preview with pictures');
+        await T.until(() => p().querySelector('.print-busy')?.hidden && p().querySelector('.print-frame').contentDocument.querySelectorAll('.pagedjs_page').length > 3, 30000, 'pages laid out');
+        await T.until(() => [...p().querySelector('.print-frame').contentDocument.images].every((i) => i.complete), 20000, 'pictures loaded');
+        const f = p().querySelector('.print-frame').contentDocument;
+        const out = { pages: f.querySelectorAll('.pagedjs_page').length, pictures: [...f.images].filter((i) => i.complete && i.naturalWidth > 0).length, setup: p().querySelectorAll('.print-settings select, .print-settings .segmented, .print-settings input').length, title: f.querySelector('h1')?.textContent ?? '' };
+        await A.popups.closeAll(); frame.remove(); A.popups.frames.delete('doc-guide');
+        return out;`);
+      assert.ok(r.setup >= 4, 'page and printer settings');
+      assert.match(r.title, /MyHexaMaster/);
+      assert.ok(r.pages > 3, `${r.pages} pages`);
+      assert.ok(r.pictures >= 10, `${r.pictures} pictures loaded in the preview`);
+    },
+  },
+  {
+    group: 'Language',
+    name: 'Korean and English flags on the language button, the settings choice, the status bar and the menu',
+    async run(app) {
+      const r = await app.run(`await T.reset(); A.app.updateSettings({ language: 'ko' }); await T.frames(2);
+        const toolbar = document.querySelector('[data-command="language"] svg.flag')?.dataset.icon ?? document.querySelector('[data-command="language"] svg.flag') ? 'flag' : null;
+        const status = document.querySelector('#statusbar svg.flag')?.dataset.icon;
+        A.run('settings'); await T.popupReady('settings'); const s = T.popupDoc('settings');
+        const choice = [...s.querySelectorAll('[data-setting="language"] svg.flag')].map((x) => x.dataset.icon);
+        await A.popups.closeAll();
+        A.app.updateSettings({ language: 'en' }); await T.frames(2);
+        const statusEn = document.querySelector('#statusbar svg.flag')?.dataset.icon;
+        const cmd = A.commands.language.icon;
+        A.app.updateSettings({ language: 'ko' });
+        return { toolbar, status, choice, statusEn, cmd };`);
+      assert.ok(r.toolbar, 'toolbar flag');
+      assert.equal(r.status, 'flagKr');
+      assert.deepEqual(r.choice, ['flagKr', 'flagUk']);
+      assert.equal(r.statusEn, 'flagUk');
+      assert.equal(r.cmd, 'flagKr', 'in English the button switches to Korean');
+    },
+  },
+  {
     group: 'Properties',
     name: 'Hash database: a hash added as notable is flagged, then removed',
     async run(app) {

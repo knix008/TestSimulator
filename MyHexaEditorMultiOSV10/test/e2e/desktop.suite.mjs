@@ -191,6 +191,41 @@ export const desktopCases = [
     },
   },
   {
+    group: 'Print',
+    name: 'Print from the guide window and from the main window: always the print OS window with printers and preview (never printed)',
+    async run(app) {
+      const { listTargets, Page } = await import('./cdp.mjs');
+      const printWindow = async () => {
+        const end = Date.now() + 20000;
+        while (Date.now() < end) {
+          const target = (await listTargets(app.port)).find((x) => x.type === 'page' && (x.title === 'popup-print' || String(x.url).includes('popup=print')));
+          if (target) {
+            const page = await new Page(target).open();
+            try {
+              const state = await page.eval(`(() => ({ visible: document.visibilityState, window: Boolean(document.querySelector('.print-window')), printers: document.querySelectorAll('.print-settings select option').length, pages: document.querySelector('.print-frame')?.contentDocument?.querySelectorAll('.pagedjs_page').length ?? 0, busy: !document.querySelector('.print-busy')?.hidden }))()`);
+              if (state.window && state.pages > 0 && !state.busy) return state;
+            } finally { page.close?.(); }
+          }
+          await new Promise((r) => setTimeout(r, 300));
+        }
+        throw new Error('the print window did not come up');
+      };
+      // The guide window asks the main window exactly like this (viewer.js printDoc).
+      await app.run(`await T.reset(); await window.__TAURI_INTERNALS__.invoke('plugin:event|emit_to', { target: { kind: 'WebviewWindow', label: 'main' }, event: 'popup-message', payload: { kind: 'doc-guide', type: 'action', data: { action: 'doc-print', doc: 'guide', lang: 'ko' } } }); return 1;`);
+      const fromGuide = await printWindow();
+      await app.run('await A.popups.closeAll(); return 1;');
+      await app.run(`await T.reset({ sample: 'png' }); A.run('print'); return 1;`);
+      const fromMain = await printWindow();
+      await app.run('await A.popups.closeAll(); return 1;');
+      for (const s of [fromGuide, fromMain]) {
+        assert.equal(s.visible, 'visible');
+        assert.ok(s.printers > 0, 'printers listed');
+        assert.ok(s.pages > 0, 'preview pages');
+      }
+      assert.ok(fromGuide.pages > 3, `guide: ${fromGuide.pages} pages`);
+    },
+  },
+  {
     group: 'Popups',
     name: 'A tool window opens as an OS window (find) and answers through the main window',
     async run(app) {

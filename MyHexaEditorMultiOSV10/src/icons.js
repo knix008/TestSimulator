@@ -3,6 +3,7 @@
 // command has its own picture (test/unit/icons.test.js checks that no two commands share one).
 import { ICONS_3D } from './icons-3d.js';
 import { toneOf } from './icon-tones.js';
+import { flagIcon } from './flags.js';
 
 const base = {
   // ── generic (files, editing, panels, help, small glyphs)
@@ -466,12 +467,14 @@ const paths = { ...base, ...ICONS_3D };
 export const ICON_NAMES = Object.keys(paths);
 /** Feature modules add their own pictures: { name: '<path …/>' } (24×24 grid, stroke). Later names win. */
 export function registerIcons(more) { Object.assign(paths, more ?? {}); ICON_NAMES.splice(0, ICON_NAMES.length, ...Object.keys(paths)); }
-export const hasIcon = (name) => Object.hasOwn(paths, name);
+export const hasIcon = (name) => Object.hasOwn(paths, name) || name === 'flagKr' || name === 'flagUk';
 
 /** The icon's first shape carries a light wash of its colour when it encloses something. */
 const hasWash = (body) => /^<(rect|circle|ellipse)\b(?![^>]*\bfill=)/.test(body) || /^<path d="[^"]*[zZ]\s*"(?![^>]*\bfill=)[^>]*\/>/.test(body);
 
 export function icon(name, className = 'icon') {
+  // The two language flags are pictures of their own (full colour), not stroke icons.
+  if (name === 'flagKr' || name === 'flagUk') return flagIcon(name === 'flagKr' ? 'ko' : 'en', className);
   const known = Object.hasOwn(paths, name) ? name : 'dot';
   // Unknown names fall back to a dot; the tests read this list to catch them.
   if (known !== name && name !== 'dot') (globalThis.__missingIcons ??= new Set()).add(String(name));

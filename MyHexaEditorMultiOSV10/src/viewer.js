@@ -15,7 +15,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { loadSettings, STORAGE_KEY } from './domain/settings.js';
 import {
   chapterEntries, currentChapter, DOC_KINDS, docFile, docUrl, docWindowTitle, entryAt, findOffsets, formatTime, isDocKind,
-  markOffsets, parseVideoChapters, stepMatch, VIDEO_CHAPTERS_FILE, VIDEO_FILE, VIDEO_SPEEDS,
+  markOffsets, parseVideoChapters, printableHelpPage, stepMatch, VIDEO_CHAPTERS_FILE, VIDEO_FILE, VIDEO_SPEEDS,
 } from './domain/helpdocs.js';
 import { setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
@@ -286,8 +286,34 @@ function focusFind() {
   input.select();
 }
 
-function printDoc() {
-  frame()?.contentWindow?.print();
+/**
+ * Print: always the print window of its own (printer, page setup, preview; "Print" prints at once). The main window
+ * opens it with this document; a page opened alone in a browser tab has no main window, so it hosts the window itself.
+ */
+let ownPopups = null;
+async function printDoc() {
+  if (kind === 'video') return;
+  const request = { action: 'doc-print', doc: kind, lang: state.lang };
+  if (inFrame) { toHost('action', request); return; }
+  if (osWindow) { native.emitTo('main', 'popup-message', { kind: `doc-${kind}`, type: 'action', data: request }).catch(() => {}); return; }
+  if (!ownPopups) {
+    const { PopupHost } = await import('./platform/popups.js');
+    ownPopups = new PopupHost();
+    await ownPopups.init();
+    ownPopups.on('print-content', () => {
+      const d = frameDoc();
+      const html = d ? printableHelpPage(`<!doctype html>${d.documentElement.outerHTML}`, d.baseURI) : '<p></p>';
+      ownPopups.post('print', { type: 'print-content', html, printers: { printers: [], defaultPrinter: '', filePrinters: [] } });
+    });
+    ownPopups.on('print-run', (job) => {
+      // A browser tab can only print through the browser's dialog; the page setup goes in as CSS first.
+      const d = frameDoc();
+      if (d && job?.css) d.head.insertAdjacentHTML('beforeend', job.css);
+      frame()?.contentWindow?.print();
+      ownPopups.post('print', { type: 'print-done', ok: true });
+    });
+  }
+  ownPopups.open('print', { title: document.title });
 }
 
 async function openExternal() {

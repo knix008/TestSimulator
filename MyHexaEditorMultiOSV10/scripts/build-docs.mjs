@@ -103,6 +103,9 @@ function page(title, lang, body) {
   th { background: var(--code); }
   .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
   .step b { color: var(--accent); }
+  img { display: block; max-width: 100%; height: auto; margin: 10px 0 18px; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+  .step img { margin: 8px 0 2px; }
+  @media print { img { break-inside: avoid; box-shadow: none; } }
   .muted { color: var(--muted); }
 </style>
 </head>
@@ -141,7 +144,9 @@ for (const lang of ['ko', 'en']) {
     body += `<h2 id="${chapter}">${esc(t(`tutorial.chapter.${chapter}`))}</h2>\n`;
     for (const step of STEPS.filter((s) => s.chapter === chapter)) {
       n += 1;
-      body += `<div class="step"><h3 id="step-${step.id}">${n}. ${esc(t(`tutorial.${step.id}.title`))}</h3><p>${esc(t(`tutorial.${step.id}.text`))}</p></div>\n`;
+      // The picture of the step (npm run docs:images) when there is one.
+      const picture = existsSync(path.join(root, 'doc', 'images', lang, `tutorial-${step.id}.webp`)) ? `<img src="images/${lang}/tutorial-${step.id}.webp" alt="${esc(t(`tutorial.${step.id}.title`))}" loading="lazy">` : '';
+      body += `<div class="step"><h3 id="step-${step.id}">${n}. ${esc(t(`tutorial.${step.id}.title`))}</h3><p>${esc(t(`tutorial.${step.id}.text`))}</p>${picture}</div>\n`;
     }
   }
   writeFileSync(path.join(out, `Tutorial${lang === 'en' ? '.en' : ''}.html`), page(lang === 'en' ? 'MyHexaMaster — Tutorial' : 'MyHexaMaster — 따라하기', lang, body));

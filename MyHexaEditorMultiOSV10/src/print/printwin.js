@@ -82,6 +82,11 @@ export async function layoutPreview(frame, html, p) {
   doc.open();
   doc.write(withPageCss(html, p));
   doc.close();
+  // Pictures first (a help page has many): the layout needs their heights to break the pages right.
+  await Promise.race([
+    Promise.all([...doc.images].map((img) => (img.complete ? null : new Promise((done) => { img.addEventListener('load', done, { once: true }); img.addEventListener('error', done, { once: true }); })))),
+    new Promise((done) => setTimeout(done, 15000)),
+  ]);
   await runPaged(frame.contentWindow);
   fillIndexPages(doc);
   doc.head.insertAdjacentHTML('beforeend', PREVIEW_CSS);
