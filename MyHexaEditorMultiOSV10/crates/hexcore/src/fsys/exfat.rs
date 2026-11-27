@@ -164,7 +164,7 @@ fn parse(vol: &Vol, g: &Geo, bytes: &[u8], key: &str, deleted_too: bool) -> (Vec
             }
         }
         let id = if dir { format!("d:{first}:{}:{len}", u8::from(nofat || deleted)) } else { format!("e:{}:{slot}", key.replace(':', "|")) };
-        out.push((slot, Entry { name, id, dir, size: if dir { 0 } else { len }, created: ts(u32le(e, 8)), modified: ts(u32le(e, 12)), deleted, resident: None, extents }));
+        out.push((slot, Entry { name, id, dir, size: if dir { 0 } else { len }, created: ts(u32le(e, 8)), modified: ts(u32le(e, 12)), deleted, resident: None, extents, ..Default::default() }));
     }
     (out, label)
 }

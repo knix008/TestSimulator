@@ -258,6 +258,7 @@ fn parse(vol: &Vol, g: &Geo, bytes: &[u8], key_text: &str, deleted_too: bool) ->
                 deleted,
                 resident: None,
                 extents,
+                ..Default::default()
             },
         });
     }

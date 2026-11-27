@@ -224,6 +224,8 @@ const pairs = {
   'fs.hint': ['디스크·이미지의 파티션({scheme})과 FAT·exFAT·NTFS·ext2/3/4 파일을 봅니다. 지운 파일도 찾아 꺼낼 수 있습니다.', 'Partitions ({scheme}) and the files of FAT, exFAT, NTFS and ext2/3/4 volumes in a disk or image, deleted files too.'],
   'fs.noPartitions': ['파티션이나 파일 시스템을 찾지 못했습니다', 'No partition or file system found'], 'fs.up': ['위로', 'Up'], 'fs.showDeleted': ['지운 파일', 'Deleted files'],
   'fs.count': ['{n}개', '{n} items'], 'fs.empty': ['비어 있습니다', 'Empty'], 'fs.deleted': ['지움', 'deleted'], 'fs.openDir': ['열기', 'Open'], 'fs.cluster': ['클러스터', 'cluster'],
+  'fs.compressed': ['압축', 'compressed'], 'fs.compressedTip': ['NTFS 압축 파일: 꺼내거나 열면 압축을 푼 내용입니다', 'NTFS compressed file: opening or saving gives the decompressed data'],
+  'fs.encrypted': ['암호화', 'encrypted'], 'fs.encryptedTip': ['EFS 암호화 파일: 키 없이 풀 수 없어 디스크의 바이트 그대로입니다', 'EFS encrypted file: without the keys it cannot be decrypted, so the bytes are as stored on disk'],
   'fs.resident': ['데이터가 파일 기록 안에 있습니다(새 탭으로 열어 보세요)', 'The data lives inside the file record (open it in a tab)'],
   'yara.run': ['검사', 'Scan'], 'yara.example': ['예제 규칙', 'Example rules'], 'yara.result': ['규칙 {rules}개가 맞음 · 위치 {n}곳 (규칙 {total}개 검사)', '{rules} rules matched · {n} places ({total} rules checked)'],
   'yara.none': ['맞는 규칙이 없습니다', 'No rule matched'], 'yara.noStrings': ['조건만으로 맞음', 'matched by its condition'],

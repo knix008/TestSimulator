@@ -54,6 +54,25 @@ export const cases = [
   },
   {
     group: 'Hex view',
+    name: 'Fast typing (no pause between keys, like key repeat) keeps every nibble and the order of moves',
+    async run(app) {
+      // Each edit goes to the core and back; keys sent in one go must still be applied one after another.
+      const r = await app.run(`await T.reset({ sample: 'text' }); A.app.updateSettings({ insertMode: false }); const v = T.view(); v.setCaret(0); v.focus();
+        for (const k of ['C', 'A', 'F', 'E', 'ArrowRight', '1', '2']) T.key(k);
+        await T.until(() => v.caret === 4, 5000, 'caret after typing');
+        const over = await T.bytes(0, 4);
+        A.app.updateSettings({ insertMode: true }); v.setCaret(0);
+        for (const k of ['0', '1', '0', '2', 'Backspace']) T.key(k);
+        await T.until(() => v.caret === 1, 5000, 'caret after insert');
+        const ins = await T.bytes(0, 3);
+        A.app.updateSettings({ insertMode: false });
+        return { over, ins };`);
+      assert.deepEqual(r.over, [0xCA, 0xFE, 0x48, 0x12], 'CA FE, skip one byte, 12');
+      assert.deepEqual(r.ins, [0x01, 0xCA, 0xFE], '01 02 inserted, the 02 removed by Backspace');
+    },
+  },
+  {
+    group: 'Hex view',
     name: 'Typing text in the text pane (UTF-8, Korean) and selection with Shift+arrows',
     async run(app) {
       const r = await app.run(`await T.reset({ sample: 'text' }); A.app.updateSettings({ insertMode: false, charset: 'utf8' }); const v = T.view(); v.setCaret(0); v.focus(); T.key('Tab');

@@ -51,6 +51,9 @@ export class HexView {
     this.metrics = null;
     this.layout = null;
     this.dragging = false;
+    // Key input runs one step at a time (see serial()).
+    this.inputChain = Promise.resolve();
+    this.inputBusy = 0;
     this.frame = 0;
     this.destroyed = false;
     host.classList.add('hx-host');
@@ -394,25 +397,47 @@ export class HexView {
     this.input.addEventListener('blur', () => this.el.classList.remove('focused'));
   }
 
+  /**
+   * Key input one step at a time: a typed digit waits for the edit before it (an edit goes to the core and back),
+   * and a caret move waits for the typing before it. Without this, fast typing or key repeat let two digits both
+   * take the high nibble of the same byte (CAFE typed quickly became ED with the caret not moving).
+   */
+  serial(work) {
+    // Nothing in flight: run now (a caret move stays synchronous, as before).
+    if (!this.inputBusy) {
+      const result = work();
+      if (typeof result?.then !== 'function') return Promise.resolve(result);
+      this.inputBusy = 1;
+      const run = Promise.resolve(result).finally(() => { this.inputBusy -= 1; });
+      this.inputChain = run.catch(() => {});
+      return run;
+    }
+    this.inputBusy += 1;
+    const run = this.inputChain.then(() => work()).finally(() => { this.inputBusy -= 1; });
+    this.inputChain = run.catch(() => {});
+    return run;
+  }
+
   onKey(event) {
     if (event.isComposing) return;
     this.ready();
     const key = event.key;
     const mod = event.ctrlKey || event.metaKey;
-    const cols = this.layout?.cols ?? 16;
     const ext = event.shiftKey;
-    const page = Math.max(1, this.visibleRows() - 1) * cols;
-    const move = (to) => { event.preventDefault(); this.setCaret(to, { extend: ext }); };
+    const cols = () => this.layout?.cols ?? 16;
+    const page = () => Math.max(1, this.visibleRows() - 1) * cols();
+    // The target is worked out when the move runs, after any typing queued before it.
+    const move = (to) => { event.preventDefault(); return this.serial(() => this.setCaret(to(), { extend: ext })); };
     switch (key) {
-      case 'ArrowLeft': return move(mod ? this.caret - this.layout.group : this.caret - 1);
-      case 'ArrowRight': return move(mod ? this.caret + this.layout.group : this.caret + 1);
-      case 'ArrowUp': if (mod) { event.preventDefault(); return this.scrollToRow(this.topRow - 1); } return move(this.caret - cols);
-      case 'ArrowDown': if (mod) { event.preventDefault(); return this.scrollToRow(this.topRow + 1); } return move(this.caret + cols);
-      case 'PageUp': return move(this.caret - page);
-      case 'PageDown': return move(this.caret + page);
-      case 'Home': return move(mod ? 0 : this.caret - (this.caret % cols));
-      case 'End': return move(mod ? this.doc.len : this.caret - (this.caret % cols) + cols - 1);
-      case 'Tab': event.preventDefault(); this.pane = this.pane === 'hex' && this.s.showText ? 'text' : 'hex'; this.nibble = 0; this.changed(); return undefined;
+      case 'ArrowLeft': return move(() => (mod ? this.caret - this.layout.group : this.caret - 1));
+      case 'ArrowRight': return move(() => (mod ? this.caret + this.layout.group : this.caret + 1));
+      case 'ArrowUp': if (mod) { event.preventDefault(); return this.scrollToRow(this.topRow - 1); } return move(() => this.caret - cols());
+      case 'ArrowDown': if (mod) { event.preventDefault(); return this.scrollToRow(this.topRow + 1); } return move(() => this.caret + cols());
+      case 'PageUp': return move(() => this.caret - page());
+      case 'PageDown': return move(() => this.caret + page());
+      case 'Home': return move(() => (mod ? 0 : this.caret - (this.caret % cols())));
+      case 'End': return move(() => (mod ? this.doc.len : this.caret - (this.caret % cols()) + cols() - 1));
+      case 'Tab': event.preventDefault(); return this.serial(() => { this.pane = this.pane === 'hex' && this.s.showText ? 'text' : 'hex'; this.nibble = 0; this.changed(); });
       case 'Insert': event.preventDefault(); this.opts.toggleInsert?.(); return undefined;
       case 'Escape': if (this.anchor != null) { event.preventDefault(); this.anchor = null; this.changed(); } return undefined;
       case 'Backspace': event.preventDefault(); return this.backspace();
@@ -441,8 +466,11 @@ export class HexView {
     return true;
   }
 
+  /** A typed hex digit (queued after the input before it). */
+  typeDigit(d) { return this.serial(() => this.typeDigitNow(d)); }
+
   /** A typed hex digit: the high nibble, then the low one (overwriting or inserting). */
-  async typeDigit(d) {
+  async typeDigitNow(d) {
     const insert = this.s.insertMode;
     if (!this.canEdit(insert || this.caret >= this.doc.len)) return;
     const sel = this.selection();
@@ -473,12 +501,17 @@ export class HexView {
   }
 
   /** Text typed in the text pane (also from an input method). */
-  async onText() {
+  onText() {
+    // Taken from the input box at once; written in turn with the other key input.
     const text = this.input.value;
     this.input.value = '';
-    if (!text) return;
+    if (!text) return Promise.resolve();
+    return this.serial(() => this.textNow(text));
+  }
+
+  async textNow(text) {
     if (this.pane === 'hex') {
-      for (const ch of text) { const d = this.digitOf(ch); if (d != null) await this.typeDigit(d); }
+      for (const ch of text) { const d = this.digitOf(ch); if (d != null) await this.typeDigitNow(d); }
       return;
     }
     const parts = [];
@@ -501,7 +534,9 @@ export class HexView {
     this.changed();
   }
 
-  async backspace() {
+  backspace() { return this.serial(() => this.backspaceNow()); }
+
+  async backspaceNow() {
     const sel = this.selection();
     if (sel.length) { if (this.canEdit(true)) { await this.opts.edit('delete', { offset: sel.start, length: sel.length }); this.setCaret(sel.start); } return; }
     if (this.nibble) { this.nibble = 0; this.changed(); return; }
@@ -514,7 +549,9 @@ export class HexView {
     this.setCaret(this.caret - 1);
   }
 
-  async deleteKey() {
+  deleteKey() { return this.serial(() => this.deleteKeyNow()); }
+
+  async deleteKeyNow() {
     const sel = this.selection();
     const offset = sel.length ? sel.start : this.caret;
     const length = sel.length || 1;
