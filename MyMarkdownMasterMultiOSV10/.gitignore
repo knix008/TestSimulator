@@ -13,3 +13,10 @@ src-tauri/gen/
 *.log
 .vite/
 crates/*/target/
+# Generated — rebuilt by scripts/prepare.mjs (npm run dev / build:web / start / test) and build:icons
+public/mdcore.wasm
+public/doc/
+assets/icon.png
+assets/icon.icns
+assets/icon.ico
+assets/project.png

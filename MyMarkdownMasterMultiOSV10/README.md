@@ -30,14 +30,16 @@ An Obsidian-style Markdown knowledge base for Windows, macOS, Linux (Tauri 2) an
 ```bash
 npm install
 npm start               # 데스크톱 개발 실행 (Vite + tauri dev)
-npm run dev             # 웹 개발 서버 (먼저 npm run build:wasm)
+npm run dev             # 웹 개발 서버
 npm test                # unit · i18n · rust · web · tutorial  (--desktop 으로 데스크톱 E2E 추가)
 npm run build:web       # dist/ (Rust 코어를 WebAssembly로 포함)
 npm run build:win       # Windows 설치 프로그램 (build:mac, build:linux, build:all)
 npm run build:docs      # 사용 설명서·튜토리얼 HTML
-npm run clean           # 빌드 결과·설치 파일·시험 결과·캐시 삭제 (--dry-run 으로 목록만)
+npm run clean           # git 이 보관하지 않는 것을 모두 삭제: 빌드 결과(crates/*/target 포함)·설치 파일·생성 파일·시험 결과·캐시 (--dry-run 으로 목록만)
 npm run clean:all       # 위 + node_modules 삭제 (node_modules에서 실행 중인 Vite·esbuild·tauri dev 는 먼저 종료). 다시 npm install
 ```
+
+git 에는 소스만 올라갑니다. `public/mdcore.wasm`(Rust 코어의 WebAssembly)과 `public/doc/`(설명서 HTML)은 만들어지는 파일이라 git 에 없고, `npm start` · `npm run dev` · `npm test` · `npm run build:*` 가 `scripts/prepare.mjs` 로 먼저 만듭니다. `clean` 뒤에는 git 이 보관하지 않는데 남은 것을 목록으로 보여 줍니다(지우지는 않음).
 
 필요: Node 22+, Rust(stable) + `rustup target add wasm32-unknown-unknown`, 각 OS의 Tauri 2 준비물.
 

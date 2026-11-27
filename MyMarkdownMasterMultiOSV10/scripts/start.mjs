@@ -16,6 +16,8 @@ if (port !== 5720) console.log(`[start] 포트 5720 을 다른 프로그램이 �
 
 // 127.0.0.1 on both sides: Vite on 'localhost' may listen on ::1 only, and tauri dev would wait for IPv4.
 const devUrl = `http://127.0.0.1:${port}`;
+// The generated files git does not keep (public/mdcore.wasm, public/doc/): made first when missing or stale.
+{ const prep = (await import('node:child_process')).spawnSync(process.execPath, [path.join(root, 'scripts', 'prepare.mjs')], { cwd: root, stdio: 'inherit' }); if (prep.status !== 0) process.exit(prep.status ?? 1); }
 const vite = spawn(process.execPath, [path.join(root, 'node_modules', 'vite', 'bin', 'vite.js'), '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, stdio: 'inherit', env: { ...process.env, MYMARKDOWN_DEV_PORT: String(port) } });
 let tauri = null;
 const stopVite = () => { try { vite.kill(); } catch { /* gone */ } };
