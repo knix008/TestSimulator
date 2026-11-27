@@ -21,7 +21,7 @@ export const SAMPLES = [
   { id: 'advMachineStand', group: G, icon: 'cutList', ko: ['용접 기계 받침대', '각관·직사각관·앵글 부재 · 대칭 복사 · 상판 구멍 패턴'], en: ['Welded machine stand', 'Square / rectangular tube and angle members · mirror · top plate holes'] },
   { id: 'advSheetEnclosure', group: G, icon: 'sheetMetal', ko: ['판금 섀시 케이스', '베이스 플랜지 · 조그 · 스케치 굽힘 · 모서리 플랜지 · 헴 · 펼치기'], en: ['Sheet metal chassis', 'Base flange · jog · sketched bend · edge flanges · hem · flat pattern'] },
   { id: 'advMoldedCover', group: G, icon: 'cavity', ko: ['사출 성형 커버 (코어·캐비티)', '구배 · 쉘 · 보스 · 리브 · 파팅 라인 · 툴링 분할'], en: ['Molded cover (core and cavity)', 'Draft · shell · bosses · rib · parting line · tooling split'] },
-  { id: 'advCarBody', group: G, icon: 'surfaceLoft', ko: ['자동차 차체 쉘', '단면 8개 곡면 로프트 · 곡면 자르기 · 붙이기 · 두껍게 · 휠 아치 · 옆 창 · 앞뒤 유리'], en: ['Car body shell', 'Surface loft through eight sections · trim · knit · thicken · wheel arches · side windows · windshields'] },
+  { id: 'advCarBody', group: G, icon: 'surfaceLoft', ko: ['RC카 바디 쉘 1:10', '단면 8개 곡면 로프트 · 평면·스케치로 곡면 자르기(휠 아치·바디 포스트·윙 구멍) · 붙이기 · 두께 1'], en: ['RC car body shell 1:10', 'Surface loft through eight sections · trim by a plane and by sketches (wheel arches, body post and wing holes) · knit · 1 mm thicken'] },
   { id: 'advWineGlass', group: G, icon: 'featDome', ko: ['와인 잔', '스플라인 회전 · 쉘 · 오목 돔 · 필렛'], en: ['Wine glass', 'Spline revolve · shell · concave dome · fillets'] },
   { id: 'advDuctBend', group: G, icon: 'featSweep', ko: ['3D 덕트 벤드', '3D 스플라인 경로 · 링 단면 스윕 · 플랜지 · 볼트 구멍 스케치 패턴 · 필렛'], en: ['3D duct bend', '3D spline path · ring-section sweep · flanges · bolt hole sketch patterns · fillet'] },
   { id: 'advKnob', group: G, icon: 'featWrap', ko: ['각인 노브', '랩 (글자 양각) · 원형 패턴 · 홈 36개 · 돔 · D컷 보어'], en: ['Engraved knob', 'Wrapped lettering emboss · circular patterns · 36 flutes · dome · D bore'] },
@@ -327,40 +327,49 @@ function moldedCover(T) {
 // ───────────────────────── 7. car body from surfaces
 
 function carBody(T) {
-  const b = builder(createPart(T('자동차 차체', 'Car body shell'), { material: 'steel-1020', color: '#b8322f', partNo: 'CB-1-10', description: T('1:10 축척 세단 차체 쉘, 두께 2', '1:10 sedan body shell, 2 mm skin') }));
+  const b = builder(createPart(T('RC카 바디 쉘 1:10', 'RC car body shell 1:10'), { material: 'pc', color: '#c62828', partNo: 'RC-TC-190', description: T('1:10 투어링카 폴리카보네이트 바디 — 폭 190 · 휠베이스 257 · 두께 1 (진공 성형)', '1:10 touring-car polycarbonate body — 190 wide · 257 wheelbase · 1 mm (vacuum formed)') }));
+  // The chassis it fits: 1:10 touring car, wheelbase 257 (axles at x = ±128.5), wheels Ø64 on axles 32 above the
+  // ground, track to the tyre faces 190. The body is one vacuum-formed polycarbonate skin: the windows are masked
+  // and painted, not cut, so the shell stays stiff.
   // Cross-sections along the car (right plane: sketch x runs along −Z, y is up), rear bumper to front bumper:
-  // half width, floor, belt line, roof (or hood / boot lid) height and its half width. Every section is the same
-  // closed spline of 14 points starting at the bottom centre, so the loft does not twist.
+  // half width w, bottom f, shoulder (belt) b, top (deck, roof or hood) and the top's half width rw. Every
+  // section is the same closed spline of 10 points starting at the bottom centre: the side, the shoulder at the belt line,
+  // the cabin leaning in (tumblehome) and the roof, so the loft does not twist
+  // (few points and sections keep the smooth loft quick).
   const sections = [
-    [-215, { w: 70, f: 26, b: 58, top: 66, rw: 56 }], // rear bumper
-    [-170, { w: 84, f: 20, b: 72, top: 80, rw: 70 }], // boot lid
-    [-110, { w: 87, f: 18, b: 78, top: 104, rw: 60 }], // rear window base
-    [-40, { w: 88, f: 18, b: 80, top: 134, rw: 62 }], // roof
-    [40, { w: 88, f: 18, b: 80, top: 128, rw: 62 }], // windshield top
-    [105, { w: 86, f: 18, b: 78, top: 86, rw: 72 }], // cowl
-    [170, { w: 82, f: 20, b: 70, top: 76, rw: 68 }], // hood
-    [215, { w: 66, f: 28, b: 54, top: 60, rw: 52 }], // front bumper
+    [-222, { w: 76, f: 4, b: 50, top: 62, rw: 64 }], // rear bumper
+    [-165, { w: 91, f: 0, b: 68, top: 84, rw: 80 }], // boot lid, over the rear wheels
+    [-80, { w: 90, f: 0, b: 74, top: 110, rw: 62 }], // rear window base
+    [-10, { w: 90, f: 0, b: 76, top: 128, rw: 64 }], // roof
+    [50, { w: 90, f: 0, b: 76, top: 120, rw: 64 }], // windshield top
+    [110, { w: 91, f: 0, b: 70, top: 82, rw: 80 }], // cowl
+    [170, { w: 89, f: 0, b: 64, top: 74, rw: 78 }], // hood, over the front wheels
+    [222, { w: 74, f: 6, b: 42, top: 54, rw: 62 }], // front bumper
   ];
-  const ids = sections.map(([x, s], i) => {
+  const ids = sections.map(([x, q], i) => {
     const pl = b.plane('right', x);
-    const half = [[s.w * 0.86, s.f], [s.w, s.f + 12], [s.w, s.b - 10], [s.w * 0.97, s.b], [s.rw, s.top - 9], [s.rw * 0.55, s.top - 1]];
-    const loop = [[0, s.f], ...half, [0, s.top], ...half.slice().reverse().map(([u, y]) => [-u, y])];
+    const half = [[q.w * 0.94, q.f + 2], [q.w, q.b - 4], [q.rw, q.b + (q.top - q.b) * 0.72], [q.rw * 0.5, q.top - 1]];
+    const loop = [[0, q.f], ...half, [0, q.top], ...half.slice().reverse().map(([u, y]) => [-u, y])];
     return b.sketch(pl, (k) => addSpline(k, loop, { closed: true }), T(`단면 ${i + 1}`, `Section ${i + 1}`)).id;
   });
-  const skin = b.add('surfaceLoft', { sketches: ids, ruled: true });
-  // Trim the underside off and knit the skin into one surface, then give it its thickness.
-  const trim = b.add('trimSurface', { surface: skin.id, plane: { kind: 'ref', id: b.plane('top', 30).id }, keep: 'above' });
-  const knit = b.add('knit', { surfaces: [trim.id], solid: false });
-  b.add('thicken', { surface: knit.id, thickness: 2, side: 'in' });
-  // Wheel arches (wheelbase 260), cut through both sides at once.
-  const arches = b.sketch('front', (k) => { circleAt(k, -130, 30, 74); circleAt(k, 130, 30, 74); }, T('스케치-휠 아치', 'Sketch-WheelArches'));
-  b.add('extrude', { sketch: arches.id, op: 'cut', end: 'throughBoth' });
-  // Side windows between the belt line and the roof edge (both sides), then the windshield and the rear window
-  // (cut down through the roof's slopes — the trimmed underside is open, so nothing else is in the way).
-  const win = b.sketch('front', (k) => { chain(k, [[-98, 86], [92, 86], [42, 121], [-58, 122]]); }, T('스케치-옆 창', 'Sketch-SideWindows'));
-  b.add('extrude', { sketch: win.id, op: 'cut', end: 'throughBoth' });
-  const glass = b.sketch(b.plane('top', 60), (k) => { chain(k, [[52, -50], [94, -58], [94, 58], [52, 50]]); chain(k, [[-104, -50], [-62, -46], [-62, 46], [-104, 50]]); }, T('스케치-앞뒤 유리', 'Sketch-Windshields'));
-  b.add('extrude', { sketch: glass.id, op: 'cut', end: 'throughBoth' });
+  const skin = b.add('surfaceLoft', { sketches: ids });
+  // The open underside: the skin trimmed at the body line, 14 above the ground.
+  const under = b.add('trimSurface', { surface: skin.id, plane: { kind: 'ref', id: b.plane('top', 14).id }, keep: 'above' });
+  // Wheel arches for Ø64 wheels: R 38 round the axles (6 mm clearance for steering and suspension travel),
+  // trimmed out of the skin with a sketch (through both sides) before it gets its thickness.
+  const arches = b.sketch('front', (k) => { circleAt(k, -128.5, 32, 76); circleAt(k, 128.5, 32, 76); }, T('스케치-휠 아치', 'Sketch-WheelArches'));
+  const archTrim = b.add('trimSurface', { surface: under.id, sketch: arches.id, keep: 'outside' });
+  // Body post holes Ø6 (the chassis' posts: front 50 apart on the hood, rear 60 apart on the deck) and the rear
+  // wing's two Ø3 screw holes, straight down through the skin.
+  const posts = b.sketch(b.plane('top', 60), (k) => {
+    for (const v of [-25, 25]) circleAt(k, 150, v, 6);
+    for (const v of [-30, 30]) circleAt(k, -150, v, 6);
+    for (const v of [-42, 42]) circleAt(k, -204, v, 3);
+  }, T('스케치-바디 포스트·윙 구멍', 'Sketch-PostAndWingHoles'));
+  const holes = b.add('trimSurface', { surface: archTrim.id, sketch: posts.id, keep: 'outside' });
+  // One skin, 1 mm polycarbonate inward (the outside is the painted show surface).
+  const knit = b.add('knit', { surfaces: [holes.id], solid: false });
+  b.add('thicken', { surface: knit.id, thickness: 1, side: 'in' });
   return b.part;
 }
 

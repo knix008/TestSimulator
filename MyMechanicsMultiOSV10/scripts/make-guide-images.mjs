@@ -236,7 +236,7 @@ scene('feature-loft', async (g) => {
 // 6 · surfaces, sheet metal, weldments, mold tools
 scene('surfaces', async (g) => {
   await g.sample('advCarBody'); await g.view('iso'); await g.fit();
-  g.mark('#left-panel .tree', 1, g.T('곡면 로프트 → 자르기 → 붙이기 → 두껍게', 'Surface loft → trim → knit → thicken'), { at: 'br' });
+  g.mark('#left-panel .tree', 1, g.T('곡면 로프트 → 평면·스케치로 자르기 → 붙이기 → 두껍게', 'Surface loft → trim by a plane and sketches → knit → thicken'), { at: 'br' });
   return null;
 });
 scene('sheetmetal', async (g) => {

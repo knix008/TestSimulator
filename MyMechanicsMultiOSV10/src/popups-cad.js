@@ -13,7 +13,8 @@ export function renderCadSettings(api) {
     toggle('autoRelations', t('settings.autoRelations'), 'addRelation'),
     toggle('editDimOnCreate', t('settings.editDimOnCreate'), 'smartDim'),
     row('drawing', t('settings.projection'), segmented('projection', [['third', t('drawing.third')], ['first', t('drawing.first')]], set.projection ?? 'third')),
-    row('dwgFile', t('settings.dwgVersion'), segmented('dwgVersion', [['R2004', 'R2004', 'dwgFile'], ['R2000', 'R2000', 'dwgFile']], set.dwgVersion ?? 'R2004')),
+    // DWG releases to save in (AutoCAD 2000 … 2018 formats; the newest opens in every current program, R2004 also in old ones).
+    row('dwgFile', t('settings.dwgVersion'), api.select('data-select', 'dwgVersion', ['R2018', 'R2013', 'R2010', 'R2007', 'R2004', 'R2000'].map((v) => [v, t(`settings.dwgRelease.${v}`), 'dwgFile']), set.dwgVersion ?? 'R2004', t('settings.dwgVersion'))),
     `<h3 class="section-title">${icon('styleShaded')}${escapeHtml(t('settings.sectionDisplay'))}</h3>`,
     row('styleShaded', t('settings.displayStyle'), segmented('displayStyle', [['shadedEdges', t('style.shadedEdges'), 'styleShaded'], ['shaded', t('style.shaded'), 'styleWhite'], ['hiddenRemoved', t('style.hiddenRemoved'), 'styleHidden'], ['wireframe', t('style.wireframe'), 'styleWireframe']], set.displayStyle ?? 'shadedEdges')),
     toggle('showPlanes', t('settings.showPlanes'), 'refPlane'),

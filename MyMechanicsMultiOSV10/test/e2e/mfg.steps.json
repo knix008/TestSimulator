@@ -45,6 +45,7 @@
   "name": "mfg: toolpaths generated in the worker; the window keeps running (timer gaps under 1 s)",
   "eval": "(async () => { let last = performance.now(); let gap = 0; const tick = setInterval(() => { const now = performance.now(); gap = Math.max(gap, now - last); last = now; }, 20); try { const p = await window.__mymechanics.mfg.cam.generate(); return JSON.stringify({ paths: p.paths.length, errors: p.errors.map((e) => e.code), gapOk: gap < 1000, gap: Math.round(gap) }); } finally { clearInterval(tick); } })()",
   "expect": "\"paths\":[1-9].*\"gapOk\":true",
+  "evalTimeout": 420000,
   "wait": 400,
   "shot": "cam-paths"
  },

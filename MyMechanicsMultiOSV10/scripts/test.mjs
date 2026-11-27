@@ -182,7 +182,12 @@ for (const id of selected) {
       const stepFiles = fs.readdirSync(path.join(root, 'test/e2e')).filter((f) => f.endsWith('.steps.json')).sort((a, b) => (a === 'web.steps.json' ? -1 : b === 'web.steps.json' ? 1 : a.localeCompare(b)));
       const total = { code: 0, out: '', ms: 0 };
       for (const file of stepFiles) {
-      const r = await run(process.execPath, ['scripts/smoke-web.mjs', '--out', `test-results/web/${file.replace(/\.steps\.json$/, '')}`, '--steps', `test/e2e/${file}`], {
+      // A browser that did not start ("page target not found", the app never loaded) is the machine, not the test:
+      // that file runs once more, and only the second run counts.
+      let r;
+      for (let attempt = 0; attempt < 2; attempt++) {
+      const start = tests.length;
+      r = await run(process.execPath, ['scripts/smoke-web.mjs', '--out', `test-results/web/${file.replace(/\.steps\.json$/, '')}`, '--steps', `test/e2e/${file}`], {
         onLine: (line) => {
           const m = /^(✔|✘) (.*?)(?: \[(\d+) ms\])?$/.exec(line);
           if (m) {
@@ -200,6 +205,11 @@ for (const id of selected) {
           }
         },
       });
+      const mine = tests.slice(start);
+      const noStart = /page target not found/.test(r.out) || mine.some((t) => t.status === 'fail' && /^the app did not start/.test(t.name));
+      if (!(r.code && noStart && attempt === 0)) break;
+      tests.splice(start);
+      }
       for (const t of tests) t.file ??= file;
       // Still a failure no step shows (a timed-out `until`, a browser that did not start): name the file.
       if (r.code && !tests.some((t) => t.status === 'fail' && t.file === file)) tests.push({ group: '(runner)', name: `${file} exited with code ${r.code}`, status: 'fail', ms: null, error: r.out.slice(-1500), file });

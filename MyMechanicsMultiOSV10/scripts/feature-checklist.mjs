@@ -221,7 +221,7 @@ export const ITEMS = [
   i('cm', '밀링 3축(Z 레벨·평행·스캘럽·워터라인)', D, '', 'camZLevel camParallel camScallop camWaterline'),
   i('cm', '선반(페이스·황삭·정삭·보링·홈·나사)', D, '', 'camTurnFace camTurnRough camTurnFinish camTurnBore camTurnGroove camTurnThread'),
   i('cm', '피처 인식·가공 계획·시뮬레이션·포스트·셋업 시트', D, '', 'camRecognize camPlan camSimulate camPost camSetupSheet'),
-  i('cm', '4·5축 동시 가공·밀턴', D, '4축 회전 정삭(A), 5축 동시 정삭(법선·리드·최대 기울기, G43.4 A/C), 밀턴 정면·측면 드릴(C축 G83/G87); 4축·밀턴은 소재 시뮬레이션 제외', 'camRotary4 camMulti5 camMillTurnAxial camMillTurnRadial'),
+  i('cm', '4·5축 동시 가공·밀턴', D, '4축 회전 정삭(A), 5축 동시 정삭(법선·리드·최대 기울기, G43.4 A/C), 밀턴 정면·측면 드릴(C축 G83/G87); 소재 시뮬레이션: 4축은 A축 따라 기울어진 공구로 삼중 덱셀을 사방에서 깎고, 밀턴은 선반 단면을 3D 덱셀로 옮겨 라이브 공구 구멍을 뚫음(과삭 검사·전체 소재 표시 포함)', 'camRotary4 camMulti5 camMillTurnAxial camMillTurnRadial'),
   i('cm', '공구 경로 편집(링크·진입/후퇴 수정)', D, '작업별 편집 층(다시 생성해도 유지): 호/직선 진입·후퇴, 링크(여유·최소·머무름), 가까운 순서, 반전, 이송 배율, 창 자르기, 패스별 삭제·반전·이송, cam-edit.js·단위·E2E'),
 
   // ── data management
@@ -244,7 +244,7 @@ export const ITEMS = [
   // ── file I/O
   i('io', 'STEP·IGES 읽기/쓰기', D, '', 'importStep exportStep exportIges'),
   i('io', 'Parasolid(x_t/x_b) 읽기/쓰기', D, '형식 문서의 수식으로 검증·왕복 일치; 독립 리더 parasolid-kit(상용 CAD 파일에서 얻은 스키마 프로필)가 예제 12종의 x_t·x_b 를 완전·유효 위상·진단 0 으로 읽음(npm run verify:xt)', 'exportXt exportXb'),
-  i('io', 'DXF·DWG 읽기/쓰기', D, 'DWG 읽기 R2000~R2018, 저장 R2004(기본)·R2000(설정); 저장 파일은 LibreDWG가 오류 없이 읽음(npm run verify:dwg)', 'exportDxf exportDwg'),
+  i('io', 'DXF·DWG 읽기/쓰기', D, 'DWG 읽기·저장 R2000·R2004·R2007·R2010·R2013·R2018(설정에서 선택, 기본 R2004); R2007은 리드-솔로몬·CRC-64 컨테이너(AutoCAD 파일로 알고리즘 확인); 저장 파일은 모든 객체가 끝 비트까지 정확히 읽히고 LibreDWG가 엶(npm run verify:dwg)', 'exportDxf exportDwg'),
   i('io', '메시(STL·OBJ·PLY·glTF/GLB·3MF·VRML·USDZ)', D, '', 'exportMesh:glb exportStl'),
   i('io', '다른 CAD 고유 형식 직접 열기', X, '공개되지 않은 고유 형식은 구현하지 않음(사용자 결정 2026-11-25); 중립 형식(STEP·IGES·Parasolid·DXF/DWG·STL·3MF·OBJ·IDF)으로 교환'),
   i('io', '스캔 데이터(메시)를 솔리드로', D, '평면·원통·구 영역 분할·최소제곱 맞춤, 정점 스냅(교선·교점), 한 바퀴 원통은 정확한 원통면(구멍 빼기·보스 더하기), 새 부품으로', 'scanToSolid'),

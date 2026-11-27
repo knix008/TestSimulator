@@ -298,7 +298,7 @@ export const ADVANCED_PM = {
     const surfaces = api.surfaceList(f).map((x) => [x.id, x.name, 'surface']);
     return [
       group('surfaceTrim', t('pm.surfaceToTrim'), select('surface', [['', `— ${t('pm.chooseSurface')} —`], ...surfaces], f.surface ?? '', t('pm.surface'))),
-      group('surfaceTrim', t('pm.trimTools'), `${select('tool', [['', t('pm.useAPlane')], ...surfaces.filter(([id]) => id !== f.surface)], f.tool ?? '', t('pm.trimTool'))}${f.tool ? '' : `${stdPlanes(api, 'stdPlane', f.plane)}${pickBox(api, 'plane', [planeName(api, f.plane)], t('pm.planeOrFace'), 'refPlane')}`}${seg('keep', [['above', t('split.above')], ['below', t('split.below')]], f.keep)}`),
+      group('surfaceTrim', t('pm.trimTools'), `${select('tool', [['', t('pm.useAPlane')], ...surfaces.filter(([id]) => id !== f.surface)], f.tool ?? '', t('pm.trimTool'))}${f.tool ? '' : sketchSelect(api, f, 'sketch', t('pm.trimSketch'), 'profile')}${f.tool || f.sketch ? '' : `${stdPlanes(api, 'stdPlane', f.plane)}${pickBox(api, 'plane', [planeName(api, f.plane)], t('pm.planeOrFace'), 'refPlane')}`}${f.sketch && !f.tool ? seg('keep', [['outside', t('trim.outside')], ['inside', t('trim.inside')]], f.keep === 'inside' ? 'inside' : 'outside') : seg('keep', [['above', t('split.above')], ['below', t('split.below')]], f.keep)}`),
     ].join('');
   },
   hem(api, f) {

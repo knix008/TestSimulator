@@ -1,6 +1,6 @@
 // Drives the web build in headless Edge/Chrome for quick checks of what changed:
 //   node scripts/smoke-web.mjs --out <dir> --steps steps.json [--width 1600 --height 960]
-// steps.json: [{ "name": "what it checks", "eval": "js expression (awaited)", "expect": "regex the result must match", "wait": 500, "until": "js condition", "shot": "name" }, …]
+// steps.json: [{ "name": "what it checks", "eval": "js expression (awaited)", "expect": "regex the result must match", "wait": 500, "until": "js condition", "shot": "name", "evalTimeout": 180000 }, …]
 // Starts its own Vite on a port free on 127.0.0.1 and ::1, and stops it and the browser at the end.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -81,7 +81,7 @@ try {
     const label = step.shot ?? step.eval?.slice(0, 60) ?? step.until ?? `step ${n}`;
     const t0 = Date.now();
     if (step.eval) {
-      const r = await page.send('Runtime.evaluate', { expression: `(async () => { ${step.eval.trim().startsWith("return") ? step.eval : `return (${step.eval})`} })()`, awaitPromise: true, returnByValue: true }, 180000);
+      const r = await page.send('Runtime.evaluate', { expression: `(async () => { ${step.eval.trim().startsWith("return") ? step.eval : `return (${step.eval})`} })()`, awaitPromise: true, returnByValue: true }, step.evalTimeout ?? 180000);
       const value = r.result?.result?.value;
       const ex = r.result?.exceptionDetails;
       if (ex || r.error) { failed = true; console.log(`✘ ${step.name ?? label}:${ex?.exception?.description ?? ex?.text ?? r.error?.message} [${Date.now() - t0} ms]`); }

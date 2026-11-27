@@ -53,7 +53,10 @@ async function fontBytes(family, style) {
     if (isNode) {
       const fsName = 'node:fs'; const urlName = 'node:url';
       const fs = await import(/* @vite-ignore */ fsName); const { fileURLToPath } = await import(/* @vite-ignore */ urlName);
-      return new Uint8Array(fs.readFileSync(fileURLToPath(new URL(`../../../public/fonts/liberation/${file}`, import.meta.url))));
+      // The path is a variable: a literal `new URL('…', import.meta.url)` makes Vite resolve it as a browser asset
+      // (and warn that public files are served from the root) — this branch only runs in Node.
+      const rel = ['..', '..', '..', 'public', 'fonts', 'liberation', file].join('/');
+      return new Uint8Array(fs.readFileSync(fileURLToPath(new URL(rel, import.meta.url))));
     }
     const base2 = (import.meta.env?.BASE_URL ?? '/');
     const r = await fetch(`${base2}fonts/liberation/${file}`);

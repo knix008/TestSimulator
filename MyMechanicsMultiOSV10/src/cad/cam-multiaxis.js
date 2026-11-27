@@ -62,7 +62,21 @@ export function genRotary4(ctx, op, { toolOf, speeds }) {
   // The largest radius of the part about the axis: the clearance radius beyond it.
   let rmax = 0;
   for (let i = 0; i < welded.vertices.length; i += 3) rmax = Math.max(rmax, Math.hypot(welded.vertices[i + 1] - y0, welded.vertices[i + 2] - z0));
-  const rClear = rmax + R + Math.max(2, ctx.retract ?? 2);
+  // Rapids turn the part at the clearance radius: beyond the part and beyond the stock's corners (a box stock
+  // reaches further from the axis than the part — turning it under the tool there would be a crash).
+  let rStock = 0;
+  const s = ctx.stock;
+  if (s && Number.isFinite(s.y0)) for (const y of [s.y0, s.y1]) for (const z of [s.z0, s.z1]) rStock = Math.max(rStock, Math.hypot(y - y0, z - z0));
+  const rClear = Math.max(rmax, rStock) + R + Math.max(2, ctx.retract ?? 2);
+  // Where the stock's surface is, seen from the axis at angle a: rapids come down to just above it (or above the
+  // cut, if that is higher) and the tool feeds in from there.
+  const edge = (a) => {
+    if (!s || !Number.isFinite(s.y0)) return 0;
+    const d = [Math.sin(a), Math.cos(a)]; let t = Infinity;
+    for (const [lo, hi, c, k] of [[s.y0, s.y1, y0, 0], [s.z0, s.z1, z0, 1]]) { if (d[k] > 1e-12) t = Math.min(t, (hi - c) / d[k]); else if (d[k] < -1e-12) t = Math.min(t, (lo - c) / d[k]); }
+    return Number.isFinite(t) ? Math.max(0, t) : 0;
+  };
+  const approach = (z, a) => Math.max(z, edge(a)) + (ctx.retract ?? 2);
   const step = scallopStep(tool, op);
   const dA = op.angleStep > 0 ? rad(op.angleStep) : Math.min(rad(10), step / Math.max(1, rmax));
   const nA = Math.max(4, Math.ceil((2 * Math.PI) / dA));
@@ -70,13 +84,22 @@ export function genRotary4(ctx, op, { toolOf, speeds }) {
   const xs = []; for (let x = x0 + R * 0; x <= x1 + 1e-9; x += op.pattern === 'rings' ? step : sample) xs.push(x);
   const sp = speeds(ctx, op, tool, { ae: step, ap: 0.5 });
   const leave = op.leave ?? 0;
-  // Heights per angle: a grid of the turned part, dropped along the X line under the tool (y = y0).
+  // Heights: a grid of the part turned by A (made once per angle), the cutter dropped on it under the tool (y = y0).
+  const grids = new Map();
+  const gridAt = (a) => { if (!grids.has(a)) grids.set(a, new TriangleGrid(turnedAboutX(welded, a, y0, z0))); return grids.get(a); };
+  const dropAt = (a, x) => Math.max(z0, dropCutter(gridAt(a), cutter, x, y0, z0 - rmax - R)) + leave;
   const heights = [];
-  for (let k = 0; k < nA; k++) {
-    const a = (2 * Math.PI * k) / nA;
-    const grid = new TriangleGrid(turnedAboutX(welded, a, y0, z0));
-    heights.push(xs.map((x) => Math.max(z0, dropCutter(grid, cutter, x, y0, z0 - rmax - R)) + leave));
-  }
+  for (let k = 0; k < nA; k++) { const a = (2 * Math.PI * k) / nA; heights.push(xs.map((x) => dropAt(a, x))); }
+  // The machine moves straight (in X and Z, or in A and Z) between points: where the cutter must stand higher midway
+  // (a convex corner, the edge of a flat) the straight move would cut into the part, so points are added there.
+  const CHORD = 0.002;
+  const refine = (p0, p1, at, depth = 0, out = []) => {
+    const m = (p0[0] + p1[0]) / 2; const z = at(m);
+    if (depth < 8 && z - (p0[1] + p1[1]) / 2 > CHORD) { refine(p0, [m, z], at, depth + 1, out); out.push([m, z]); refine([m, z], p1, at, depth + 1, out); }
+    return out;
+  };
+  /** A list of (s, z) points with the extra points between them. */
+  const dense = (pts, at) => { const out = [pts[0]]; for (let i = 1; i < pts.length; i++) { out.push(...refine(pts[i - 1], pts[i], at)); out.push(pts[i]); } return out; };
   const moves = [];
   const at = (x, z, a, k) => ({ k, p: partPoint(x, y0, z, a, y0, z0), mp: [x, 0, z - z0], a: deg(a) });
   const feed = (x, z, a) => moves.push({ ...at(x, z, a, 'f'), f: sp.feed });
@@ -85,19 +108,22 @@ export function genRotary4(ctx, op, { toolOf, speeds }) {
     // One ring per X: round the part at that X (A from 0 to 360°), stepping along X between rings.
     xs.forEach((x, i) => {
       rapid(x, z0 + rClear, 0);
-      for (let k = 0; k <= nA; k++) { const a = (2 * Math.PI * k) / nA; const z = heights[k % nA][i]; if (k === 0) { rapid(x, z + (ctx.retract ?? 2), a); moves.push({ ...at(x, z, a, 'f'), f: sp.plunge }); } else feed(x, z, a); }
+      // Round the part in A (the extra points at angles between: their grids are made when needed).
+      const ring = dense(Array.from({ length: nA + 1 }, (_, k) => [(2 * Math.PI * k) / nA, heights[k % nA][i]]), (a) => dropAt(a, x));
+      ring.forEach(([a, z], k) => { if (k === 0) { rapid(x, approach(z, a), a); moves.push({ ...at(x, z, a, 'f'), f: sp.plunge }); } else feed(x, z, a); });
       rapid(x, z0 + rClear, 2 * Math.PI);
     });
   } else {
     for (let k = 0; k < nA; k++) {
-      const a = (2 * Math.PI * k) / nA, hz = heights[k];
-      const order = k % 2 ? xs.map((_, i) => xs.length - 1 - i) : xs.map((_, i) => i);
-      const first = order[0];
-      rapid(xs[first], z0 + rClear, a);
-      rapid(xs[first], hz[first] + (ctx.retract ?? 2), a);
-      moves.push({ ...at(xs[first], hz[first], a, 'f'), f: sp.plunge });
-      for (const i of order.slice(1)) feed(xs[i], hz[i], a);
-      rapid(xs[order.at(-1)], z0 + rClear, a);
+      const a = (2 * Math.PI * k) / nA;
+      let line = dense(xs.map((x, i) => [x, heights[k][i]]), (x) => dropAt(a, x));
+      if (k % 2) line = line.reverse();
+      const [x0f, z0f] = line[0];
+      rapid(x0f, z0 + rClear, a);
+      rapid(x0f, approach(z0f, a), a);
+      moves.push({ ...at(x0f, z0f, a, 'f'), f: sp.plunge });
+      for (const [x, z] of line.slice(1)) feed(x, z, a);
+      rapid(line.at(-1)[0], z0 + rClear, a);
     }
   }
   return { moves, ...sp, stepover: step, multi: 'rotary4', axis: { y0, z0 }, angles: nA };

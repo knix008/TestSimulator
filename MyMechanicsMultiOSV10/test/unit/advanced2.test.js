@@ -49,6 +49,26 @@ test('trim a surface by a plane keeps one side', () => {
   near(R.measureArea(r.surfaces.get(tr.id)), 200);
 });
 
+test('trim a surface by a sketch: the regions taken out (outside) or kept (inside), then thickened', () => {
+  for (const keep of ['outside', 'inside']) {
+    const part = newPart();
+    const s = sketchOn(part, top, (k) => addRectangle(k, -20, -10, 20, 10));
+    const pl = createFeature(part, 'surfacePlanar', { sketch: s.id });
+    part.features.push(pl);
+    // A circle Ø6 and a square 8 × 8 on a plane 30 above: the regions go down through the surface.
+    part.features.push(createFeature(part, 'plane', { base: top, offset: 30 }));
+    const cut = sketchOn(part, { kind: 'ref', id: part.features.at(-1).id }, (k) => { addCircle(k, -10, 0, 3); addRectangle(k, 6, -4, 14, 4); });
+    const tr = createFeature(part, 'trimSurface', { surface: pl.id, sketch: cut.id, keep });
+    part.features.push(tr);
+    part.features.push(createFeature(part, 'thicken', { surface: tr.id, thickness: 2 }));
+    const r = ok(part);
+    const inside = Math.PI * 9 + 64;
+    near(R.measureArea(r.surfaces.get(tr.id)), keep === 'inside' ? inside : 800 - inside, 1e-3);
+    near(R.measureVolume(r.body), 2 * (keep === 'inside' ? inside : 800 - inside), 2e-3);
+    assert.ok(r.absorbed.has(pl.id) && r.absorbed.has(tr.id), keep);
+  }
+});
+
 function sheet(part, w = 100, d = 50, t = 2) {
   const s = sketchOn(part, top, (k) => addRectangle(k, 0, 0, w, d));
   part.features.push(createFeature(part, 'baseFlange', { sketch: s.id, thickness: t, radius: 2, kFactor: 0.4 }));

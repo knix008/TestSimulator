@@ -88,3 +88,24 @@ test('no leftovers from the interior design app the shell came from', () => {
     assert.doesNotMatch(read(file), /mysketchbook|MYSKETCHBOOK|\.msk\b/, file);
   }
 });
+
+test('the installer asks for Korean or English every time, and the program starts in that language', () => {
+  const nsis = conf.bundle.windows.nsis;
+  assert.deepEqual(nsis.languages, ['Korean', 'English']);
+  assert.equal(nsis.displayLanguageSelector, true);
+  const hooks = read('src-tauri/windows/hooks.nsh');
+  // Shown at every installation, with both languages whatever the system's code page.
+  assert.match(hooks, /^!define MUI_LANGDLL_ALWAYSSHOW$/m);
+  assert.match(hooks, /^!define MUI_LANGDLL_ALLLANGUAGES$/m);
+  // The choice is written as ko / en next to the window state, after the user data may have been deleted.
+  assert.match(hooks, /\$\{If\} \$LANGUAGE == 1042\s+FileWrite \$0 "ko"\s+\$\{Else\}\s+FileWrite \$0 "en"/);
+  const post = hooks.slice(hooks.indexOf('!macro NSIS_HOOK_POSTINSTALL'));
+  assert.ok(post.indexOf('Call MumWipeData') < post.indexOf('Call MumWriteLanguage'), 'the language is written after the data is wiped');
+  assert.match(hooks, /MUM_ROAMING "\$APPDATA\\com\.shkwon\.mymechanics"/);
+  assert.match(hooks, /install-language/);
+  // The program reads it once and hands it to the page, which stores it before the settings load.
+  assert.match(read('src-tauri/src/window_state.rs'), /const LANGUAGE_MARKER: &str = "install-language";/);
+  assert.match(read('src-tauri/src/lib.rs'), /__MYMECHANICS_INSTALL_LANGUAGE__/);
+  const main = read('src/main.js');
+  assert.ok(main.indexOf('applyInstallLanguage(') > 0 && main.indexOf('applyInstallLanguage(') < main.indexOf('loadSettings(globalThis'), 'applied before the settings load');
+});

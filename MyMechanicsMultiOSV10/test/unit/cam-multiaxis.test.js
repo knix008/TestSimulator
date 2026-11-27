@@ -6,8 +6,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadKernel, rep } from '../../src/cad/kernel.js';
 import { machiningModel, recognizeFeatures, turningProfile } from '../../src/cad/cam-features.js';
-import { camContext, defaultStock, generateToolpath, createOp } from '../../src/cad/cam-ops.js';
-import { simulateMilling, gougeCheck } from '../../src/cad/cam-sim.js';
+import { camContext, defaultStock, generateToolpath, createOp, planOperations, profileAt } from '../../src/cad/cam-ops.js';
+import { simulateMilling, gougeCheck, simulateTurning, turnGougeCheck, withLiveGouges, dexelMesh } from '../../src/cad/cam-sim.js';
 import { postProcess } from '../../src/cad/cam-post.js';
 import { cloneTools } from '../../src/cad/cam-tools.js';
 import { toolAxis, axisToAC } from '../../src/cad/cam-multiaxis.js';
@@ -117,4 +117,67 @@ test('mill-turn: four axial holes on a flange face drilled by C angle and radius
   const plain = machiningModel(R.makeCylinder(20, 30, [0, 0, 0], [0, 0, 1]).mesh({ tolerance: 0.01, angularTolerance: 0.1 }));
   const c2 = camContext({ model: plain, stock: defaultStock(plain.bounds, { turning: true }), tools, machine: 'lathe', profile: turningProfile(plain), features: [] });
   assert.throws(() => generateToolpath(c2, createOp('mtAxial', { id: 'x', tool: 't13' })), (e) => e.code === 'noLiveHoles');
+});
+
+test('4-axis rotary simulation: the box stock turned round the A axis is cut to the shaft and its flat, no gouges', () => {
+  const shaft = R.makeCylinder(20, 60, [0, 0, 0], [1, 0, 0]).cut(R.makeBox([20, -30, 15], [40, 30, 30]));
+  const m = machiningModel(shaft.mesh({ tolerance: 0.01, angularTolerance: 0.05 }));
+  const st = defaultStock(m.bounds, { margin: 0, top: 0 });
+  const c = camContext({ model: m, stock: st, tools, material: 'al-6061' });
+  const tp = generateToolpath(c, createOp('rotary4', { id: 'r4', tool: 't7', scallop: 0.05, sample: 1 }));
+  const s = simulateMilling(st, [tp], tools, { cell: 0.5 });
+  assert.deepEqual(s.skipped, []);
+  assert.equal(s.full, true);
+  // Rapids turn the part beyond the stock's corners and stop above its surface: none goes through material.
+  assert.equal(s.rapidCuts, 0, JSON.stringify(s.rapidAt.slice(0, 3)));
+  // Box 60 × 40 × 40 minus the shaft (π·20²·60) less the flat's segment (r 20 at 15 off the axis, 20 long).
+  const segment = 400 * Math.acos(15 / 20) - 15 * Math.sqrt(400 - 225);
+  const removable = 60 * 40 * 40 - (Math.PI * 400 * 60 - segment * 20);
+  assert.ok(s.removed > removable * 0.9 && s.removed < removable * 1.02, `removed ${s.removed.toFixed(0)} of ${removable.toFixed(0)}`);
+  // The corners of the box went (seen along Z: the top over a corner of the section is gone at every x).
+  const g = s.dexel.grids.x; const corner = g.rays[(g.nv - 1) * g.nu + (g.nu - 1)];
+  assert.equal(corner.length, 0, `corner ray ${corner}`);
+  const gc = gougeCheck(s, m, { tol: 0.05 });
+  assert.equal(gc.count, 0, `${gc.count} gouges, max ${gc.max}`);
+  // The whole stock for display: a closed surface round the shaft.
+  const mesh = dexelMesh(s.dexel);
+  assert.ok(mesh.triangles.length > 3000 && mesh.vertices.length === mesh.normals.length);
+});
+
+test('mill-turn simulation: after turning, the live tools drill the axial and radial holes into the turned bar', () => {
+  let flange = R.makeCylinder(30, 12, [0, 0, 0], [0, 0, 1]).fuse(R.makeCylinder(15, 30, [0, 0, 12], [0, 0, 1]));
+  for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 2; flange = flange.cut(R.makeCylinder(3, 20, [22 * Math.cos(a), 22 * Math.sin(a), -4], [0, 0, 1])); }
+  // The six radial holes the live tool drills are in the design too (Ø5.2, flat bottomed at radius 11).
+  for (let i = 0; i < 6; i++) { const a = ((15 + 60 * i) * Math.PI) / 180; flange = flange.cut(R.makeCylinder(2.6, 8, [11 * Math.cos(a), 11 * Math.sin(a), 25], [Math.cos(a), Math.sin(a), 0])); }
+  const m = machiningModel(flange.mesh({ tolerance: 0.005, angularTolerance: 0.05 }));
+  const prof = turningProfile(m);
+  const st = defaultStock(m.bounds, { turning: true, margin: 1, top: 1 }); st.z0 = m.bounds.lo[2];
+  const rec = recognizeFeatures(m, { stockTop: st.z1 });
+  const c = camContext({ model: m, stock: st, tools, machine: 'lathe', material: 'steel-1020', profile: prof, features: rec.features });
+  const turning = planOperations(rec.features, tools, { turning: true, profile: prof }).map((op) => generateToolpath(c, op));
+  const ax = generateToolpath(c, createOp('mtAxial', { id: 'ax', tool: 't12' }));
+  const rad = generateToolpath(c, createOp('mtRadial', { id: 'rd', tool: 't12', count: 6, startAngle: 15, z: 25, depth: 4 }));
+  const at = (z) => profileAt(prof, z);
+  const cell = 0.1;
+  const plain = simulateTurning(st, turning, tools, { cell });
+  const s = simulateTurning(st, [...turning, ax, rad], tools, { cell });
+  assert.deepEqual(s.skipped, []);
+  assert.ok(s.live?.dexel, 'a 3D model for the live tools');
+  // Ø5 drills (118° points, cone height hc): four through the 12 mm flange with the tip at its bottom face (full width
+  // above hc), six with the tip 4 mm under the Ø30 shaft's surface — up to the curved outside, √(15² − y²) across it.
+  const r = 2.5; const hc = r / Math.tan((59 * Math.PI) / 180); const cone = (Math.PI * r * r * hc) / 3;
+  const axial = Math.PI * r * r * (12 - hc) + cone;
+  let radial = cone; const n = 200;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const y = -r + ((i + 0.5) * 2 * r) / n; const z = -r + ((j + 0.5) * 2 * r) / n; if (y * y + z * z <= r * r) radial += Math.max(0, Math.sqrt(225 - y * y) - (11 + hc)) * ((2 * r) / n) ** 2; }
+  const expect = 4 * axial + 6 * radial;
+  assert.ok(Math.abs(s.live.removed - expect) < expect * 0.04, `live removed ${s.live.removed.toFixed(1)}, about ${expect.toFixed(1)}`);
+  assert.ok(Math.abs(s.removed - plain.removed - s.live.removed) < 1e-6);
+  const check = withLiveGouges(turnGougeCheck(s, at, { tol: 0.05 }), s, m, { tol: 0.05 });
+  assert.equal(check.live.count, 0, `${check.live.count} live gouges, max ${check.live.max}`);
+  // A Ø6.8 drill in the Ø6 holes cuts into the part: found.
+  const big = generateToolpath(c, createOp('mtAxial', { id: 'ax2', tool: 't13' }));
+  const s2 = simulateTurning(st, [...turning, big], tools, { cell });
+  const c2 = withLiveGouges(turnGougeCheck(s2, at, { tol: 0.05 }), s2, m, { tol: 0.05 });
+  assert.ok(c2.live.count > 0 && c2.live.max > 0.3, JSON.stringify(c2.live));
+  assert.ok(dexelMesh(s.live.dexel).triangles.length > 3000);
 });

@@ -3,8 +3,21 @@
 // 0x7400 bytes — each page a 32-byte header masked with 0x4164536b ^ its address, then its compressed payload,
 // padded to 32 bytes — the section map and the section page map (system pages), and the header copy at the end.
 // Compression is LZ77 (4.7) written as literal runs only: valid for every reader, a little larger than
-// AutoCAD's own output.
-import { crc32, dwgError } from './bits.js';
+// AutoCAD's own output. R2010, R2013 and R2018 use the same container with their own version marks.
+import { crc32, dwgError, R2004, R2007, R2010, R2013, R2018 } from './bits.js';
+
+/**
+ * Per release: the version string, the "dwg version" byte of the application that saved it, its maintenance version
+ * (R2010+: above 3, which selects the high size words of the header and classes, as AutoCAD writes them) and the
+ * maintenance release byte at 0x0B (LibreDWG's dwg_versions table).
+ */
+export const RELEASES = {
+  [R2004]: { tag: 'AC1018', app: 0x19, maint: 0, rel: 0x68 },
+  [R2007]: { tag: 'AC1021', app: 0x1b, maint: 0, rel: 0x32 },
+  [R2010]: { tag: 'AC1024', app: 0x1d, maint: 4, rel: 0x6d },
+  [R2013]: { tag: 'AC1027', app: 0x1f, maint: 4, rel: 0x7d },
+  [R2018]: { tag: 'AC1032', app: 0x21, maint: 4, rel: 0x1d },
+};
 import { MAGIC, pageChecksum } from './r2004.js';
 
 const PAGE = 0x7400;
@@ -32,8 +45,8 @@ export function compressLiteral(data) {
  * The file bytes from the sections' contents: { header, classes, handles, objects, objFreeSpace, template, handseed,
  * jd (Julian date of the drawing), objectCount }.
  */
-export function r2004File({ header, classes, handles, objects, objFreeSpace, template, handseed, jd, objectCount, extra = [] }) {
-  const auxHeader = auxHeaderSection(handseed, jd);
+export function r2004File({ header, classes, handles, objects, objFreeSpace, template, handseed, jd, objectCount, extra = [], version = R2004 }) {
+  const auxHeader = auxHeaderSection(handseed, jd, version);
   // Sections in the order AutoCAD writes them (number 0 is never used).
   const sections = [
     ['AcDb:AuxHeader', auxHeader], ['AcDb:Header', header], ['AcDb:Classes', classes], ['AcDb:Handles', handles],
@@ -99,9 +112,7 @@ export function r2004File({ header, classes, handles, objects, objFreeSpace, tem
   const end = address;
 
   // File header (4.1).
-  const fh = new Uint8Array(0x100);
-  fh.set([0x41, 0x43, 0x31, 0x30, 0x31, 0x38], 0); // AC1018
-  fh[0x0b] = 0; fh[0x0c] = 3; le32(fh, 0x0d, 0); fh[0x11] = 0x19; fh[0x12] = 0; le16(fh, 0x13, 30);
+  const fh = fixedHeader(version);
   le32(fh, 0x18, 0); le32(fh, 0x1c, 0); le32(fh, 0x20, 0); le32(fh, 0x24, 0); le32(fh, 0x28, 0x80);
   const h = new Uint8Array(0x6c);
   h.set([...'AcFssFcAJMB'].map((c) => c.charCodeAt(0)), 0);
@@ -138,24 +149,41 @@ function systemPage(type, data) {
  * The auxiliary header (chapter 27), 123 bytes as AutoCAD 2004 writes it: release numbers (written thrice), save
  * counts, six shorts and five longs of fixed values, the creation and update dates, the handle seed, the rest zero.
  */
-function auxHeaderSection(handseed, jd) {
-  const b = new Uint8Array(123); let at = 0;
+export function auxHeaderSection(handseed, jd, version = R2004) {
+  const rel = RELEASES[version] ?? RELEASES[R2004];
+  // R2018: three more zero shorts at the end (LibreDWG's auxheader.spec).
+  const b = new Uint8Array(version >= R2018 ? 129 : 123); let at = 0;
   const RC = (v) => { b[at++] = v & 255; }; const RS = (v) => { le16(b, at, v); at += 2; }; const RL = (v) => { le32(b, at, v); at += 4; };
   const TD = (d) => { RL(Math.floor(d)); RL(Math.round((d % 1) * 86400000)); };
   RC(0xff); RC(0x77); RC(0x01);
-  RS(0x19); RS(0); RL(1); RL(0xffffffff); RS(1); RS(0); RL(0); // release, maintenance, saves, −1, saves (split), 0
-  RS(0x19); RS(0); RS(0x19); RS(0);
+  RS(rel.app); RS(rel.maint); RL(1); RL(0xffffffff); RS(1); RS(0); RL(0); // release, maintenance, saves, −1, saves (split), 0
+  RS(rel.app); RS(rel.maint); RS(rel.app); RS(rel.maint);
   for (const v of [0x0005, 0x0893, 0x0005, 0x0893, 0, 1]) RS(v);
   for (let i = 0; i < 5; i++) RL(0);
   TD(jd); TD(jd);
   RL(handseed < 0x7fffffff ? handseed : 0xffffffff); RL(0); // handle seed, plot stamp
   RS(0); RS(1); RL(0); RL(0); RL(0); RL(1); // 0, saves, 0, 0, 0, saves
   for (let i = 0; i < 4; i++) RL(0);
+  if (version >= R2018) for (let i = 0; i < 3; i++) RS(0);
   if (at !== b.length) throw dwgError('DWG auxiliary header size', 'dwg-write');
   return b;
 }
 
-function concat(parts) {
+/**
+ * The fixed start of an R2004+ file (header.spec): the version string, the maintenance release, 3, no preview,
+ * the application's dwg and maintenance versions, the code page (30: ANSI 1252), the same versions again, no
+ * security, summary or VBA project, the encrypted header at 0x80. Bytes 0x80 and on are the container's.
+ */
+export function fixedHeader(version = R2004) {
+  const rel = RELEASES[version] ?? RELEASES[R2004];
+  const fh = new Uint8Array(0x100);
+  fh.set([...rel.tag].map((c) => c.charCodeAt(0)), 0);
+  fh[0x0b] = version === R2004 ? 0 : rel.rel; fh[0x0c] = 3; le32(fh, 0x0d, 0); fh[0x11] = rel.app; fh[0x12] = rel.maint; le16(fh, 0x13, 30);
+  fh[0x15] = 0; fh[0x16] = version === R2004 ? 0 : rel.app; fh[0x17] = version === R2004 ? 0 : rel.maint;
+  return fh;
+}
+
+export function concat(parts) {
   const out = new Uint8Array(parts.reduce((s, p) => s + p.length, 0)); let o = 0;
   for (const p of parts) { out.set(p, o); o += p.length; }
   return out;

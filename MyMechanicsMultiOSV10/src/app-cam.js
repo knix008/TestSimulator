@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { machiningModel, recognizeFeatures, turningProfile, threadHints } from './cad/cam-features.js';
 import { camContext, defaultStock, planOperations, generateProgram, generateToolpath, createOp, OP_DEFAULTS, MILL_OPS, TURN_OPS, stockVolume, expandMoves, profileAt } from './cad/cam-ops.js';
-import { simulateMilling, gougeCheck, simulateTurning, turnGougeCheck, cycleTime, zmapMesh } from './cad/cam-sim.js';
+import { simulateMilling, gougeCheck, simulateTurning, turnGougeCheck, withLiveGouges, cycleTime, zmapMesh, dexelMesh } from './cad/cam-sim.js';
 import { postProcess, POSTS, POST_IDS, WCS_ORIGINS, setupSheetHtml, wcsOrigin } from './cad/cam-post.js';
 import { cloneTools, MACHINES, machineOf, cutMaterialOf, CUT_MATERIALS, MILL_TOOL_TYPES, TURN_TOOL_TYPES, isTurnTool, parseInsert, withInsert } from './cad/cam-tools.js';
 import { materialName } from './cad/materials.js';
@@ -147,12 +147,13 @@ export function createCamTools(ctx) {
       case 'slot': return pick(['flat'], (x) => x.d <= width + 1e-6)[0];
       case 'helix': return pick(['flat'], (x) => x.d < (feature?.counterbore?.d ?? feature?.d ?? 20) * 0.9)[0];
       case 'spot': return pick(['spot'])[0];
-      case 'drill': case 'peck': case 'chipBreak': return pick(['drill'], (x) => !feature || Math.abs(x.d - feature.d) < 0.06)[0] ?? pick(['drill'])[0];
+      // A drill of the hole's size, or else the largest not larger than the hole (never one that cuts into its wall).
+      case 'drill': case 'peck': case 'chipBreak': return pick(['drill'], (x) => !feature || Math.abs(x.d - feature.d) < 0.06)[0] ?? pick(['drill'], (x) => !feature || x.d <= feature.d + 1e-6)[0] ?? pick(['drill']).at(-1);
       case 'tap': return pick(['tap'], (x) => !feature?.thread || x.thread === feature.thread)[0];
       case 'parallel': case 'scallop': case 'waterline': return pick(['ball'])[0] ?? pick(['bull'])[0];
       case 'multi5': return pick(['ball'])[0];
       case 'rotary4': return pick(['ball']).at(-1) ?? pick(['flat']).at(-1);
-      case 'mtAxial': return pick(['drill'], (x) => !feature || Math.abs(x.d - feature.d) < 0.06)[0] ?? pick(['drill'])[0];
+      case 'mtAxial': return pick(['drill'], (x) => !feature || Math.abs(x.d - feature.d) < 0.06)[0] ?? pick(['drill'], (x) => !feature || x.d <= feature.d + 1e-6)[0] ?? pick(['drill']).at(-1);
       case 'mtRadial': return pick(['drill'])[0];
       case 'tFace': case 'tRough': return pick(['turnRough'])[0];
       case 'tFinish': return pick(['turnFinish'])[0];
@@ -176,7 +177,9 @@ export function createCamTools(ctx) {
     if (!rt) { notify('info', t('notice.noBody')); return; }
     const feats = rt.rec.features.filter((f) => (FEATURE_TYPES_FOR[type] ?? []).includes(f.type));
     const feature = ['drill', 'peck', 'chipBreak', 'tap', 'spot', 'zlevel', 'waterline'].includes(type) ? null : feats[0] ?? null;
-    const tool = toolFor(camOf(p), type, feature);
+    // Mill-turn face drilling covers every off-axis hole: its drill is sized by the smallest of them.
+    const sizing = type === 'mtAxial' ? rt.rec.features.filter((f) => f.type === 'hole' && Number.isFinite(f.d)).sort((a, b) => a.d - b.d)[0] ?? null : feature;
+    const tool = toolFor(camOf(p), type, sizing);
     if (!tool) { notify('error', t('cam.noToolFor', { op: t(`cam.op.${type}`) })); return; }
     const id = ctx.newId('op');
     edit((c) => { c.ops.push(createOp(type, { id, tool: tool.id, feature: feature?.id ?? null, name: `${t(`cam.op.${type}`)}${feature ? ` (${featureName(feature)})` : ''}` })); });
@@ -240,21 +243,25 @@ export function createCamTools(ctx) {
     if (!rt.program) { await generate({ quiet: true }); rt = model(); }
     if (!rt.program?.paths.length) return null;
     const cam = camOf(p);
+    // A rotary (A axis) path cuts the stock from every side: a coarser model keeps it quick (the cutter along any
+    // axis meets more rays than a vertical one).
+    const millCell = (span) => (rt.program.paths.some((tp) => tp.multi === 'rotary4') ? Math.max(0.35, span / 180) : Math.max(0.2, span / 300));
     const result = await ctx.withProgress('progress.camSim', p.name, async (op, report, signal) => {
       if (useWorker()) {
         const lathe = rt.stock.kind === 'bar';
         const span = lathe ? Math.max(rt.stock.r, rt.stock.z1 - rt.stock.z0) : Math.max(rt.stock.x1 - rt.stock.x0, rt.stock.y1 - rt.stock.y0);
-        return inWorker({ kind: 'simulate', stock: rt.stock, paths: rt.program.paths, tools: cam.tools, lathe, profile: rt.profile, cell: lathe ? Math.max(0.05, span / 400) : Math.max(0.2, span / 300), tol: lathe ? Math.max(0.03, span / 800) : 0.03 }, ctx.buildPart(p), report, signal);
+        return inWorker({ kind: 'simulate', stock: rt.stock, paths: rt.program.paths, tools: cam.tools, lathe, profile: rt.profile, cell: lathe ? Math.max(0.05, span / 400) : millCell(span), tol: lathe ? Math.max(0.03, span / 800) : 0.03 }, ctx.buildPart(p), report, signal);
       }
       await new Promise((r) => setTimeout(r, 20));
       if (rt.stock.kind === 'bar') {
         const span = Math.max(rt.stock.r, rt.stock.z1 - rt.stock.z0);
         const sim = simulateTurning(rt.stock, rt.program.paths, cam.tools, { cell: Math.max(0.05, span / 400) });
         const at = (z) => profileAt(rt.profile, z);
-        return { sim, check: turnGougeCheck(sim, at, { tol: Math.max(0.03, span / 800) }) };
+        const tol = Math.max(0.03, span / 800);
+        return { sim, check: withLiveGouges(turnGougeCheck(sim, at, { tol }), sim, rt.model, { tol }) };
       }
       const span = Math.max(rt.stock.x1 - rt.stock.x0, rt.stock.y1 - rt.stock.y0);
-      const cell = Math.max(0.2, span / 300);
+      const cell = millCell(span);
       const sim = simulateMilling(rt.stock, rt.program.paths, cam.tools, { cell, onProgress: (f) => report({ fraction: f }) });
       const grid = rt.model.topGrid();
       return { sim, check: gougeCheck(sim, rt.model, { tol: 0.03 }) };
@@ -754,6 +761,9 @@ export function createCamTools(ctx) {
   /** The simulated stock as a mesh: the Z-map's top (milling) or the remaining profile turned (turning). */
   function simMesh(rt) {
     if (!rt.sim) return null;
+    // Cut from the sides and below (4-axis rotary), or a turned bar with live-tool holes: the whole stock.
+    if (rt.sim.full && rt.sim.dexel) return dexelMesh(rt.sim.dexel);
+    if (rt.sim.live?.dexel) return dexelMesh(rt.sim.live.dexel);
     if (rt.sim.map) return zmapMesh(rt.sim.map, { partHeights: rt.check?.partHeights, tol: 0.05 });
     const g = rt.sim.grid; const st = rt.stock; const n = 48;
     const rows = [];
@@ -813,7 +823,7 @@ export function createCamTools(ctx) {
 
   const api = {
     begin, addOp, planAll, recognize, generate, simulate, saveGcode, saveSetupSheet, gcode, setupSheet,
-    model: () => model(), camOf: () => camOf(part()), program: () => runtime.program, simulation: () => (runtime.sim ? { removed: runtime.sim.removed, gouges: runtime.check?.count ?? 0, max: runtime.check?.max ?? 0, remaining: runtime.check?.remaining ?? 0, rapidCuts: runtime.sim.rapidCuts ?? 0 } : null),
+    model: () => model(), camOf: () => camOf(part()), program: () => runtime.program, simulation: () => (runtime.sim ? { removed: runtime.sim.removed, gouges: runtime.check?.count ?? 0, max: runtime.check?.max ?? 0, remaining: runtime.check?.remaining ?? 0, rapidCuts: runtime.sim.rapidCuts ?? 0, skipped: runtime.sim.skipped?.length ?? 0, full: Boolean(runtime.sim.full), live: runtime.sim.live ? { removed: runtime.sim.live.removed, gouges: runtime.check?.live?.count ?? 0 } : null } : null),
     times: () => runtime.times, setSaveHook(fn) { saveHook = fn; },
   };
   return { commands, TAB, owns, pm, pick: () => undefined, field, set, select, toggle, accept, handles, command, subject, decorate, colours: () => undefined, api };

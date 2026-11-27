@@ -172,7 +172,17 @@ export class BitWriter {
     const bytes = []; let v = value; while (v > 0) { bytes.unshift(v % 256); v = Math.floor(v / 256); }
     this.RC((code << 4) | bytes.length); for (const x of bytes) this.RC(x);
   }
+  /** BLL: 3 bits for the byte count, then the bytes (low first). */
+  BLL(v) { const bytes = []; let x = v; while (x > 0) { bytes.push(x % 256); x = Math.floor(x / 256); } this.bits(bytes.length, 3); for (const b of bytes) this.RC(b); }
+  /** Object type (R2010+): 2 bits — a byte, a byte above 0x1F0, or a short. */
+  OT(type) { if (type < 256) { this.BB(0); this.RC(type); } else if (type >= 0x1f0 && type < 0x1f0 + 256) { this.BB(1); this.RC(type - 0x1f0); } else { this.BB(2); this.RS(type); } }
+  /** TU (R2007+): bitshort length (no terminator) and UTF-16 code units. */
+  TU(s) { const t = String(s ?? ''); this.BS(t.length); for (let i = 0; i < t.length; i++) this.RS(t.charCodeAt(i)); }
+  /** Appends another writer's bits. */
+  append(w) { for (let i = 0; i < w.bit; i++) this.B((w.buf[i >> 3] >> (7 - (i & 7))) & 1); }
   T(s) {
+    // R2007+: text is UTF-16 in the object's string stream (`strings`, another writer) when there is one.
+    if (this.version >= 21) { (this.strings ?? this).TU(s); return; }
     // Characters outside code page 1252 as AutoCAD writes them: \U+XXXX.
     const text = [...String(s)].map((c) => (FROM1252.has(c) ? c : `\\U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`)).join('');
     const bytes = [...text].map((c) => FROM1252.get(c) ?? 63);

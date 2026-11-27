@@ -8,7 +8,7 @@
 import { loadKernel, rep } from '../cad/kernel.js';
 import { machiningModel } from '../cad/cam-features.js';
 import { camContext, generateToolpath, profileAt } from '../cad/cam-ops.js';
-import { simulateMilling, gougeCheck, simulateTurning, turnGougeCheck } from '../cad/cam-sim.js';
+import { simulateMilling, gougeCheck, simulateTurning, turnGougeCheck, withLiveGouges } from '../cad/cam-sim.js';
 
 let current = { key: null, model: null };
 
@@ -44,7 +44,7 @@ self.onmessage = async (event) => {
       if (msg.lathe) {
         const sim = simulateTurning(msg.stock, msg.paths, msg.tools, { cell: msg.cell });
         const at = (z) => profileAt(msg.profile, z);
-        const check = turnGougeCheck(sim, at, { tol: msg.tol, threads: msg.threads ?? [] });
+        const check = withLiveGouges(turnGougeCheck(sim, at, { tol: msg.tol, threads: msg.threads ?? [] }), sim, model, { tol: msg.tol });
         self.postMessage({ id, type: 'done', result: { sim, check } });
         return;
       }

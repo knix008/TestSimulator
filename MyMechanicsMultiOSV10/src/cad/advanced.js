@@ -59,7 +59,7 @@ export const ADVANCED_DEFAULTS = {
   structural: () => ({ sketch: null, profile: 'squareTube', w: 40, h: 40, t: 3, rotate: 0 }),
   fillSurface: () => ({ edges: [], curve: null }),
   boundary: () => ({ curves: [], op: 'surface' }),
-  trimSurface: () => ({ surface: null, tool: null, plane: { kind: 'std', name: 'top' }, keep: 'above' }),
+  trimSurface: () => ({ surface: null, tool: null, sketch: null, plane: { kind: 'std', name: 'top' }, keep: 'above' }),
   hem: () => ({ edge: null, kind: 'closed', length: 10, gap: 1, flip: false }),
   sketchedBend: () => ({ sketch: null, angle: 90, radius: null, flip: false, down: false }),
   jog: () => ({ sketch: null, height: 10, flip: false, down: false }),
@@ -1036,9 +1036,16 @@ function buildThicken(f, ctx) {
   const surface = ctx.surfaces.get(f.surface);
   if (!surface) throw codeError('no-surfaces');
   const t = Math.max(0.01, num(f.thickness, 2));
+  const thick = (shape) => (f.side === 'both' ? thickOf(shape, t / 2).fuse(thickOf(shape, -t / 2)) : thickOf(shape, f.side === 'in' ? -t : t));
   let tool;
-  if (f.side === 'both') tool = thickOf(surface, t / 2).fuse(thickOf(surface, -t / 2));
-  else tool = thickOf(surface, f.side === 'in' ? -t : t);
+  try {
+    tool = thick(surface);
+  } catch (error) {
+    // Separate pieces (a surface trimmed into islands): each shell, or else each face, on its own, then united.
+    const pieces = surface.shells?.length > 1 ? surface.shells : surface.faces;
+    if (!(pieces?.length > 1)) throw error;
+    tool = pieces.map(thick).reduce((a, b) => a.fuse(b));
+  }
   return { tool, body: combine(ctx, tool, f.op ?? 'boss') };
 }
 
@@ -1505,6 +1512,19 @@ function buildTrimSurface(f, ctx) {
   const R = rep();
   const surface = ctx.surfaces.get(f.surface);
   if (!surface) throw codeError('no-surfaces');
+  if (f.sketch && !f.tool) {
+    // A sketch as the trim tool: its closed regions, pushed through along the sketch plane's normal, take away
+    // the surface inside them (keep 'inside': only that part is kept) — openings cut before a thicken.
+    const { sketch, frame } = sketchOf({ sketch: f.sketch }, ctx, f.sketch);
+    const big = sizeAround(ctx) * 4;
+    const back = new R.Plane(sub(frame.origin, frame.normal.map((v) => v * big)), frame.xDir, frame.normal);
+    const prism = sketchDrawing(sketch).sketchOnPlane(back).extrude(2 * big);
+    // A single face has no boolean operations: wrapped in a compound.
+    const base = typeof surface.cut === 'function' ? surface.clone() : R.makeCompound([surface.clone()]);
+    const out = f.keep === 'inside' ? base.intersect(prism) : base.cut(prism);
+    if (!out.faces.length) throw codeError('no-surfaces');
+    return { surface: out.faces.length === 1 ? out.faces[0] : out };
+  }
   let toolShape; let point; let normal;
   if (f.tool && ctx.surfaces.has(f.tool)) {
     toolShape = ctx.surfaces.get(f.tool);

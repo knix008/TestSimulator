@@ -48,8 +48,11 @@ export function readObject(bytes, offset, version, classes) {
     const parse = PARSERS[name] ?? (/_CONTROL$/.test(name) ? PARSERS.CONTROL : null);
     if (parse) {
       parse(r, hr, o, version);
-      // Exactness: the data must end at the end bit (R2000–R2007), the handles within the object's last byte.
-      if (endBit !== undefined && version < R2007) o.exact = r.bit === endBit && hr.bit <= size * 8 && hr.bit > size * 8 - 8;
+      // Exactness: the data must end at the end bit (R2000–R2004) — R2007+: where the string stream starts, the strings
+      // exactly at their size field — and the handles within the object's last byte.
+      const handlesEnd = hr.bit <= size * 8 && hr.bit > size * 8 - 8;
+      if (endBit !== undefined && version < R2007) o.exact = r.bit === endBit && handlesEnd;
+      else if (version >= R2007) o.exact = r.bit === r.dataEnd && (!r.strings || r.strings.bit === r.stringsEnd) && handlesEnd;
     } else o.unsupported = true;
   } catch (error) { o.error = String(error?.message ?? error); }
   return o;
@@ -74,7 +77,7 @@ function readEed(r) {
 function setupStrings(r, endBit) {
   const flagBit = endBit - 1;
   const s = new BitReader(r.b, flagBit, r.version);
-  if (!s.B()) { r.strings = null; return; }
+  if (!s.B()) { r.strings = null; r.dataEnd = flagBit; return; }
   let pos = endBit - 1 - 16;
   const sr = new BitReader(r.b, pos, r.version);
   let size = sr.RSu();
@@ -83,6 +86,7 @@ function setupStrings(r, endBit) {
     const hi = hr.RSu(); size = (size & 0x7fff) | (hi << 15);
   }
   r.strings = new BitReader(r.b, pos - size, r.version);
+  r.dataEnd = pos - size; r.stringsEnd = pos;
 }
 
 function commonObject(r, hr, o, version) {
@@ -243,7 +247,7 @@ const PARSERS = {
   DIMENSION_DIAMETER(r, hr, o, v) { dimension(r, hr, o, v, () => { r.BD3(); r.BD3(); r.BD(); }); },
   BLOCK(r, hr, o) { o.blockName = r.TV(); },
   BLOCK_HEADER(r, hr, o, v) {
-    o.entryName = r.TV(); r.B(); r.BS(); r.B(); o.anonymous = r.B(); o.hasAttribs = r.B(); o.isXref = r.B(); o.overlaid = r.B();
+    tableEntry(r, o); o.anonymous = r.B(); o.hasAttribs = r.B(); o.isXref = r.B(); o.overlaid = r.B();
     if (v >= R2000) r.B();
     if (v >= R2004) o.ownedCount = r.BL();
     o.base = r.BD3(); o.xrefPath = r.TV();
@@ -330,7 +334,7 @@ const PARSERS = {
   DIMSTYLE(r, hr, o, v) {
     tableEntry(r, o);
     o.vars = {};
-    for (const [type, name] of DIMSTYLE_FIELDS(v)) o.vars[name] = type === 'B' ? r.B() : type === 'BS' ? r.BS() : type === 'BD' ? r.BD() : type === 'TV' ? r.TV() : type === 'CMC' ? r.CMC().index : r.T();
+    for (const [type, name] of DIMSTYLE_FIELDS(v)) o.vars[name] = type === 'B' ? r.B() : type === 'BS' ? r.BS() : type === 'BD' ? r.BD() : type === 'TV' || type === 'T' ? r.TV() : type === 'CMC' ? r.CMC().index : r.T();
     o.unknownBit = r.B();
     o.xrefBlock = hr.Habs(o.handle);
     o.txsty = hr.Habs(o.handle);
@@ -355,8 +359,15 @@ const PARSERS = {
   SEQEND() {},
 };
 
-/** The common start of a table entry: name, the 64 flag, xref index + 1, xref-dependent. */
-function tableEntry(r, o) { o.entryName = r.TV(); o.flag64 = r.B(); o.xrefIndex = r.BS() - 1; o.xdep = r.B(); }
+/**
+ * The common start of a table entry: name, the 64 flag, xref index + 1, xref-dependent. R2007+: the name and one
+ * short only (0, or 256 for an xref-dependent entry; the 64 flag is always set) — LibreDWG's COMMON_TABLE_FLAGS.
+ */
+function tableEntry(r, o) {
+  o.entryName = r.TV();
+  if (r.version >= R2007) { const x = r.BS(); o.flag64 = 1; o.xrefIndex = -1; o.xdep = x === 256 ? 1 : 0; return; }
+  o.flag64 = r.B(); o.xrefIndex = r.BS() - 1; o.xdep = r.B();
+}
 
 /** The dimension variables of a DIMSTYLE entry (R2000+, 20.4.68) in file order: [type, name]. */
 function DIMSTYLE_FIELDS(v) {

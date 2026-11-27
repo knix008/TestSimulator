@@ -3,7 +3,7 @@
 // setting on its own, so a failure names it. Found: a fraction (imageQuality 0.92) was rounded to 1 on load.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultSettings, loadSettings, storeSettings } from '../../src/domain/settings.js';
+import { applyInstallLanguage, defaultSettings, loadSettings, resetForNewInstall, storeSettings } from '../../src/domain/settings.js';
 
 const memory = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
 const roundTrip = (settings) => { const s = memory(); storeSettings(s, settings); return loadSettings(s); };
@@ -28,3 +28,23 @@ for (const [key, value] of Object.entries(defaults)) {
     });
   }
 }
+
+// The first start after installing opens in the installer's language (Korean or English), as src/main.js does it:
+// preferences reset first (when the data was kept), then the language — over an earlier choice — then the load.
+for (const kept of [false, true]) {
+  for (const language of ['ko', 'en']) {
+    test(`install language ${language}: the first start opens in it (${kept ? 'earlier data kept' : 'fresh install'})`, () => {
+      const s = memory();
+      if (kept) storeSettings(s, { ...defaultSettings(language === 'ko' ? 'en' : 'ko'), theme: 'dark' });
+      resetForNewInstall(s, kept ? '12345' : undefined);
+      assert.equal(applyInstallLanguage(s, language), true);
+      assert.equal(loadSettings(s).language, language);
+    });
+  }
+}
+test('install language: anything but ko / en (or none: a silent install, a later start) changes nothing', () => {
+  const s = memory();
+  storeSettings(s, defaultSettings('en'));
+  for (const x of [undefined, null, '', 'ja', 'KO']) assert.equal(applyInstallLanguage(s, x), false);
+  assert.equal(loadSettings(s).language, 'en');
+});

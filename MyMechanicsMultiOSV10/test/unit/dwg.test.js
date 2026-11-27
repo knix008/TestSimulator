@@ -7,7 +7,10 @@
 //  - the R2004+ LZ77 decompressor against a compressor written separately from the opcode table (4.7);
 //  - DXF: group codes, \U+ escapes, POLYLINE … SEQEND, units; a drawing as a sketch: bulges as arcs, inserts
 //    placed, a closed outline a profile.
-// The readers are also checked against AutoCAD's own files of every release: npm run verify:dwg.
+//  - R2007, R2010, R2013 and R2018 written and read back: every object exact to its string stream, UTF-16 text; the
+//    R2007 container's CRC-64s and every Reed–Solomon code word consistent.
+// The readers are also checked against AutoCAD's own files of every release, the R2007 container's algorithms
+// against an AutoCAD file, and our files of every release by LibreDWG: npm run verify:dwg.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BitReader, BitWriter, crc8, encodeMC, encodeMS, R2000 } from '../../src/cad/dwg/bits.js';
@@ -201,6 +204,59 @@ test('DWG R2004 written and read back: the paged container (header CRC-32, page 
   assert.deepEqual(d.modelSpace.map((e) => e.name), entities.map((e) => e.name));
   assert.deepEqual([...d.layers.values()].map((l) => l.name).sort(), ['0', ...layers.map((l) => l.name)].sort());
   assert.equal([...d.layers.values()].find((l) => l.name === layers[0].name).color, layers[0].color ?? 7);
+});
+
+for (const [version, tag] of [['R2007', 'AC1021'], ['R2010', 'AC1024'], ['R2013', 'AC1027'], ['R2018', 'AC1032']]) {
+  test(`DWG ${version} written and read back: every object exact to its string stream, the drawing as written (UTF-16 text)`, () => {
+    const { entities, layers } = sampleDrawing();
+    const all = [...entities, { name: 'TEXT', layerName: 'NOTES', insert: [0, -10], height: 2.5, text: '한글 치수 — Ü', rotation: 0 }];
+    const bytes = writeDwg({ layers, entities: all, units: 4, version });
+    assert.equal(String.fromCharCode(...bytes.subarray(0, 6)), tag);
+    const d = readDwg(bytes);
+    assert.equal(d.release, tag);
+    for (const o of d.objects.values()) assert.ok(o.exact && !o.error && !o.unsupported, `${o.name} ${o.handle.toString(16)} read exactly`);
+    assert.deepEqual(d.modelSpace.map((e) => e.name), all.map((e) => e.name));
+    assert.equal(d.modelSpace.at(-1).text, '한글 치수 — Ü');
+    assert.equal(d.modelSpace.find((e) => e.name === 'TEXT').text, 'Ø 20 H7 – 45°');
+    assert.deepEqual([...d.layers.values()].map((l) => l.name).sort(), ['0', ...layers.map((l) => l.name)].sort());
+    assert.equal([...d.layers.values()].find((l) => l.name === 'NOTES').color, 3);
+  });
+}
+
+test('DWG R2007 container: file header CRC, map CRCs and every Reed–Solomon code word consistent', async () => {
+  const { RS_SYSTEM, RS_DATA, rsSyndromes, crc64, crcSeed1, crcSeed2 } = await import('../../src/cad/dwg/r2007-write.js');
+  const { entities, layers } = sampleDrawing();
+  const bytes = writeDwg({ layers, entities, units: 4, version: 'R2007' });
+  const u64 = (a, at) => { let v = 0n; for (let i = 7; i >= 0; i--) v = (v << 8n) | BigInt(a[at + i]); return v; };
+  const block = (base, blocks, i) => { const b = new Uint8Array(255); for (let j = 0; j < 255; j++) b[j] = bytes[base + i + j * blocks]; return b; };
+  const consistent = (code, base, blocks) => Array.from({ length: blocks }, (_, i) => rsSyndromes(code, block(base, blocks, i)).every((x) => x === 0)).every(Boolean);
+  assert.ok(consistent(RS_SYSTEM, 0x80, 3), 'file header code words');
+  const pe = new Uint8Array(3 * 239); for (let i = 0; i < 3; i++) pe.set(block(0x80, 3, i).subarray(0, 239), i * 239);
+  const len = (pe[24] | pe[25] << 8 | pe[26] << 16 | pe[27] << 24);
+  assert.ok(len < 0, 'stored, not compressed');
+  const hdr = pe.slice(32, 32 - len);
+  assert.equal(u64(pe, 16), crc64(true, crcSeed2(0, -len), hdr), 'header data CRC');
+  const h0 = hdr.slice(); h0.fill(0, 0x108, 0x110);
+  assert.equal(u64(hdr, 0x108), crc64(true, crcSeed2(0, 0x110), h0), 'header CRC');
+  const H = (at) => Number(u64(hdr, at));
+  // The pages map (a system page at 0x480): its code words and its CRC; then every page it lists.
+  const pmSize = H(0x58); const pmBlocks = Math.ceil((((H(0x50) + 7) & ~7) * H(0x18)) / 239);
+  assert.ok(consistent(RS_SYSTEM, 0x480, pmBlocks), 'pages map code words');
+  const pm = new Uint8Array(pmBlocks * 239); for (let i = 0; i < pmBlocks; i++) pm.set(block(0x480, pmBlocks, i).subarray(0, 239), i * 239);
+  assert.equal(u64(hdr, 0x80), crc64(false, crcSeed1(0, pmSize), pm.subarray(0, pmSize)), 'pages map CRC');
+  const system = new Set([H(0x40), H(0x30), H(0xc0), H(0xb8)]);
+  let at = 0x480; let checked = 0;
+  for (let k = 0; 16 * k + 16 <= pmSize; k++) {
+    const size = Number(u64(pm, 16 * k)); const id = Number(u64(pm, 16 * k + 8));
+    if (!size) break;
+    // Interleaved pages (system ones and RS coded data); the raw ones (AppInfo, SummaryInfo) are checked by the reader.
+    const blocks = Math.floor(size / 255);
+    if (system.has(id)) assert.ok(consistent(RS_SYSTEM, at, blocks), `system page ${id}`);
+    else if (consistent(RS_DATA, at, blocks)) checked++;
+    at += size;
+  }
+  assert.ok(checked >= 7, `${checked} RS(255,251) data pages consistent`);
+  assert.equal(at + 0x400, bytes.length, 'the pages, then the copy of the file header');
 });
 
 test('R2004 compression: data compressed by an independent encoder of the opcode table decompresses exactly', () => {

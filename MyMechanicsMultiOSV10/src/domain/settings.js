@@ -226,7 +226,7 @@ export function normalizeSettings(raw = {}, language) {
   s.units = UNITS.includes(s.units) ? s.units : base.units;
   s.decimals = clamp(s.decimals, 0, 6, 2);
   s.projection = s.projection === 'first' ? 'first' : 'third';
-  s.dwgVersion = s.dwgVersion === 'R2000' ? 'R2000' : 'R2004';
+  s.dwgVersion = ['R2000', 'R2004', 'R2007', 'R2010', 'R2013', 'R2018'].includes(s.dwgVersion) ? s.dwgVersion : 'R2004';
   s.displayStyle = DISPLAY_STYLES.includes(s.displayStyle) ? s.displayStyle : base.displayStyle;
   s.meshQuality = ['coarse', 'normal', 'fine'].includes(s.meshQuality) ? s.meshQuality : 'normal';
   s.modelledThreads = s.modelledThreads === true;

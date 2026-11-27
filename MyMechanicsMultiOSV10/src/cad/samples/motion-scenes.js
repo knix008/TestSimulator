@@ -881,13 +881,14 @@ function bike(p, L) {
 }
 
 function car(p, L) {
-  // On a show turntable: the car turns with it and its four wheels spin.
+  // On a show turntable: the body turns with it and the chassis' four wheels spin under it (1:10 touring car:
+  // Ø64 × 26 wheels, wheelbase 257, axles 32 above the ground, tyre faces 190 apart).
   const { rig, cyl, put, motor, stageAssembly, DARK, BLUE, RUBBER } = S();
   const part = partAt(p);
   const wheel = rig(p, L('바퀴', 'Wheel'), (b) => {
-    cyl(b, 'z', [0, 0, 0], 30, -7, 7, { rIn: 19, name: 'Tyre' });
-    cyl(b, 'z', [0, 0, 0], 19, -6, 6, { name: 'Rim' });
-    for (let i = 0; i < 5; i++) { const a = (i * 2 * Math.PI) / 5; cyl(b, 'z', [11 * Math.cos(a), 11 * Math.sin(a), 0], 4, -7, 7, { op: 'cut' }); }
+    cyl(b, 'z', [0, 0, 0], 32, -13, 13, { rIn: 22, name: 'Tyre' });
+    cyl(b, 'z', [0, 0, 0], 22, -12, 12, { name: 'Rim' });
+    for (let i = 0; i < 6; i++) { const a = (i * 2 * Math.PI) / 6; cyl(b, 'z', [13 * Math.cos(a), 13 * Math.sin(a), 0], 4.5, -13, 13, { op: 'cut' }); }
   }, { color: RUBBER, material: 'rubber' });
   const stand = rig(p, L('턴테이블 받침', 'Turntable stand'), (b) => { cyl(b, 'y', [0, 0, 0], 220, -40, -12, { name: 'Stand' }); }, { color: DARK });
   const disc = rig(p, L('턴테이블', 'Turntable'), (b) => { cyl(b, 'y', [0, 0, 0], 260, -11, -0.5, { name: 'Disc' }); for (let i = 0; i < 12; i++) { const a = (i * Math.PI) / 6; cyl(b, 'y', [240 * Math.cos(a), 0, 240 * Math.sin(a)], 6, -2, 0, { op: 'cut' }); } }, { color: BLUE });
@@ -896,7 +897,7 @@ function car(p, L) {
   const cD = put(asm, disc, [0, 0, 0]); const cB = put(asm, part, [0, 0, 0]);
   motor(asm, cD, [0, 0, 0], [0, 1, 0], { speed: 7.5 });
   motor(asm, cB, [0, 0, 0], [0, 1, 0], { speed: 7.5 });
-  for (const x of [-130, 130]) for (const z of [-76, 76]) motor(asm, put(asm, wheel, [x, 30, z]), [x, 30, z], [0, 0, -1], { speed: 40, parent: cD });
+  for (const x of [-128.5, 128.5]) for (const z of [-82, 82]) motor(asm, put(asm, wheel, [x, 32, z]), [x, 32, z], [0, 0, -1], { speed: 40, parent: cD });
 }
 
 function turbine(p, L) {

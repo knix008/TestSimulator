@@ -11,7 +11,9 @@
 import { exactRays } from './cam-kernel.js';
 import { expandMoves } from './cam-ops.js';
 import { cutterOf } from './cam-tools.js';
-import { createTriDexel, cutAt, dexelVolume, topMap, dexelGouges } from './cam-dexel.js';
+import { createTriDexel, cutAt, cutAlong, dexelVolume, topMap, dexelGouges, dexelFromTurned, dexelMesh, partRays, intersectIntervals } from './cam-dexel.js';
+
+export { dexelMesh };
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -58,14 +60,23 @@ export function simulateMilling(stock, paths, tools, { cell = 0.5, onProgress = 
   const toolMap = new Map(tools.map((t) => [t.id, t]));
   const before = dexelVolume(td);
   let rapidCuts = 0; let samples = 0; const rapidAt = []; const skipped = [];
+  let full = false;
   const step = cell * 0.5;
   paths.forEach((tp, pi) => {
     const tool = toolMap.get(tp.tool);
     if (!tool) return;
     const cutter = cutterOf(tool);
-    // The stock model cuts with a vertical tool: a 5-axis path is replayed with the vertical tool at the same ball
-    // centres (`vt`: what the ball removes); rotary (A axis) and mill-turn (C axis) paths are left out (`skipped`).
-    if (tp.multi === 'rotary4' || tp.multi === 'millTurn') { skipped.push(tp.op); return; }
+    // A 5-axis path is replayed with the vertical tool at the same ball centres (`vt`: what the ball removes).
+    // A 4-axis rotary path turns the part about X: in the part's frame the tool's axis is tilted by −A, and the
+    // tip moves on arcs about the axis — interpolated in machine terms (x, radius, A), then turned into the part.
+    if (tp.multi === 'rotary4') {
+      rotaryPass(td, cutter, tp, step, (cut, m, p) => { samples++; if (cut && m.k === 'r') { rapidCuts++; if (rapidAt.length < 20) rapidAt.push({ path: pi, op: tp.op, p }); } });
+      full = true;
+      onProgress?.((pi + 1) / paths.length);
+      return;
+    }
+    // Mill-turn live tools belong to a lathe set-up (simulateTurning); in a milling set-up they are left out.
+    if (tp.multi === 'millTurn') { skipped.push(tp.op); return; }
     let pos = null;
     for (const m0 of expandMoves(tp.moves)) {
       const m = m0.vt ? { ...m0, p: m0.vt } : m0;
@@ -84,7 +95,91 @@ export function simulateMilling(stock, paths, tools, { cell = 0.5, onProgress = 
     }
     onProgress?.((pi + 1) / paths.length);
   });
-  return { dexel: td, map: topMap(td), removed: before - dexelVolume(td), rapidCuts, rapidAt, samples, skipped };
+  // `full`: the stock was cut from the sides and below too (a rotary path) — shown whole, not as its top.
+  return { dexel: td, map: topMap(td), removed: before - dexelVolume(td), rapidCuts, rapidAt, samples, skipped, full };
+}
+
+/**
+ * Replays a 4-axis rotary path (moves { mp: [x, 0, r], a (degrees) } about the axis tp.axis { y0, z0 }) on the
+ * tri-dexel stock: samples along each move in machine terms (x, radius and A linearly), each one a cutter along
+ * the axis (0, sin A, cos A) at the part point. report(cut, move, tip).
+ */
+function rotaryPass(td, cutter, tp, step, report) {
+  const { y0, z0 } = tp.axis ?? { y0: 0, z0: 0 };
+  const partOf = (x, r, aDeg) => { const a = (aDeg * Math.PI) / 180; return { tip: [x, y0 + Math.sin(a) * r, z0 + Math.cos(a) * r], axis: [0, Math.sin(a), Math.cos(a)] }; };
+  let pos = null;
+  for (const m of tp.moves) {
+    if (!m.mp) continue;
+    const q = [m.mp[0], m.mp[2], m.a ?? 0];
+    if (!pos) { pos = q; continue; }
+    // Arc length at the larger radius for the angle part, so a turn at a large radius is sampled finely.
+    const L = Math.hypot(q[0] - pos[0], q[1] - pos[1], (((q[2] - pos[2]) * Math.PI) / 180) * Math.max(Math.abs(q[1]), Math.abs(pos[1])));
+    const n = Math.max(1, Math.ceil(L / step));
+    for (let s = 1; s <= n; s++) {
+      const t = s / n;
+      const { tip, axis } = partOf(pos[0] + (q[0] - pos[0]) * t, pos[1] + (q[1] - pos[1]) * t, pos[2] + (q[2] - pos[2]) * t);
+      report(cutAlong(td, cutter, tip, axis), m, tip);
+    }
+    pos = q;
+  }
+}
+
+/**
+ * Mill-turn live-tool cycles on the turned bar (a tri-dexel made from the turning section): axial holes drilled
+ * along Z at their C angle, radial holes drilled square to the axis from the turned outside. { dexel, removed }.
+ */
+function liveToolPass(td, paths, toolMap, step) {
+  const before = dexelVolume(td);
+  // The bar as turned, for the gouge check (only what the live tools take away counts).
+  const turned = Object.fromEntries(Object.entries(td.grids).map(([k, g]) => [k, g.rays.map((r) => r.slice())]));
+  for (const tp of paths) {
+    const tool = toolMap.get(tp.tool);
+    if (!tool) continue;
+    const cutter = cutterOf(tool);
+    for (const m of tp.moves) {
+      if (m.k !== 'cyc') continue;
+      let along; let points;
+      if (m.live === 'radial') {
+        // Radii from the entry down to the hole's bottom (pecks retract to the reference radius), the tool along
+        // the radius (shank outward).
+        const u = [Math.cos((m.c * Math.PI) / 180), Math.sin((m.c * Math.PI) / 180)];
+        const c = [m.p[0] - u[0] * m.radius, m.p[1] - u[1] * m.radius];
+        const at = (r) => [c[0] + u[0] * r, c[1] + u[1] * r, m.z];
+        const radii = [m.init, m.rStart ?? m.r];
+        if (m.q > 0) for (let r = (m.rStart ?? m.r) - m.q; r > m.radius + 1e-9; r -= m.q) radii.push(r);
+        radii.push(m.radius, m.init);
+        points = radii.map(at); along = [u[0], u[1], 0];
+      } else {
+        points = expandMoves([m]).filter((x) => x.p).map((x) => x.p); along = [0, 0, 1];
+      }
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1]; const b = points[i];
+        const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / step));
+        for (let s = 1; s <= n; s++) { const t = s / n; cutAlong(td, cutter, [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t], along); }
+      }
+    }
+  }
+  return { dexel: td, removed: before - dexelVolume(td), turned };
+}
+
+/**
+ * Gouges of the live tools: part material the turned bar held and the live tools removed (the turning section's own
+ * cells are checked by turnGougeCheck). part: the machining model ({ welded }). null without live tools.
+ */
+export function withLiveGouges(check, sim, part, { tol = 0.02 } = {}) {
+  const g = liveGouges(sim, part, { tol });
+  return g ? { ...check, count: check.count + g.count, max: Math.max(check.max ?? 0, g.max), live: { count: g.count, max: g.max } } : check;
+}
+
+export function liveGouges(sim, part, { tol = 0.02 } = {}) {
+  const live = sim?.live;
+  if (!live?.dexel || !part?.welded) return null;
+  const td = live.dexel;
+  td.part = Object.fromEntries(Object.entries(td.grids).map(([k, g]) => [k, partRays(part.welded, g).map((p, i) => intersectIntervals(p, live.turned[k][i]))]));
+  // As the milling check: depths confirmed on the mesh (a ray along a hole's wall loses a long but shallow piece)
+  // and on the B-rep when there is one.
+  const exact = part.shape ? exactRays(part.shape) : null;
+  try { return dexelGouges(td, part.welded, { tol, grid: part.topGrid?.() ?? null, exact }); } finally { exact?.delete(); }
 }
 
 function cutsAt(map, prof, R, x, y, zt) {
@@ -255,11 +350,12 @@ export function simulateTurning(stock, paths, tools, { cell = 0.1 } = {}) {
   const toolMap = new Map(tools.map((t) => [t.id, t]));
   const removed = [];
   const step = Math.min(g.dr, g.dz) * 0.5;
-  const skipped = [];
+  const skipped = []; const live = [];
   for (const tp of paths) {
     const tool = toolMap.get(tp.tool);
     if (!tool) continue;
-    // Live-tool (C axis) drilling is off the turning section: not in this model.
+    // Live-tool (C axis) drilling is off the turning section: done afterwards on a 3D model of the turned bar.
+    if (tp.multi === 'millTurn') { live.push(tp); continue; }
     if (tp.multi) { skipped.push(tp.op); continue; }
     let pos = null;
     for (const m of expandMoves(tp.moves)) {
@@ -279,7 +375,14 @@ export function simulateTurning(stock, paths, tools, { cell = 0.1 } = {}) {
   }
   let vol = 0;
   for (const k of removed) { const i = k % g.nr; vol += 2 * Math.PI * (i + 0.5) * g.dr * g.dr * g.dz; }
-  return { grid: g, removed: vol, removedCells: removed, skipped };
+  // Live tools: the turned bar as a tri-dexel (cells about the turning section's size, at least 0.25 mm), drilled.
+  let liveSim = null;
+  if (live.length) {
+    const lc = Math.max(0.25, Math.min(g.dr, g.dz) * 2);
+    liveSim = liveToolPass(dexelFromTurned(g, stock, lc), live, toolMap, lc * 0.5);
+    vol += liveSim.removed;
+  }
+  return { grid: g, removed: vol, removedCells: removed, skipped, live: liveSim };
 }
 
 /** Turning gouges: removed cells inside the part's profile. profileAt(z) → { outer, inner }. */

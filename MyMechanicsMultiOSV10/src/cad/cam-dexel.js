@@ -34,6 +34,13 @@ function overlap(p, q) {
 }
 /** p minus q (interval lists). */
 function minus(p, q) { let out = p; for (let j = 0; j < q.length; j += 2) out = subtract(out, q[j], q[j + 1]); return out; }
+/** p and q (interval lists): what both hold. */
+export function intersectIntervals(p, q) {
+  const out = minus(p, minus(p, q));
+  // An end that is one of p's keeps p's steepness there (partRays' `cos`: how deep a cut along the ray reaches).
+  if (p.cos) out.cos = out.map((v) => { const i = p.indexOf(v); return i >= 0 ? p.cos[i] : 1; });
+  return out;
+}
 
 // Axes of the three grids: the ray runs along `w`; (u, v) index the grid.
 const AXES = { z: { u: 0, v: 1, w: 2 }, x: { u: 1, v: 2, w: 0 }, y: { u: 0, v: 2, w: 1 } };
@@ -126,6 +133,216 @@ export function cutAt(td, cutter, x, y, z) {
     }
   }
   return cut;
+}
+
+// ───────────────────────── a cutter along any axis (4-axis rotary, mill-turn radial live tools)
+
+/** Height above the tip where the cutter reaches its full radius (flat 0, ball R, bull rc, drill R / tan(half tip)). */
+function shoulderOf(cutter) {
+  const R = cutter.r;
+  if (cutter.type === 'ball') return R;
+  if (cutter.type === 'bull') return Math.min(cutter.rc ?? 0, R);
+  if (cutter.type === 'drill') return R / Math.tan(((cutter.tip ?? 118) / 2) * Math.PI / 180);
+  return 0;
+}
+
+/**
+ * The interval [s0, s1] of the line O + s·e_w (w = 0, 1, 2) inside the cutter with its tip at `tip`, its unit axis
+ * `t` (tip → shank) and its shank reaching hMax along the axis; null when it misses. The cutter (lower surface by
+ * radiusAt, a shank of radius R above) is convex, so the line meets it in one interval: the shank's cylinder gives
+ * it above the shoulder exactly, and the end below the shoulder is found by bisection.
+ */
+function lineThroughCutter(O, w, tip, t, cutter, h0, hMax) {
+  const R = cutter.r;
+  const d = [O[0] - tip[0], O[1] - tip[1], O[2] - tip[2]];
+  const wt = t[w]; const dt = d[0] * t[0] + d[1] * t[1] + d[2] * t[2];
+  const A = 1 - wt * wt; const B = d[w] - wt * dt; const C = d[0] * d[0] + d[1] * d[1] + d[2] * d[2] - dt * dt;
+  const hAt = (s) => dt + s * wt;
+  const inside = (s) => {
+    const h = hAt(s);
+    if (h < 0 || h > hMax) return false;
+    const q2 = A * s * s + 2 * B * s + C;
+    const r = radiusAt(cutter, h);
+    return r > 0 && q2 <= r * r + 1e-12;
+  };
+  if (A < 1e-12) {
+    // Along the axis: a constant distance from it; inside from the lower surface up to the shank's end.
+    const q = Math.sqrt(Math.max(0, C));
+    if (q > R) return null;
+    const lift = liftAt(cutter, q);
+    const a = (lift - dt) / wt; const b = (hMax - dt) / wt;
+    return a < b ? [a, b] : [b, a];
+  }
+  const ring = (r) => { const disc = B * B - A * (C - r * r); if (disc < 0) return null; const sq = Math.sqrt(disc); return [(-B - sq) / A, (-B + sq) / A]; };
+  if (Math.abs(wt) < 1e-12) {
+    // Across the axis: one height, so one circle of the cutter's section.
+    if (dt < 0 || dt > hMax) return null;
+    const r = radiusAt(cutter, dt);
+    return r > 0 ? ring(r) : null;
+  }
+  const cyl = ring(R);
+  if (!cyl) return null;
+  const hs = [(0 - dt) / wt, (hMax - dt) / wt].sort((x, y) => x - y);
+  const sa = Math.max(cyl[0], hs[0]); const sb = Math.min(cyl[1], hs[1]);
+  if (!(sa < sb)) return null;
+  // Flat end: the cylinder above the tip is the cutter.
+  if (cutter.type !== 'ball' && cutter.type !== 'bull' && cutter.type !== 'drill') return [sa, sb];
+  if (cutter.type === 'ball') {
+    // Ball end: the sphere round tip + R·t and the shank above its centre (convex pieces that overlap).
+    const c = [O[0] - tip[0] - t[0] * R, O[1] - tip[1] - t[1] * R, O[2] - tip[2] - t[2] * R];
+    const b = c[w]; const disc = b * b - (c[0] * c[0] + c[1] * c[1] + c[2] * c[2] - R * R);
+    const sphere = disc >= 0 ? [-b - Math.sqrt(disc), -b + Math.sqrt(disc)] : null;
+    const hr = [(R - dt) / wt, (hMax - dt) / wt].sort((x, y) => x - y);
+    const shank = [Math.max(cyl[0], hr[0]), Math.min(cyl[1], hr[1])];
+    const parts = [sphere, shank[0] < shank[1] ? shank : null].filter(Boolean);
+    return parts.length ? [Math.min(...parts.map((p) => p[0])), Math.max(...parts.map((p) => p[1]))] : null;
+  }
+  const bisect = (sin, sout) => { for (let i = 0; i < 22; i++) { const m = (sin + sout) / 2; if (inside(m)) sin = m; else sout = m; } return sin; };
+  // Above the shoulder the whole cylinder chord is inside; the low-h end of the chord may be outside.
+  const sh = (h0 - dt) / wt;
+  let lo = sa; let hi = sb;
+  if (wt > 0 ? sh < sb : sh > sa) {
+    if (wt > 0) { const top0 = Math.max(sa, sh); if (!inside(sa)) lo = bisect(top0, sa); }
+    else { const top0 = Math.min(sb, sh); if (!inside(sb)) hi = bisect(top0, sb); }
+    return [lo, hi];
+  }
+  // All of the chord is below the shoulder: an inside point first (the chord's samples), then both ends.
+  let sIn = null;
+  for (let i = 0; i <= 16 && sIn == null; i++) { const s = sa + ((sb - sa) * i) / 16; if (inside(s)) sIn = s; }
+  if (sIn == null) return null;
+  return [inside(sa) ? sa : bisect(sIn, sa), inside(sb) ? sb : bisect(sIn, sb)];
+}
+
+/**
+ * Removes a cutter whose axis is `axis` (tip → shank, any direction) with its tip at `tip`: every ray of the three
+ * grids loses the stretch inside the cutter, whose shank runs out to the far side of the stock. Returns true when
+ * it cut anything. The vertical cutAt is the quick case of this.
+ */
+export function cutAlong(td, cutter, tip, axis) {
+  const l = Math.hypot(axis[0], axis[1], axis[2]) || 1;
+  const t = [axis[0] / l, axis[1] / l, axis[2] / l];
+  const R = cutter.r;
+  let hMax = 0;
+  for (const x of [td.lo[0], td.hi[0]]) for (const y of [td.lo[1], td.hi[1]]) for (const z of [td.lo[2], td.hi[2]]) hMax = Math.max(hMax, (x - tip[0]) * t[0] + (y - tip[1]) * t[1] + (z - tip[2]) * t[2]);
+  hMax += td.cell;
+  if (hMax <= 0) return false;
+  // Quick reject: the cutter's capsule (tip → top, radius R) misses the stock.
+  const top = [tip[0] + t[0] * hMax, tip[1] + t[1] * hMax, tip[2] + t[2] * hMax];
+  for (let a = 0; a < 3; a++) if (Math.max(tip[a], top[a]) + R < td.lo[a] || Math.min(tip[a], top[a]) - R > td.hi[a]) return false;
+  const h0 = shoulderOf(cutter);
+  let cut = false;
+  for (const g of Object.values(td.grids)) {
+    const { u, v, w } = g.ax;
+    // The capsule's shadow on the grid: rows v within R of the segment, and in each row the u span of the segment
+    // over those v, widened by R.
+    const pu = [tip[u], top[u]]; const pv = [tip[v], top[v]];
+    const jv0 = clampI(Math.floor((Math.min(...pv) - R - g.v0) / g.hv), g.nv); const jv1 = clampI(Math.floor((Math.max(...pv) + R - g.v0) / g.hv), g.nv);
+    const O = [0, 0, 0];
+    for (let jv = jv0; jv <= jv1; jv++) {
+      const cv = g.v0 + (jv + 0.5) * g.hv;
+      let ua; let ub;
+      const dv = pv[1] - pv[0];
+      if (Math.abs(dv) < 1e-12) {
+        if (Math.abs(cv - pv[0]) > R) continue;
+        ua = Math.min(...pu) - R; ub = Math.max(...pu) + R;
+      } else {
+        const ta = Math.max(0, Math.min(1, (cv - R - pv[0]) / dv)); const tb = Math.max(0, Math.min(1, (cv + R - pv[0]) / dv));
+        const xa = pu[0] + (pu[1] - pu[0]) * ta; const xb = pu[0] + (pu[1] - pu[0]) * tb;
+        ua = Math.min(xa, xb) - R; ub = Math.max(xa, xb) + R;
+      }
+      const iu0 = clampI(Math.floor((ua - g.u0) / g.hu), g.nu); const iu1 = clampI(Math.floor((ub - g.u0) / g.hu), g.nu);
+      O[v] = cv;
+      for (let iu = iu0; iu <= iu1; iu++) {
+        const k = jv * g.nu + iu; const ray = g.rays[k];
+        if (!ray.length) continue;
+        O[u] = g.u0 + (iu + 0.5) * g.hu; O[w] = 0;
+        const s = lineThroughCutter(O, w, tip, t, cutter, h0, hMax);
+        if (!s || s[1] <= ray[0] || s[0] >= ray[ray.length - 1]) continue;
+        const n = subtract(ray, s[0], s[1]);
+        // Rounding leaves hair-thin slivers: only a real piece counts as cut (rapid checks).
+        if (n !== ray) { if (total(n) < total(ray) - 1e-6) cut = true; g.rays[k] = n; }
+      }
+    }
+  }
+  return cut;
+}
+
+/**
+ * A tri-dexel stock of a turned bar (the turning simulation's half section, `grid` from createTurnGrid, about the
+ * axis through (cx, cy) along Z): every ray holds the bar's material as turned — for live-tool work after turning.
+ */
+export function dexelFromTurned(grid, stock, cell) {
+  const cx = stock.cx ?? 0; const cy = stock.cy ?? 0; const r = stock.r;
+  const td = createTriDexel({ x0: cx - r, x1: cx + r, y0: cy - r, y1: cy + r, z0: stock.z0, z1: stock.z1 }, cell);
+  const filled = (i, j) => i >= 0 && i < grid.nr && j >= 0 && j < grid.nz && grid.m[j * grid.nr + i] === 1;
+  // Radial runs of material in a row j of the section: [ρa, ρb, …].
+  const runs = (j) => { const out = []; let a = null; for (let i = 0; i <= grid.nr; i++) { const f = i < grid.nr && filled(i, j); if (f && a == null) a = i * grid.dr; if (!f && a != null) { out.push(a, i * grid.dr); a = null; } } return out; };
+  const rowOf = (z) => Math.floor((z - grid.z0) / grid.dz);
+  const rowRuns = new Map();
+  const runsAt = (z) => { const j = rowOf(z); if (!rowRuns.has(j)) rowRuns.set(j, runs(j)); return rowRuns.get(j); };
+  // Z rays: one radius each, runs of rows along z.
+  const gz = td.grids.z;
+  for (let j = 0; j < gz.nv; j++) for (let i = 0; i < gz.nu; i++) {
+    const rho = Math.hypot(gz.u0 + (i + 0.5) * gz.hu - cx, gz.v0 + (j + 0.5) * gz.hv - cy);
+    const ir = Math.floor(rho / grid.dr); const out = []; let a = null;
+    for (let k = 0; k <= grid.nz; k++) { const f = k < grid.nz && filled(ir, k); if (f && a == null) a = grid.z0 + k * grid.dz; if (!f && a != null) { out.push(a, grid.z0 + k * grid.dz); a = null; } }
+    gz.rays[j * gz.nu + i] = out;
+  }
+  // X and Y rays: at height z and offset e from the axis, a run [ρa, ρb] is |w − c| between √(ρa² − e²) and √(ρb² − e²).
+  for (const name of ['x', 'y']) {
+    const g = td.grids[name]; const c = name === 'x' ? cx : cy; const co = name === 'x' ? cy : cx;
+    for (let jv = 0; jv < g.nv; jv++) {
+      const z = g.v0 + (jv + 0.5) * g.hv; const rr = runsAt(z);
+      for (let iu = 0; iu < g.nu; iu++) {
+        const e = Math.abs(g.u0 + (iu + 0.5) * g.hu - co);
+        const neg = []; const pos = [];
+        for (let q = 0; q < rr.length; q += 2) {
+          if (rr[q + 1] <= e) continue;
+          const a = Math.sqrt(Math.max(0, rr[q] * rr[q] - e * e)); const b = Math.sqrt(rr[q + 1] * rr[q + 1] - e * e);
+          pos.push(c + a, c + b); neg.unshift(c - b, c - a);
+        }
+        // The two halves meet at the axis when the innermost run reaches it.
+        const out = [...neg, ...pos];
+        for (let q = out.length - 2; q > 0; q -= 2) if (Math.abs(out[q] - out[q - 1]) < 1e-9) out.splice(q - 1, 2);
+        g.rays[jv * g.nu + iu] = out;
+      }
+    }
+  }
+  return td;
+}
+
+/**
+ * The stock as a closed surface for display (every side, not only the top): voxels from the Z rays (filled where a
+ * cell's centre is inside material) and a face wherever a filled voxel meets an empty one.
+ * { vertices, normals, triangles, faceGroups, colors: null }.
+ */
+export function dexelMesh(td) {
+  const g = td.grids.z; const nz = Math.max(1, Math.round((td.hi[2] - td.lo[2]) / td.cell)); const hz = (td.hi[2] - td.lo[2]) / nz;
+  const nx = g.nu; const ny = g.nv;
+  const occ = new Uint8Array(nx * ny * nz);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const ray = g.rays[j * nx + i];
+    for (let q = 0; q < ray.length; q += 2) {
+      const k0 = Math.max(0, Math.ceil((ray[q] - td.lo[2]) / hz - 0.5)); const k1 = Math.min(nz - 1, Math.floor((ray[q + 1] - td.lo[2]) / hz - 0.5));
+      for (let k = k0; k <= k1; k++) occ[(k * ny + j) * nx + i] = 1;
+    }
+  }
+  const at = (i, j, k) => i >= 0 && j >= 0 && k >= 0 && i < nx && j < ny && k < nz && occ[(k * ny + j) * nx + i] === 1;
+  const V = []; const N = []; const T = [];
+  const X = (i) => g.u0 + i * g.hu; const Y = (j) => g.v0 + j * g.hv; const Z = (k) => td.lo[2] + k * hz;
+  const quad = (p, n) => { const b = V.length / 3; for (const q of p) { V.push(...q); N.push(...n); } T.push(b, b + 1, b + 2, b, b + 2, b + 3); };
+  for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    if (!at(i, j, k)) continue;
+    const x0 = X(i), x1 = X(i + 1), y0 = Y(j), y1 = Y(j + 1), z0 = Z(k), z1 = Z(k + 1);
+    if (!at(i + 1, j, k)) quad([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], [1, 0, 0]);
+    if (!at(i - 1, j, k)) quad([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [-1, 0, 0]);
+    if (!at(i, j + 1, k)) quad([[x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0]], [0, 1, 0]);
+    if (!at(i, j - 1, k)) quad([[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], [0, -1, 0]);
+    if (!at(i, j, k + 1)) quad([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1]);
+    if (!at(i, j, k - 1)) quad([[x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]], [0, 0, -1]);
+  }
+  const tri = Uint32Array.from(T);
+  return { vertices: Float32Array.from(V), normals: Float32Array.from(N), triangles: tri, faceGroups: [{ start: 0, count: tri.length, faceId: 0 }], colors: null };
 }
 
 /** Stock volume left (from the Z rays). */
@@ -275,4 +492,4 @@ export function dexelGouges(td, welded, { tol = 0.02, grid = null, exact = null 
   }
   return { count, max, cells, remaining, where, exact: exact ? { confirmed, cleared } : null };
 }
-
+

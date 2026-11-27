@@ -3,7 +3,8 @@
 // R·M·Rᵀ, drawing views the same — and the document migration turns old files once (idempotent). Parts with
 // modelled threads (basClevis, basCapScrew, hsgBottle) were re-measured on 2026-11-25 when every thread form became
 // an exact screw solid (it had been a faceted groove); their boxes are the original ones. advCarBody was re-measured on
-// 2026-11-26 when the car body was redesigned (eight sections, windshields).
+// 2026-11-26 when the car body was redesigned (eight sections, windshields) and again on 2026-11-27 when it became the
+// 1:10 RC car body shell (smooth loft, sketch-trimmed arches and post holes).
 // ZUP_ONLY=id1,id2 limits the samples (for quick runs).
 import test from 'node:test';
 import assert from 'node:assert/strict';
