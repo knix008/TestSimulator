@@ -301,12 +301,14 @@ pub fn run_thermal_transient(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Res
     let mut a_for_pre = a.clone();
     a_for_pre.constrain(&sys.fixed, &zero, &mut dummy);
     let pre = crate::sparse::precond(&a_for_pre, &model.x, 1);
-    let probe = model.job.probes.first().and_then(|p| model.nearest_node(*p)).unwrap_or_else(|| {
+    let probes = model.probe_nodes(|| {
         let mut best = 0;
         let mut far = -1.0;
         for i in 0..model.mesh.ncorner { if sys.used[i] && !sys.fixed[i] { let d = sys.f[i].abs(); if d > far { far = d; best = i; } } }
         best
     });
+    let probe = probes[0];
+    let mut phist: Vec<Vec<f64>> = probes.iter().map(|&pn| vec![t[pn]]).collect();
     let frames_wanted = model.setting_u("frames", 30).clamp(2, 120);
     let every = (steps / frames_wanted).max(1);
     let mut times = vec![0.0];
@@ -339,6 +341,7 @@ pub fn run_thermal_transient(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Res
         t = tn;
         times.push(s as f64 * dt);
         hist.push(t[probe]);
+        for (pi, &pn) in probes.iter().enumerate() { phist[pi].push(t[pn]); }
         tmax_hist.push(minmax(&t, &sys.used).1);
         if s % every == 0 || s == steps {
             let v = corner_f32(model, out, &t);
@@ -350,7 +353,8 @@ pub fn run_thermal_transient(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Res
     let _ = a;
     let res = put_thermal(model, out, &t, &sys)?;
     out.set("result", res);
-    out.set("transient", json!({ "times": times, "probe": probe, "probePoint": model.mesh.nodes[probe], "history": hist, "maxHistory": tmax_hist, "frames": frames }));
+    out.set("transient", json!({ "times": times, "probe": probe, "probePoint": model.mesh.nodes[probe], "history": hist, "maxHistory": tmax_hist, "frames": frames,
+        "probes": probes.iter().zip(phist.iter()).map(|(&pn, h)| json!({ "node": pn, "point": model.mesh.nodes[pn], "history": h })).collect::<Vec<_>>() }));
     out.set("heatBalance", heat_balance(model, &t));
     Ok(())
 }
@@ -556,7 +560,9 @@ pub fn run_acoustic_harmonic(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Res
         }
     }
     for (faces, v) in &pressure_fixed { fix_faces(model, &mut sys, faces, *v); }
-    let probe = model.job.probes.first().and_then(|p| model.nearest_node(*p)).unwrap_or_else(|| (0..model.mesh.ncorner).find(|&i| sys.used[i] && !sys.fixed[i]).unwrap_or(0));
+    let probes = model.probe_nodes(|| (0..model.mesh.ncorner).find(|&i| sys.used[i] && !sys.fixed[i]).unwrap_or(0));
+    let probe = probes[0];
+    let mut pspl: Vec<Vec<f64>> = probes.iter().map(|_| Vec::new()).collect();
     let mut freqs = Vec::new();
     let mut spl = Vec::new();
     let mut best = (f64::NEG_INFINITY, f0);
@@ -589,6 +595,7 @@ pub fn run_acoustic_harmonic(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Res
         if level > best.0 { best = (level, f); }
         freqs.push(f);
         spl.push(level);
+        for (pi, &pn) in probes.iter().enumerate() { pspl[pi].push(db(p[pn])); }
         ctx.step(0.3 + 0.6 * (s + 1) as f64 / npts as f64, "progress.harmonic")?;
         if fsel_given.is_none() { keep = None; }
     }
@@ -601,7 +608,8 @@ pub fn run_acoustic_harmonic(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Res
     let lf = corner_f32(model, out, &lvl);
     let rf = corner_f32(model, out, &re);
     out.set("result", json!({ "fields": { "pressure": af, "spl": lf, "pressureRe": rf }, "max": { "pressure": amp.iter().cloned().fold(0.0, f64::max), "spl": lvl.iter().cloned().fold(f64::NEG_INFINITY, f64::max) } }));
-    out.set("harmonic", json!({ "frequencies": freqs, "spl": spl, "probe": probe, "probePoint": model.mesh.nodes[probe], "frequency": fsel }));
+    out.set("harmonic", json!({ "frequencies": freqs, "spl": spl, "probe": probe, "probePoint": model.mesh.nodes[probe], "frequency": fsel,
+        "probes": probes.iter().zip(pspl.iter()).map(|(&pn, h)| json!({ "node": pn, "point": model.mesh.nodes[pn], "spl": h })).collect::<Vec<_>>() }));
     Ok(())
 }
 

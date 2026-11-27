@@ -76,6 +76,25 @@ test('every text key used by the panels exists in Korean and English', async () 
   assert.deepEqual(missing, []);
 });
 
+test('every catalog key (settings, conditions, options, templates) has its text', async () => {
+  const { DICTIONARIES } = await import('../../src/i18n.js');
+  const { SYSTEMS, BCS } = await import('../../src/sim/catalog.js');
+  const { TEMPLATES } = await import('../../src/sim/shapes.js');
+  const keys = new Set();
+  for (const [id, sys] of Object.entries(SYSTEMS)) {
+    keys.add(`sys.${id}`); keys.add(`sysDesc.${id}`);
+    for (const f of sys.settings) { keys.add(`set.${f.key}`); if (Array.isArray(f.options)) for (const o of f.options) keys.add(`opt.${o}`); }
+    for (const r of sys.results) keys.add(`res.${r}`);
+  }
+  for (const [id, bc] of Object.entries(BCS)) {
+    keys.add(`bc.${id}`); keys.add(`bcDesc.${id}`);
+    for (const f of bc.fields) { keys.add(`bcf.${f.key}`); if (Array.isArray(f.options)) for (const o of f.options) keys.add(`opt.${o}`); }
+  }
+  for (const [id, tpl] of Object.entries(TEMPLATES)) { keys.add(`tpl.${id}`); for (const q of tpl.params) keys.add(`param.${q.key}`); }
+  const missing = [...keys].filter((k) => !(k in DICTIONARIES.ko) || !(k in DICTIONARIES.en));
+  assert.deepEqual(missing, []);
+});
+
 test('the WebAssembly solver package is built and current', () => {
   const wasm = path.join(root, 'src/sim/pkg/sim_wasm_bg.wasm');
   assert.ok(fs.existsSync(wasm), 'run npm run build:wasm');

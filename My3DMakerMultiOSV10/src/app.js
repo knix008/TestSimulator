@@ -8,16 +8,16 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import APP_ICON from '../assets/icon-256.png';
 import { BCS, SYSTEMS, SYSTEM_IDS, RESULTS, FOLLOW_UPS, GROUPS, BC_CATS, defaultBc } from './sim/catalog.js';
-import { addBc, addBody, addSystem, buildJob, createProject, ensureMaterial, newId, outputsOf, packProject, pathGet, pathSet, unpackProject, OUTPUT_KINDS, UNIT } from './sim/project.js';
+import { addBc, addBody, addLight, addSystem, buildJob, createProject, ensureMaterial, newId, outputsOf, packProject, pathGet, pathSet, unpackProject, OUTPUT_KINDS, UNIT } from './sim/project.js';
 import { TEMPLATES, TEMPLATE_GROUPS, parseStl, writeStl } from './sim/shapes.js';
 import { MATERIALS, materialName } from './sim/materials.js';
 import { SAMPLES, SAMPLE_GROUPS, buildSample } from './sim/samples.js';
 import { resultItems, chartsOf, displayOf } from './sim/results.js';
 import { runJob, solverInfo } from './sim/engine.js';
 import { reportHtml, reportSvg } from './sim/report.js';
-import { fmt, toDisplay, toSI, unitLabel } from './sim/units.js';
+import { fmt, toDisplay, toSI, unitLabel, SYSTEMS as UNIT_SYSTEMS, SYSTEM_SHORT } from './sim/units.js';
 import { createModel } from './app-model.js';
-import { outlineHtml, detailsHtml, toolboxHtml, schematicHtml, dataTabHtml, studyTabHtml } from './ui/simpanels.js';
+import { outlineHtml, detailsHtml, toolboxHtml, schematicHtml, dataTabHtml, studyTabHtml, dataListHtml, studyTreeHtml } from './ui/simpanels.js';
 import { lineChart, heatMap } from './ui/charts.js';
 import { startPageHtml } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
@@ -68,6 +68,10 @@ const state = {
   cmTab: 'geometry',
   animate: false,
   probe: null,
+  /** Section plane of the 3D view (results): on/off, axis, offset across the model (0-1), clip, flip. */
+  section: { enabled: false, axis: 'x', offset: 0.5, clip: true, flip: false },
+  /** The next click in the 3D view places a probe. */
+  pickProbe: false,
   info: null,
   untitled: 0,
 };
@@ -94,6 +98,8 @@ const ctx = {
   renderSome: (parts) => renderSome(parts),
   facePicked: (hit, ev) => facePicked(hit, ev),
   parameterCandidates: () => parameterCandidates(),
+  addProbeAt: (p) => addProbeAt(p),
+  noteText: (k) => noteText(k),
   studyChart: () => studyChart(),
 };
 const model = createModel(ctx);
@@ -142,7 +148,7 @@ function change(labelKey, mutate, { geometry = false, keepResults = false } = {}
 
 function afterChange() {
   renderAll();
-  if (state.tab === 'model') model.refreshSetupMesh();
+  if (state.tab === 'model') { model.refreshSetupMesh(); model.overlays(); }
 }
 
 function restore(text) {
@@ -443,15 +449,131 @@ function facePicked(hit, event) {
   if (hit) select({ kind: 'body', id: hit.body });
 }
 
+// ───────────────────────── probes, section plane, booleans
+
+/** A solver note (message key, optionally "key:argument") in the user's language. */
+function noteText(note) {
+  const [key, ...rest] = String(note).split(':');
+  return t(`note.${key}`, { detail: rest.join(':') }, String(note));
+}
+
+/** A probe at a point (model units) of the active system: its histories come with the next solution. */
+function addProbeAt(point) {
+  const sys = activeSystem();
+  if (!sys || !point) return;
+  let id = null;
+  let name = '';
+  change('op.addProbe', () => {
+    sys.probes ??= [];
+    name = `P${sys.probes.length + 1}`;
+    const q = { id: newId('p'), name, point: point.map((v) => Number(Number(v).toFixed(3))) };
+    sys.probes.push(q);
+    id = q.id;
+  }, { keepResults: true });
+  state.pickProbe = false;
+  notify('info', t('notice.probeAdded', { name }));
+  if (state.sel.kind !== 'result') select({ kind: 'probe', id });
+  else { model.overlays(); renderSome(['outline', 'details', 'bottom', 'toolbar']); }
+}
+
+/** A new light above and in front of the model (or at a picked point), selected for editing. */
+function addLightNear(point = null) {
+  const info = state.setupMesh?.info ?? activeSystem()?.result?.mesh;
+  let c = [0, 0, 0]; let r = 100;
+  if (info?.positions) {
+    const pos = info.positions; const lo = [Infinity, Infinity, Infinity]; const hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < pos.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], pos[i + k]); hi[k] = Math.max(hi[k], pos[i + k]); }
+    c = lo.map((v, k) => (v + hi[k]) / 2); r = Math.max(10, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2);
+  }
+  const round = (v) => Number(v.toFixed(1));
+  let id = null;
+  change('op.addLight', (p) => {
+    const n = (p.lights ?? []).length;
+    const angle = (-Math.PI / 4) + n * (Math.PI / 3);
+    const position = point ?? [c[0] + 1.4 * r * Math.cos(angle), c[1] + 1.4 * r * Math.sin(angle), c[2] + 1.6 * r];
+    id = addLight(p, { position: position.map(round), target: c.map(round), name: `${t('light.name')} ${n + 1}` }).id;
+  }, { keepResults: true });
+  select({ kind: 'light', id });
+}
+
+function startProbePick() {
+  state.pickProbe = !state.pickProbe;
+  notify('info', t(state.pickProbe ? 'notice.pickProbe' : 'notice.pickProbeOff'));
+  renderToolbarState();
+  renderRibbon();
+}
+
+/** Changes the section plane (view state, not part of the project). */
+function setSection(patch) {
+  state.section = { ...state.section, ...patch };
+  if (patch.enabled && state.tab !== 'model') setTab('model');
+  model.overlays();
+  renderToolbarState();
+  if ('enabled' in patch || 'axis' in patch || 'clip' in patch || 'flip' in patch) renderSome(['details', 'ribbon']);
+}
+
+/** Combines the selected body with a tool body: the tool is used up (not meshed on its own). */
+function addBooleanOp(bodyId, op, toolId) {
+  const p = state.project;
+  const b = p?.bodies.find((x) => x.id === bodyId);
+  const tool = p?.bodies.find((x) => x.id === toolId);
+  if (!b || !tool || b.id === tool.id) return;
+  if (usesBody(p, tool.id, b.id)) return notify('warning', t('notice.boolCycle'));
+  change('op.boolean', (pr) => {
+    const bb = pr.bodies.find((x) => x.id === bodyId);
+    const tt = pr.bodies.find((x) => x.id === toolId);
+    bb.ops = [...(bb.ops ?? []), { op, tool: toolId }];
+    tt.tool = true;
+    // Conditions on the tool's faces no longer apply.
+    for (const s of pr.systems) for (const bc of s.bcs) { bc.faces = bc.faces.filter((f) => f.body !== toolId); bc.bodies = bc.bodies.filter((x) => x !== toolId); }
+  }, { geometry: true });
+  notify('success', t('notice.boolDone', { op: t(`cmd.bool${op[0].toUpperCase()}${op.slice(1)}`), a: b.name, b: tool.name }));
+  // Bodies apart: nothing changes until the tool is moved onto the body (its placement stays editable).
+  const [ba, bb] = [ctxBox(b), ctxBox(tool)];
+  if ([0, 1, 2].some((k) => ba[1][k] <= bb[0][k] || bb[1][k] <= ba[0][k])) notify('warning', t('notice.boolApart', { b: tool.name }));
+}
+
+/** Whether body `id` (or a tool of it) uses body `target`. */
+function usesBody(p, id, target) {
+  const b = p.bodies.find((x) => x.id === id);
+  return (b?.ops ?? []).some((o) => o.tool === target || usesBody(p, o.tool, target));
+}
+
+function removeBooleanOp(bodyId, index) {
+  change('op.boolean', (pr) => {
+    const b = pr.bodies.find((x) => x.id === bodyId);
+    const op = b?.ops?.[index];
+    if (!op) return;
+    b.ops.splice(index, 1);
+    const tool = pr.bodies.find((x) => x.id === op.tool);
+    if (tool && !pr.bodies.some((x) => (x.ops ?? []).some((o) => o.tool === tool.id))) tool.tool = false;
+  }, { geometry: true });
+}
+
+/** The tool menu of a boolean: the other bodies (not already tools). */
+function booleanMenu(op, anchor) {
+  const p = state.project;
+  const b = p.bodies.find((x) => x.id === state.sel.id);
+  if (!b) return undefined;
+  const others = p.bodies.filter((x) => x.id !== b.id && !x.tool && !usesBody(p, x.id, b.id));
+  if (!others.length) return notify('warning', t('notice.boolNoTool'));
+  const handlers = {};
+  const items = others.map((x) => { const id = `custom:tool:${x.id}`; handlers[id] = () => addBooleanOp(b.id, op, x.id); return { id, label: x.name, icon: TEMPLATES[x.template]?.icon ?? 'body' }; });
+  const at = anchor ?? (() => { const el = root.querySelector(`[data-command="bool:${op}"]`); return el ? anchorBelow(el) : { x: window.screenX + 200, y: window.screenY + 200 }; })();
+  return showMenu(items, at, 'context', { handlers, header: t('menu.boolTool', { name: b.name }) });
+}
+
 function deleteSelection() {
   const sel = state.sel;
   const p = state.project;
   if (!p) return;
   const sys = activeSystem();
   switch (sel.kind) {
-    case 'body': change('op.delete', () => { p.bodies = p.bodies.filter((b) => b.id !== sel.id); for (const s of p.systems) { for (const bc of s.bcs) { bc.faces = bc.faces.filter((f) => f.body !== sel.id); bc.bodies = bc.bodies.filter((b) => b !== sel.id); } s.contacts = s.contacts.filter((c) => c.a !== sel.id && c.b !== sel.id); } }, { geometry: true }); break;
+    case 'body': change('op.delete', () => { for (const b of p.bodies) { if ((b.ops ?? []).some((o) => o.tool === sel.id)) b.ops = b.ops.filter((o) => o.tool !== sel.id); } const gone = p.bodies.find((b) => b.id === sel.id); for (const o of gone?.ops ?? []) { const tb = p.bodies.find((b) => b.id === o.tool); if (tb) tb.tool = false; } p.bodies = p.bodies.filter((b) => b.id !== sel.id); for (const s of p.systems) { for (const bc of s.bcs) { bc.faces = bc.faces.filter((f) => f.body !== sel.id); bc.bodies = bc.bodies.filter((b) => b !== sel.id); } s.contacts = s.contacts.filter((c) => c.a !== sel.id && c.b !== sel.id); } }, { geometry: true }); break;
     case 'bc': change('op.delete', () => { sys.bcs = sys.bcs.filter((b) => b.id !== sel.id); }); break;
     case 'contact': change('op.delete', () => { sys.contacts = sys.contacts.filter((c) => c.id !== sel.id); }); break;
+    case 'probe': change('op.delete', () => { sys.probes = (sys.probes ?? []).filter((q) => q.id !== sel.id); }, { keepResults: true }); break;
+    case 'light': change('op.delete', () => { p.lights = (p.lights ?? []).filter((l) => l.id !== sel.id); }, { keepResults: true }); break;
     case 'system': change('op.delete', () => { p.systems = p.systems.filter((s) => s.id !== sel.id); p.links = p.links.filter((l) => l.from !== sel.id && l.to !== sel.id); p.active = p.systems[0]?.id ?? null; }); break;
     default: return;
   }
@@ -470,7 +592,7 @@ function duplicateBody() {
 function select(sel) {
   state.sel = sel;
   state.probe = null;
-  if (sel.kind === 'system' || sel.kind === 'settings' || sel.kind === 'mesh' || sel.kind === 'solution' || sel.kind === 'enclosure' || sel.kind === 'contacts') activate(sel.id);
+  if (sel.kind === 'system' || sel.kind === 'settings' || sel.kind === 'mesh' || sel.kind === 'solution' || sel.kind === 'enclosure' || sel.kind === 'contacts' || sel.kind === 'probes') activate(sel.id);
   if (sel.kind === 'result') {
     const [sid, key] = sel.id.split(/:(.+)/);
     activate(sid);
@@ -510,6 +632,7 @@ async function solve(sys = activeSystem(), { quiet = false } = {}) {
     sys.result = result;
     sys.status = 'solved';
     sys.error = null;
+    for (const n of result.notes ?? []) notify('warning', `${sys.name || t(`sys.${sys.type}`)}: ${noteText(n)}`);
     const items = resultItems(sys, result);
     if (!quiet) {
       notify('success', t('notice.solved', { name: sys.name || t(`sys.${sys.type}`), s: fmt((result.elapsedMs ?? Date.now() - state.solving.started) / 1000, 3) }));
@@ -745,7 +868,15 @@ const commands = {
   startPage: { icon: 'home', label: 'menu.home', run: () => showStartPage(true) },
   undo: { icon: 'undo', label: 'action.undo', key: 'Ctrl+Z', enabled: () => state.history.canUndo, run: undo },
   redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => state.history.canRedo, run: redo },
-  deleteSelection: { icon: 'trash', label: 'cmd.delete', key: 'Delete', enabled: () => ['body', 'bc', 'contact', 'system'].includes(state.sel.kind), run: deleteSelection },
+  deleteSelection: { icon: 'trash', label: 'cmd.delete', key: 'Delete', enabled: () => ['body', 'bc', 'contact', 'system', 'probe', 'light'].includes(state.sel.kind), run: deleteSelection },
+  addLight: { icon: 'sun', label: 'cmd.addLight', enabled: () => Boolean(state.project), run: () => addLightNear() },
+  addProbe: { icon: 'probe', label: 'cmd.addProbe', enabled: () => hasSystem() && state.tab === 'model', checked: () => state.pickProbe, run: startProbePick },
+  sectionPlane: { icon: 'sectionPlane', label: 'cmd.sectionPlane', enabled: () => state.tab === 'model', checked: () => Boolean(state.section.enabled), run: () => setSection({ enabled: !state.section.enabled }) },
+  showArrows: { icon: 'arrowField', label: 'cmd.showArrows', checked: () => state.settings.showArrows !== false, run: () => { updateSettings({ showArrows: state.settings.showArrows === false }, { quiet: true }); model.overlays(); renderSome(['toolbar', 'details']); } },
+  showProbes: { icon: 'probe', label: 'cmd.showProbes', checked: () => state.settings.showProbes !== false, run: () => { updateSettings({ showProbes: state.settings.showProbes === false }, { quiet: true }); model.overlays(); renderSome(['toolbar']); } },
+  'bool:subtract': { icon: 'solidSubtract', label: 'cmd.boolSubtract', enabled: () => state.sel.kind === 'body' && (state.project?.bodies.length ?? 0) > 1, run: (c) => booleanMenu('subtract', c?.anchor) },
+  'bool:union': { icon: 'solidUnion', label: 'cmd.boolUnion', enabled: () => state.sel.kind === 'body' && (state.project?.bodies.length ?? 0) > 1, run: (c) => booleanMenu('union', c?.anchor) },
+  'bool:intersect': { icon: 'solidIntersect', label: 'cmd.boolIntersect', enabled: () => state.sel.kind === 'body' && (state.project?.bodies.length ?? 0) > 1, run: (c) => booleanMenu('intersect', c?.anchor) },
   duplicateBody: { icon: 'copy', label: 'cmd.duplicateBody', key: 'Ctrl+D', enabled: () => state.sel.kind === 'body', run: duplicateBody },
   tabProject: tabCmd('project', 'simSystems'),
   tabModel: tabCmd('model', 'geometry'),
@@ -762,13 +893,16 @@ const commands = {
   animate: { icon: 'play', label: 'cmd.animate', enabled: () => model.shown?.kind === 'result', checked: () => state.animate, run: () => (state.animate ? model.stopAnimation() : model.startAnimation()) },
   zoomFit: { icon: 'zoomFit', label: 'view.fit', key: 'F', enabled: () => state.tab === 'model', run: () => model.view?.setView('iso') },
   perspective: { icon: 'perspective', label: 'view.perspective', enabled: () => state.tab === 'model', checked: () => Boolean(state.settings.perspectiveView), run: () => { updateSettings({ perspectiveView: !state.settings.perspectiveView }); model.view?.setPerspective(state.settings.perspectiveView); } },
+  showGrid: { icon: 'grid', label: 'cmd.showGrid', key: 'F7', checked: () => state.settings.showGrid !== false, run: () => updateSettings({ showGrid: state.settings.showGrid === false }) },
+  showRulers: { icon: 'ruler', label: 'cmd.showRulers', key: 'Ctrl+R', checked: () => state.settings.showRulers !== false, run: () => updateSettings({ showRulers: state.settings.showRulers === false }) },
   showMaxMin: { icon: 'maxMin', label: 'cmd.showMaxMin', checked: () => Boolean(state.settings.showMaxMin), run: () => { updateSettings({ showMaxMin: !state.settings.showMaxMin }); model.rescale(); } },
   showUndeformed: { icon: 'deform', label: 'cmd.showUndeformed', checked: () => Boolean(state.settings.showUndeformed), run: () => { updateSettings({ showUndeformed: !state.settings.showUndeformed }); model.rescale(); } },
   leftPanel: { icon: 'panelLeft', label: 'cmd.leftPanel', checked: () => state.settings.showLeftPanel, run: () => updateSettings({ showLeftPanel: !state.settings.showLeftPanel }) },
   rightPanel: { icon: 'panelRight', label: 'cmd.rightPanel', checked: () => state.settings.showRightPanel, run: () => updateSettings({ showRightPanel: !state.settings.showRightPanel }) },
   bottomPanel: { icon: 'panelBottom', label: 'cmd.bottomPanel', checked: () => state.settings.showBottomPanel, run: () => updateSettings({ showBottomPanel: !state.settings.showBottomPanel }) },
   statusBar: { icon: 'statusBar', label: 'cmd.statusBar', checked: () => state.settings.showStatusBar, run: () => updateSettings({ showStatusBar: !state.settings.showStatusBar }) },
-  units: { icon: 'units', label: 'settings.unitSystem', run: () => updateSettings({ unitSystem: units() === 'mm' ? 'si' : 'mm' }) },
+  units: { icon: 'units', label: 'settings.unitSystem', run: (c) => unitsMenu(c?.anchor) },
+  ...Object.fromEntries(UNIT_SYSTEMS.map((k) => [`units:${k}`, { icon: 'units', label: `units.${k}`, checked: () => units() === k, run: () => updateSettings({ unitSystem: k }) }])),
   theme: { icon: 'palette', label: 'action.theme', run: () => updateSettings({ theme: resolveTheme(state.settings.theme, prefersDark()).dark ? 'light' : 'dark' }) },
   themeMenu: { icon: 'chevronDown', label: 'action.themeChoose', run: (c) => openThemePicker(c?.anchor) },
   language: { icon: 'language', label: 'action.language', run: () => updateSettings({ language: lang() === 'ko' ? 'en' : 'ko' }) },
@@ -826,15 +960,16 @@ const SUBMENUS = {
   views: () => ['view:iso', 'view:front', 'view:back', 'view:top', 'view:bottom', 'view:right', 'view:left'],
   styles: () => ['style:shadedEdges', 'style:shaded', 'style:mesh', 'style:wireframe', 'style:translucent'],
   exportTo: () => ['exportReport', 'exportCsv', 'exportImage', 'exportStl'],
+  unitSystems: () => UNIT_SYSTEMS.map((k) => `units:${k}`),
 };
-const SUB_ICONS = { newGeometry: 'geometry', newSystem: 'simSystems', conditions: 'bcForce', views: 'viewIso', styles: 'styleShaded', exportTo: 'exportFile' };
+const SUB_ICONS = { unitSystems: 'units', newGeometry: 'geometry', newSystem: 'simSystems', conditions: 'bcForce', views: 'viewIso', styles: 'styleShaded', exportTo: 'exportFile' };
 const sub = (key) => ({ sub: key });
 const MENUS = {
   file: ['newProject', 'open', 'openExample', '-', 'save', 'saveAs', '-', 'importStl', sub('exportTo'), '-', 'print', '-', 'closeProject', 'exit'],
   edit: ['undo', 'redo', '-', 'deleteSelection', 'duplicateBody'],
-  view: ['tabProject', 'tabModel', 'tabData', 'tabStudy', '-', sub('views'), 'zoomFit', 'perspective', sub('styles'), '-', 'leftPanel', 'bottomPanel', 'rightPanel', 'statusBar', '-', 'theme', 'language', 'units'],
-  insert: [sub('newGeometry'), sub('newSystem'), sub('conditions'), 'addContact', 'autoContacts'],
-  solve: ['generateMesh', 'solve', 'solveAll', 'stopSolve', '-', 'animate', 'showMaxMin', 'showUndeformed'],
+  view: ['tabProject', 'tabModel', 'tabData', 'tabStudy', '-', sub('views'), 'zoomFit', 'perspective', sub('styles'), 'showGrid', 'showRulers', '-', 'leftPanel', 'bottomPanel', 'rightPanel', 'statusBar', '-', 'theme', 'language', sub('unitSystems')],
+  insert: [sub('newGeometry'), sub('newSystem'), sub('conditions'), 'addContact', 'autoContacts', 'addProbe', 'addLight', '-', 'bool:subtract', 'bool:union', 'bool:intersect'],
+  solve: ['generateMesh', 'solve', 'solveAll', 'stopSolve', '-', 'animate', 'showMaxMin', 'showUndeformed', '-', 'sectionPlane', 'showArrows', 'addProbe', 'showProbes'],
   tools: ['tabStudy', 'runStudy', 'fitStudy', '-', 'settings'],
   help: ['userGuide', 'tutorialDoc', 'shortcuts', '-', 'about'],
 };
@@ -870,6 +1005,12 @@ function examplesMenu(anchor) {
   const handlers = {};
   const items = SAMPLE_GROUPS.map((g) => ({ id: `group:${g.id}`, label: g[lang()], icon: g.icon, children: SAMPLES.filter((s) => s.group === g.id).map((s) => { handlers[`sample:${s.id}`] = () => openSample(s.id); return { id: `sample:${s.id}`, label: s[lang()][0], icon: s.icon }; }) }));
   return showMenu(items, at, 'context', { handlers, header: { icon: 'samples', title: t('action.openExample') } });
+}
+
+/** The unit systems as a drop-down (toolbar, status bar). */
+function unitsMenu(anchor) {
+  const at = anchor ?? (() => { const el = root.querySelector('#toolbar [data-command="units"]'); return el ? anchorBelow(el) : undefined; })();
+  return showMenu(menuItems(UNIT_SYSTEMS.map((k) => `units:${k}`)), at, 'units');
 }
 
 function newMenu(anchor) {
@@ -959,17 +1100,18 @@ const TOOLBAR = [
   ['undo', 'redo'],
   ['generateMesh', 'solve', 'stopSolve'],
   ['viewsSplit', 'zoomFit', 'perspective', 'style:shadedEdges', 'style:mesh', 'style:translucent'],
+  ['showGrid', 'showRulers'],
   ['animate', 'showMaxMin', 'units'],
 ];
 const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
-const LABELLED = new Set(['newProject', 'open', 'save', 'generateMesh', 'solve', 'animate', 'units']);
+const LABELLED = new Set(['newProject', 'open', 'save', 'generateMesh', 'solve', 'animate', 'units', 'showGrid', 'showRulers']);
 
 function renderToolbar() {
   const bar = root.querySelector('#toolbar');
   const plain = (id) => {
     const c = commands[id];
     const glyph = id === 'language' ? switchFlag(getLanguage()) : icon(c.icon);
-    const label = id === 'units' ? (units() === 'mm' ? 'mm·MPa' : 'SI') : t(c.label);
+    const label = id === 'units' ? SYSTEM_SHORT[units()] ?? units() : t(c.label);
     if (!LABELLED.has(id)) return `<button class="tool-button" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(c.label))}">${glyph}</button>`;
     return `<button class="tool-button labeled" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(c.label))}">${glyph}<span class="tool-label">${escapeHtml(label)}</span></button>`;
   };
@@ -992,6 +1134,7 @@ function fitToolbar() {
 }
 
 function renderToolbarState() {
+  root.classList.toggle('pick-probe', Boolean(state.pickProbe));
   for (const el of root.querySelectorAll('[data-command]')) {
     const id = el.dataset.command;
     if (!commands[id]) continue;
@@ -1008,26 +1151,27 @@ const WS_TABS = [['project', 'simSystems'], ['model', 'geometry'], ['data', 'mat
 function renderWsTabs() {
   const host = root.querySelector('#ws-tabs');
   if (!state.project || state.showStart) { host.innerHTML = ''; return; }
-  host.innerHTML = WS_TABS.map(([id, glyph]) => `<button class="ws-tab ${state.tab === id ? 'active' : ''}" data-ws-tab="${id}" title="${escapeHtml(t(`tabTip.${id}`))}">${icon(glyph)}<span>${escapeHtml(t(`tab.${id}`))}</span></button>`).join('') + `<span class="grow"></span>${activeSystem() ? `<span class="ws-active" title="${escapeHtml(t('status.activeSystem'))}">${icon(SYSTEMS[activeSystem().type].icon)}<span>${escapeHtml(activeSystem().name || t(`sys.${activeSystem().type}`))}</span></span>` : ''}`;
+  host.innerHTML = tabStrip(WS_TABS.map(([id, glyph]) => `<button class="ws-tab ${state.tab === id ? 'active' : ''}" data-ws-tab="${id}" title="${escapeHtml(t(`tabTip.${id}`))}">${icon(glyph)}<span>${escapeHtml(t(`tab.${id}`))}</span></button>`).join(''), 'ws-strip') + `${activeSystem() ? `<span class="ws-active" title="${escapeHtml(t('status.activeSystem'))}">${icon(SYSTEMS[activeSystem().type].icon)}<span>${escapeHtml(activeSystem().name || t(`sys.${activeSystem().type}`))}</span></span>` : ''}`;
 }
 
 /** The ribbon above the 3D view (Model tab): tabs of command buttons. */
 const RIBBON = {
-  geometry: () => [...Object.keys(TEMPLATES).filter((k) => TEMPLATES[k].group === 'primitive').map((k) => `tpl:${k}`), '|', ...Object.keys(TEMPLATES).filter((k) => TEMPLATES[k].group === 'part').map((k) => `tpl:${k}`), '|', ...Object.keys(TEMPLATES).filter((k) => ['fluid', 'electromagnetic'].includes(TEMPLATES[k].group)).map((k) => `tpl:${k}`), '|', 'importStl', 'duplicateBody', 'deleteSelection'],
+  geometry: () => [...Object.keys(TEMPLATES).filter((k) => TEMPLATES[k].group === 'primitive').map((k) => `tpl:${k}`), '|', ...Object.keys(TEMPLATES).filter((k) => TEMPLATES[k].group === 'profile').map((k) => `tpl:${k}`), '|', ...Object.keys(TEMPLATES).filter((k) => TEMPLATES[k].group === 'part').map((k) => `tpl:${k}`), '|', ...Object.keys(TEMPLATES).filter((k) => ['fluid', 'electromagnetic'].includes(TEMPLATES[k].group)).map((k) => `tpl:${k}`), '|', 'importStl', 'importCad', '|', 'bool:subtract', 'bool:union', 'bool:intersect', '|', 'duplicateBody', 'deleteSelection'],
   setup: () => { const sys = activeSystem(); if (!sys) return []; const allowed = SYSTEMS[sys.type].bcs; return [...BC_CATS.flatMap((c) => { const ids = allowed.filter((b) => BCS[b].cat === c).map((b) => `bc:${b}`); return ids.length ? ['|', ...ids] : []; }).slice(1), ...(SYSTEMS[sys.type].contacts ? ['|', 'addContact', 'autoContacts'] : [])]; },
   mesh: () => ['generateMesh', '|', 'style:shadedEdges', 'style:mesh', 'style:wireframe'],
-  solution: () => ['solve', 'solveAll', 'stopSolve', '|', 'animate', 'showMaxMin', 'showUndeformed', '|', 'exportCsv', 'exportImage', 'exportStl', 'print', 'exportReport'],
-  display: () => ['view:iso', 'view:front', 'view:top', 'view:right', 'zoomFit', 'perspective', '|', 'style:shadedEdges', 'style:shaded', 'style:mesh', 'style:wireframe', 'style:translucent'],
+  solution: () => ['solve', 'solveAll', 'stopSolve', '|', 'animate', 'showMaxMin', 'showUndeformed', '|', 'sectionPlane', 'showArrows', 'addProbe', 'showProbes', '|', 'exportCsv', 'exportImage', 'exportStl', 'print', 'exportReport'],
+  display: () => ['view:iso', 'view:front', 'view:top', 'view:right', 'zoomFit', 'perspective', '|', 'showGrid', 'showRulers', 'addLight', '|', 'style:shadedEdges', 'style:shaded', 'style:mesh', 'style:wireframe', 'style:translucent'],
 };
 
 function renderRibbon() {
+  requestAnimationFrame(updateTabStrips);
   const host = root.querySelector('#palette-host');
   host.hidden = !state.project || state.showStart || state.tab !== 'model';
   if (host.hidden) { host.innerHTML = ''; return; }
   const tabs = Object.keys(RIBBON);
   if (!tabs.includes(state.cmTab)) state.cmTab = 'geometry';
   const ids = RIBBON[state.cmTab]();
-  host.innerHTML = `<div class="cm-tab-row"><div class="cm-tabs">${tabs.map((id) => `<button class="cm-tab ${state.cmTab === id ? 'active' : ''}" data-cm-tab="${id}">${escapeHtml(t(`cm.${id}`))}</button>`).join('')}</div></div>
+  host.innerHTML = `<div class="cm-tab-row">${tabStrip(tabs.map((id) => `<button class="cm-tab ${state.cmTab === id ? 'active' : ''}" data-cm-tab="${id}">${escapeHtml(t(`cm.${id}`))}</button>`).join(''), 'cm-strip')}</div>
     <div class="cm-buttons">${ids.map((id) => (id === '|' ? '<span class="cm-sep"></span>' : commands[id] ? `<button class="cm-button" data-command="${id}" title="${escapeHtml(commandTip(id))}">${icon(commands[id].icon)}<span>${escapeHtml(t(commands[id].label))}</span></button>` : '')).join('')}</div>`;
   renderToolbarState();
 }
@@ -1042,14 +1186,14 @@ function panelRail(cmd, openIcon, glyph, title, tip) {
   return `<div class="panel-rail"><button class="rail-button expand" data-command="${cmd}" title="${escapeHtml(t(tip))}" aria-label="${escapeHtml(t(tip))}">${icon(openIcon)}</button><div class="rail-title" data-command="${cmd}" title="${escapeHtml(t(tip))}">${icon(glyph)}<span>${escapeHtml(title)}</span></div></div>`;
 }
 
-const leftInfo = () => (state.tab === 'project' ? ['toolbox', t('panel.toolbox')] : ['outline', t('panel.outline')]);
+const leftInfo = () => (state.tab === 'project' ? ['toolbox', t('panel.toolbox')] : state.tab === 'data' ? ['material', t('panel.materials')] : state.tab === 'study' ? ['simDoe', t('panel.study')] : ['outline', t('panel.outline')]);
 
 function renderLeft() {
   const panel = root.querySelector('#left-panel');
   if (!state.project || state.showStart) { panel.innerHTML = ''; return; }
   const [glyph, title] = leftInfo();
   if (!state.settings.showLeftPanel) { panel.innerHTML = panelRail('leftPanel', 'panelLeftOpen', glyph, title, 'panel.expandLeft'); return; }
-  const body = state.tab === 'project' ? toolboxHtml(ctx) : state.tab === 'model' ? outlineHtml(ctx) : state.tab === 'data' ? `<div class="sd-help pad">${icon('material', 'icon tiny')}${escapeHtml(t('data.leftHelp'))}</div>` : `<div class="sd-help pad">${icon('simDoe', 'icon tiny')}${escapeHtml(t('study.leftHelp'))}</div>`;
+  const body = state.tab === 'project' ? toolboxHtml(ctx) : state.tab === 'model' ? outlineHtml(ctx) : state.tab === 'data' ? dataListHtml(ctx) : studyTreeHtml(ctx);
   const scroll = panel.querySelector('.lp-body')?.scrollTop ?? 0;
   panel.innerHTML = `${panelHead(glyph, title, 'leftPanel', 'panelLeftClose', 'panel.collapseLeft')}<div class="lp-body" data-panel="left">${body}</div>`;
   panel.querySelector('.lp-body').scrollTop = scroll;
@@ -1087,6 +1231,7 @@ function renderTab() {
 }
 
 function renderBottom() {
+  requestAnimationFrame(updateTabStrips);
   const host = root.querySelector('#bottom-panel');
   if (!state.project || state.showStart) { host.innerHTML = ''; return; }
   const sys = activeSystem();
@@ -1105,13 +1250,13 @@ function renderBottom() {
     if (!charts.length) body = `<p class="problems-empty">${icon('chartLine')}<span>${escapeHtml(t('bottom.noGraph'))}</span></p>`;
     else {
       const i = Math.min(state.chartIndex, charts.length - 1);
-      tools = `<span class="segmented">${charts.map((c, k) => `<button class="segment ${k === i ? 'active' : ''}" data-chart="${k}">${escapeHtml(t(c.titleKey))}</button>`).join('')}</span>`;
+      tools = tabStrip(`<span class="segmented">${charts.map((c, k) => `<button class="segment ${k === i ? 'active' : ''}" data-chart="${k}">${escapeHtml(t(c.titleKey))}</button>`).join('')}</span>`, 'chart-strip');
       body = `<div class="bottom-chart">${lineChart(charts[i], { t, units: units(), width: 900, height: Math.max(160, (state.settings.bottomHeight ?? 170) - 50) })}</div>`;
     }
   } else {
     body = tableHtml(sys);
   }
-  host.innerHTML = `<div class="problems-header" data-panel-head><span class="bp-title">${icon('outputPanel')}<b>${escapeHtml(t('panel.output'))}</b></span><span class="segmented">${tabs.map(([id, g, label, n]) => `<button class="segment ${state.bottomTab === id ? 'active' : ''}" data-bottom-tab="${id}">${icon(g)}<span>${escapeHtml(label)}</span>${n !== null && n !== undefined ? `<i class="bottom-count">${n}</i>` : ''}</button>`).join('')}</span>${tools}<button class="icon-button" data-command="bottomPanel" title="${escapeHtml(t('panel.collapseBottom'))}">${icon('panelBottomClose')}</button></div><div class="problems-list bottom-${state.bottomTab}" data-panel="bottom">${body}</div>`;
+  host.innerHTML = `<div class="problems-header" data-panel-head><span class="bp-title">${icon('outputPanel')}<b>${escapeHtml(t('panel.output'))}</b></span>${tabStrip(`<span class="segmented">${tabs.map(([id, g, label, n]) => `<button class="segment ${state.bottomTab === id ? 'active' : ''}" data-bottom-tab="${id}">${icon(g)}<span>${escapeHtml(label)}</span>${n !== null && n !== undefined ? `<i class="bottom-count">${n}</i>` : ''}</button>`).join('')}</span>`, 'bottom-strip')}${tools}<button class="icon-button" data-command="bottomPanel" title="${escapeHtml(t('panel.collapseBottom'))}">${icon('panelBottomClose')}</button></div><div class="problems-list bottom-${state.bottomTab}" data-panel="bottom">${body}</div>`;
 }
 
 function tableHtml(sys) {
@@ -1123,10 +1268,14 @@ function tableHtml(sys) {
   if (r.modes?.length && r.modes[0].frequency !== undefined) parts.push(tbl([t('col.mode'), `${t('res.frequency')} (Hz)`, ...(r.modes[0].effectiveMass ? ['Mx', 'My', 'Mz', 'ΣMx', 'ΣMy', 'ΣMz'] : [])], r.modes.map((m) => [m.mode, fmt(m.frequency, 5), ...(m.effectiveMass ? [...m.effectiveMass.map((v) => fmt(v, 3)), ...m.cumulative.map((v) => `${fmt(100 * v, 3)} %`)] : [])])));
   if (r.modes?.length && r.modes[0].factor !== undefined) parts.push(tbl([t('col.mode'), t('res.loadFactor')], r.modes.map((m) => [m.mode, m.factor === null ? '—' : fmt(m.factor, 5)])));
   if (r.reactions?.length) parts.push(tbl([t('col.support'), `Fx (${unitLabel('force', us)})`, `Fy`, `Fz`, `|F|`], r.reactions.map((x, i) => { const bc = sys.bcs.find((b) => b.id === x.id); return [bc?.name || t(`bc.${bc?.type ?? 'fixed'}`) || `#${i + 1}`, ...x.force.map((v) => fmt(v)), fmt(Math.hypot(...x.force))]; })));
+  if (r.bolts?.length) parts.push(tbl([t('col.bolt'), `${t('col.boltForce')} (${unitLabel('force', us)})`, `${t('col.boltAdjustment')} (${unitLabel('displacement', us)})`], r.bolts.map((x) => { const bc = sys.bcs.find((b) => b.id === x.id); return [bc?.name || t('bc.boltPretension'), fmt(toDisplay('force', x.force, us)), x.adjustment === undefined ? '—' : fmt(toDisplay('displacement', x.adjustment, us))]; })));
   if (r.heatBalance?.length) parts.push(tbl([t('col.condition'), `${t('col.heatOut')} (W)`], r.heatBalance.map((x) => { const bc = sys.bcs.find((b) => b.id === x.id); return [bc?.name || t(`bc.${x.type}`), fmt(x.heatOut)]; })));
   if (r.fluid?.forces?.length) parts.push(tbl([t('col.body'), `${t('out.drag')} (N)`, `${t('out.lift')} (N)`, 'Cd', 'Cl', `${t('col.heat')} (W)`], r.fluid.forces.map((f) => [state.project.bodies.find((b) => b.id === f.body)?.name ?? f.body, fmt(f.drag), fmt(f.lift), fmt(f.cd, 3), fmt(f.cl, 3), fmt(f.heat)])));
   if (r.magnetic?.forces?.length) parts.push(tbl([t('col.body'), 'Fx (N)', 'Fy (N)', 'Fz (N)'], r.magnetic.forces.map((f) => [state.project.bodies.find((b) => b.id === f.body)?.name ?? f.body, ...f.force.map((v) => fmt(v))])));
   if (r.electric?.terminals?.length) parts.push(tbl([t('col.terminal'), 'V', 'A'], r.electric.terminals.map((x) => { const bc = sys.bcs.find((b) => b.id === x.id); return [bc?.name || t('bc.voltage'), fmt(x.voltage), fmt(x.current)]; })));
+  const pv = model.probeValues();
+  if (pv.length) parts.push(tbl([t('outline.probes'), 'X (mm)', 'Y (mm)', 'Z (mm)', `${t('res.probeValue')} (${unitLabel(pv[0].kind, us)})`], pv.map((v, i) => [v.probe.name || `P${i + 1}`, ...v.probe.point.map((c) => fmt(c, 5)), fmt(toDisplay(v.kind, v.value, us))])));
+  if (r.spectrum?.modes?.length) parts.push(tbl([t('col.mode'), `${t('res.frequency')} (Hz)`, `${t('col.acceleration')} (m/s²)`, t('col.participation')], r.spectrum.modes.map((m) => [m.mode, fmt(m.frequency, 5), fmt(m.acceleration, 4), fmt(m.participation, 4)])));
   const outs = Object.entries(outputsOf(sys, r));
   if (outs.length) parts.push(tbl([t('col.quantity'), t('col.value')], outs.map(([k, v]) => [t(`out.${k}`), `${fmt(toDisplay(OUTPUT_KINDS[k] ?? 'ratio', v, us))} ${unitLabel(OUTPUT_KINDS[k] ?? 'ratio', us)}`])));
   return `<div class="bottom-tables">${parts.join('')}</div>`;
@@ -1145,7 +1294,7 @@ function renderStatus() {
     const m = sys?.result?.mesh ?? state.setupMesh?.info;
     if (m) items.push(`<span class="status-item" title="${escapeHtml(t('mesh.statistics'))}">${icon('mesh')}<span>${m.nodes.toLocaleString()} ${escapeHtml(t('mesh.nodesShort'))} · ${m.elements.toLocaleString()} ${escapeHtml(t('mesh.elementsShort'))}</span></span>`);
     if (state.probe) items.push(`<span class="status-item probe">${icon('cursor')}<span>${fmt(toDisplay(state.probe.kind, state.probe.value, units()))} ${escapeHtml(unitLabel(state.probe.kind, units()))}</span></span>`);
-    items.push(`<button class="status-item" data-command="units" title="${escapeHtml(t('settings.unitSystem'))}">${icon('units')}<span>${units() === 'mm' ? 'mm · N · MPa' : 'm · N · Pa'}</span></button>`);
+    items.push(`<button class="status-item" data-command="units" title="${escapeHtml(t('settings.unitSystem'))}">${icon('units')}<span>${escapeHtml(SYSTEM_SHORT[units()] ?? units())}</span></button>`);
   }
   items.push(`<span class="status-item solver" title="${escapeHtml(t('status.solver'))}">${icon('chip')}<span>${escapeHtml(desktop ? t('status.native') : t('status.wasm'))}</span></span>`);
   items.push(`<span class="status-item">${icon('palette')}<span>${escapeHtml(themeName(state.settings.theme, getLanguage()))}</span></span>`);
@@ -1163,6 +1312,27 @@ function renderSome(parts) {
     else if (p === 'toolbar') renderToolbarState();
     else if (p === 'ribbon') renderRibbon();
     else if (p === 'bottom') renderBottom();
+  }
+}
+
+/**
+ * A row of tabs that scrolls sideways: "‹" and "›" buttons appear when the tabs do not fit (more tabs,
+ * a narrow window). The active tab is scrolled into view.
+ */
+function tabStrip(items, cls = '') {
+  return `<div class="tab-strip ${cls}"><button type="button" class="tab-scroll" data-tab-scroll="-1" title="${escapeHtml(t('tabs.scrollLeft'))}" aria-label="${escapeHtml(t('tabs.scrollLeft'))}">${icon('chevronLeft')}</button><div class="tab-strip-items">${items}</div><button type="button" class="tab-scroll" data-tab-scroll="1" title="${escapeHtml(t('tabs.scrollRight'))}" aria-label="${escapeHtml(t('tabs.scrollRight'))}">${icon('chevronRight')}</button></div>`;
+}
+
+function updateTabStrips() {
+  for (const strip of root.querySelectorAll('.tab-strip')) {
+    const items = strip.querySelector('.tab-strip-items');
+    const over = items.scrollWidth > items.clientWidth + 1;
+    strip.classList.toggle('overflowing', over);
+    if (!over) continue;
+    const active = items.querySelector('.active');
+    if (active && !strip.dataset.placed) { active.scrollIntoView({ block: 'nearest', inline: 'nearest' }); strip.dataset.placed = '1'; }
+    strip.querySelector('[data-tab-scroll="-1"]').disabled = items.scrollLeft <= 0;
+    strip.querySelector('[data-tab-scroll="1"]').disabled = items.scrollLeft + items.clientWidth >= items.scrollWidth - 1;
   }
 }
 
@@ -1186,6 +1356,7 @@ function renderAll() {
   renderTab();
   renderBottom();
   renderStatus();
+  requestAnimationFrame(updateTabStrips);
   const start = root.querySelector('#start-page');
   start.hidden = !onStart;
   if (onStart) renderStartPage(); else { startCards?.destroy(); startCards = null; startBackground?.stop(); start.innerHTML = ''; }
@@ -1222,7 +1393,35 @@ function renderStartPage() {
   const theme = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme);
   startBackground = new AnimatedBackground(canvas, { colors: () => ({ bg: theme.colors.bg, accent: theme.colors.accent, text: theme.colors.text, dark: theme.dark, danger: '#e5484d' }), speed: () => state.settings.animationSpeed / 100, kind: state.settings.animation, vivid: true });
   if (state.settings.backgroundKind === 'animated') startBackground.start(); else startBackground.draw();
+  applyStartBgOpacity();
 }
+
+function applyStartBgOpacity() {
+  const canvas = root.querySelector('#start-page .start-bg');
+  if (canvas) canvas.style.opacity = String((state.settings.startBgOpacity ?? 100) / 100);
+}
+
+// The start page's background changes by itself every animationInterval seconds (random or in turn).
+let startBgChangedAt = Date.now();
+function rotateStartBackground() {
+  startBgChangedAt = Date.now();
+  const list = ANIMATIONS;
+  const i = list.indexOf(state.settings.animation);
+  let next = list[(i + 1) % list.length];
+  if (state.settings.animationRandom) { do { next = list[Math.floor(Math.random() * list.length)]; } while (list.length > 1 && next === state.settings.animation); }
+  state.settings = { ...state.settings, animation: next, backgroundKind: 'animated' };
+  storeSettings(globalThis.localStorage, state.settings);
+  if (startBackground?.setKind) { startBackground.setKind(next); renderStartChips(); } else renderStartPage();
+}
+function renderStartChips() {
+  for (const chip of root.querySelectorAll('#start-page [data-start="animation"]')) chip.classList.toggle('active', chip.dataset.value === state.settings.animation);
+}
+setInterval(() => {
+  const s = state.settings;
+  const showing = (state.showStart || !state.project) && s.backgroundKind === 'animated' && s.animationInterval > 0 && !document.hidden;
+  if (!showing) { startBgChangedAt = Math.max(startBgChangedAt, Date.now() - s.animationInterval * 1000 + 2000); return; }
+  if (Date.now() - startBgChangedAt >= s.animationInterval * 1000) rotateStartBackground();
+}, 1000);
 
 async function onStartAction(target) {
   const v = target.dataset.value;
@@ -1271,6 +1470,10 @@ function applySettings(previous = {}) {
   if (s.language !== getLanguage()) { setLanguage(s.language); native.setBackendLanguage(s.language); }
   if (s.theme !== previous.theme || s.customTheme !== previous.customTheme) model.applyTheme();
   if (['colormap', 'contourBands', 'deformScale', 'unitSystem', 'showMaxMin', 'showUndeformed', 'sliceOpacity'].some((k) => s[k] !== previous[k])) model.rescale();
+  else if (['showArrows', 'arrowCount', 'showProbes'].some((k) => s[k] !== previous[k])) model.overlays();
+  if (s.startBgOpacity !== previous.startBgOpacity) applyStartBgOpacity();
+  if (s.showGrid !== previous.showGrid || s.showRulers !== previous.showRulers) model.view?.setGuides({ grid: s.showGrid !== false, rulers: s.showRulers !== false });
+  if (s.showAllBcs !== previous.showAllBcs) model.paintSetup();
   renderAll();
 }
 
@@ -1278,10 +1481,19 @@ function applySettings(previous = {}) {
 
 function onFieldStep(key, displayValue) {
   const [mode, kind, path] = key.split('|');
+  if (path === '$section.offset') return setSection({ offset: Number(displayValue) / 100 });
+  if (path === '$bgSpeed' || path === '$bgOpacity') {
+    const range = root.querySelector(`[data-bg-range="${path}"]`);
+    if (range) range.value = String(displayValue);
+    if (path === '$bgSpeed') return updateSettings({ animationSpeed: Number(displayValue) }, { quiet: true });
+    updateSettings({ startBgOpacity: Number(displayValue) }, { quiet: true });
+    return applyStartBgOpacity();
+  }
+  if (path === '$arrowCount') { updateSettings({ arrowCount: Math.round(Number(displayValue)) }, { quiet: true }); return model.overlays(); }
   if (path.startsWith('study.')) return change('op.edit', (p) => pathSet(p, path, Number(displayValue)), { keepResults: true });
   const si = mode === 'm' ? Number(displayValue) : toSI(kind, Number(displayValue), units());
   const geometry = path.startsWith('bodies.');
-  const keep = path.startsWith('parameters.') || path.startsWith('study.');
+  const keep = path.startsWith('parameters.') || path.startsWith('study.') || path.includes('.probes.') || path.startsWith('lights.');
   change('op.edit', (p) => pathSet(p, path, path.endsWith('.levels') || kind === 'count' ? Math.round(si) : si), { geometry, keepResults: keep });
 }
 
@@ -1291,16 +1503,22 @@ function onSelect(path, value) {
   if (path === '$colormap') return updateSettings({ colormap: value });
   if (path === '$bands') return updateSettings({ contourBands: Number(value) });
   if (path === '$addParam') return value ? addParameter(value) : undefined;
+  if (path === '$section.axis') return setSection({ axis: value });
+  if (path === '$bgInterval') { startBgChangedAt = Date.now(); return updateSettings({ animationInterval: Number(value) }, { quiet: true }); }
   const numeric = /\.order$/.test(path);
-  return change('op.edit', (p) => { pathSet(p, path, numeric ? Number(value) : value); if (/\.material$/.test(path)) ensureMaterial(p, value); }, { geometry: path.startsWith('bodies.'), keepResults: path.startsWith('study.') });
+  return change('op.edit', (p) => { pathSet(p, path, numeric ? Number(value) : value); if (/\.material$/.test(path)) ensureMaterial(p, value); }, { geometry: path.startsWith('bodies.'), keepResults: path.startsWith('study.') || path.startsWith('lights.') });
 }
 
 function onToggle(path, on) {
+  if (path.startsWith('$section.')) return setSection({ [path.slice(9)]: on });
+  if (path === '$bgRandom') return updateSettings({ animationRandom: on }, { quiet: true });
+  if (path === '$bgAuto') { startBgChangedAt = Date.now(); updateSettings({ animationInterval: on ? (state.settings.lastInterval || 30) : 0, lastInterval: state.settings.animationInterval || state.settings.lastInterval || 30 }, { quiet: true }); return renderStartPage(); }
+  if (path === '$showArrows') { updateSettings({ showArrows: on }, { quiet: true }); return model.overlays(); }
   if (path.endsWith('#on')) {
     const real = path.slice(0, -3);
     return change('op.edit', (p) => pathSet(p, real, on ? 0 : null));
   }
-  return change('op.edit', (p) => pathSet(p, path, on), { geometry: path.startsWith('bodies.') && path.endsWith('.suppressed') });
+  return change('op.edit', (p) => pathSet(p, path, on), { geometry: path.startsWith('bodies.') && path.endsWith('.suppressed'), keepResults: path.startsWith('lights.') });
 }
 
 function onText(path, value) {
@@ -1312,7 +1530,9 @@ function onCell(spec, value) {
   const [path, i, c, kind] = spec.split('|');
   const v = Number(String(value).replace(',', '.'));
   if (!Number.isFinite(v)) return renderLeft();
-  return change('op.edit', (p) => { const rows = pathGet(p, path); if (rows?.[Number(i)]) rows[Number(i)][Number(c)] = toSI(kind, v, units()); });
+  // Profile points of a body are model units (mm); other tables are SI.
+  const modelUnits = kind === 'model';
+  return change('op.edit', (p) => { const rows = pathGet(p, path); if (rows?.[Number(i)]) rows[Number(i)][Number(c)] = modelUnits ? v : toSI(kind, v, units()); }, { geometry: path.startsWith('bodies.') });
 }
 
 // ───────────────────────── context menus (each panel its own)
@@ -1354,7 +1574,7 @@ function outlineMenu(event, kind, id) {
   select({ kind, id });
   let entries = [];
   switch (kind) {
-    case 'project': entries = [{ id: 'rename', label: t('cmd.rename'), icon: 'rename', run: () => renameItem(p.name, (v) => { p.name = v; }) }, '-', 'solveAll', sub('newSystem'), sub('newGeometry'), '-', 'units', 'save']; break;
+    case 'project': entries = [{ id: 'rename', label: t('cmd.rename'), icon: 'rename', run: () => renameItem(p.name, (v) => { p.name = v; }) }, '-', 'solveAll', sub('newSystem'), sub('newGeometry'), '-', sub('unitSystems'), 'save']; break;
     case 'geometry': entries = [sub('newGeometry'), 'importStl', '-', { id: 'showAll', label: t('ctx.showAllBodies'), icon: 'eye', run: () => { for (const b of p.bodies) b.hidden = false; model.paintSetup(); model.rescale(); renderLeft(); } }]; break;
     case 'body': {
       const b = p.bodies.find((x) => x.id === id);
@@ -1366,6 +1586,7 @@ function outlineMenu(event, kind, id) {
         { id: 'hide', label: t(b.hidden ? 'action.showBody' : 'action.hideBody'), icon: b.hidden ? 'eye' : 'eyeOff', run: () => { b.hidden = !b.hidden; model.paintSetup(); model.rescale(); renderLeft(); } },
         { id: 'isolate', label: t('ctx.isolateBody'), icon: 'eye', run: () => { for (const x of p.bodies) x.hidden = x.id !== id; model.paintSetup(); model.rescale(); renderLeft(); } },
         { id: 'suppress', label: t(b.suppressed ? 'ctx.unsuppress' : 'ctx.suppress'), icon: 'suppress', run: () => change('op.edit', (pr) => { const x = pr.bodies.find((y) => y.id === id); x.suppressed = !x.suppressed; }, { geometry: true }) },
+        '-', 'bool:subtract', 'bool:union', 'bool:intersect',
         '-', 'duplicateBody', 'deleteSelection',
       ];
       break;
@@ -1402,8 +1623,15 @@ function outlineMenu(event, kind, id) {
       ];
       break;
     }
+    case 'probes': entries = ['addProbe', 'showProbes']; break;
+    case 'probe': {
+      const q = sys?.probes?.find((x) => x.id === id);
+      if (!q) return undefined;
+      entries = [{ id: 'rename', label: t('cmd.rename'), icon: 'rename', run: () => renameItem(q.name, (v) => { q.name = v; }) }, '-', 'deleteSelection'];
+      break;
+    }
     case 'result': {
-      entries = ['animate', 'showMaxMin', 'showUndeformed', '-', 'exportCsv', 'exportImage', ...(activeSystem()?.result?.topology ? ['exportStl'] : []), 'print'];
+      entries = ['animate', 'showMaxMin', 'showUndeformed', '-', 'sectionPlane', 'showArrows', 'addProbe', '-', 'exportCsv', 'exportImage', ...(activeSystem()?.result?.topology ? ['exportStl'] : []), 'print'];
       break;
     }
     default: break;
@@ -1426,7 +1654,7 @@ function rightPanelMenu(event) {
   if (state.sel.kind === 'body') entries.push('duplicateBody');
   if (['system', 'settings', 'solution', 'mesh'].includes(state.sel.kind)) entries.push('solve', 'generateMesh');
   if (state.sel.kind === 'result') entries.push('animate', 'exportCsv', 'exportImage');
-  entries.push('-', 'units', collapse('Right'));
+  entries.push('-', sub('unitSystems'), collapse('Right'));
   return contextMenu(event, entries);
 }
 
@@ -1461,7 +1689,11 @@ function viewMenu(event) {
   const hit = model.view?.pickAt(event);
   const result = model.shown?.kind === 'result';
   const entries = [];
-  if (result) entries.push('animate', 'showMaxMin', 'showUndeformed', '-', 'exportCsv', 'exportImage', '-');
+  if (result) {
+    entries.push('animate', 'showMaxMin', 'showUndeformed', '-', 'sectionPlane', 'showArrows');
+    if (hit) entries.push({ id: 'probeHere', label: t('ctx.probeHere'), icon: 'probe', run: () => addProbeAt(hit.point) });
+    entries.push('-', 'exportCsv', 'exportImage', '-');
+  }
   else if (hit) {
     const b = state.project.bodies.find((x) => x.id === hit.body);
     const sel = state.sel;
@@ -1475,10 +1707,12 @@ function viewMenu(event) {
       entries.push({ id: 'hide', label: t('action.hideBody'), icon: 'eyeOff', run: () => { b.hidden = true; model.paintSetup(); renderLeft(); } });
     }
     const sys = activeSystem();
+    if (sys) entries.push({ id: 'probeHere', label: t('ctx.probeHere'), icon: 'probe', run: () => addProbeAt(hit.point) });
+    entries.push('addLight');
     if (sys) entries.push({ id: 'bcs', label: t('ctx.addCondition'), icon: 'bcForce', children: SYSTEMS[sys.type].bcs.filter((k) => BCS[k].target !== 'none').map((k) => ({ id: `custom:bcAt:${k}`, label: t(`bc.${k}`), icon: BCS[k].icon, run: () => { addCondition(k); const nb = activeSystem().bcs.at(-1); if (BCS[k].target.includes('faces')) facePicked({ face: hit.face, body: hit.body, sig: model.sigOf(hit.face, state.setupMesh?.info) }); else if (BCS[k].target === 'bodies') change('op.pickBody', () => { nb.bodies = [hit.body]; }); } })) });
     entries.push('-');
   }
-  entries.push(sub('views'), 'zoomFit', 'perspective', sub('styles'));
+  entries.push(sub('views'), 'zoomFit', 'perspective', sub('styles'), 'showGrid', 'showRulers');
   if (state.project.bodies.some((b) => b.hidden)) entries.push({ id: 'showAll', label: t('ctx.showAllBodies'), icon: 'eye', run: () => { for (const b of state.project.bodies) b.hidden = false; model.paintSetup(); model.rescale(); renderLeft(); } });
   entries.push('-', 'solve');
   return contextMenu(event, entries);
@@ -1530,6 +1764,8 @@ function bindEvents() {
     if (win && desktop) { const id = win.dataset.window; if (id === 'minimize') appWindow.minimize(); else if (id === 'maximize') appWindow.toggleMaximize(); else appWindow.close(); return undefined; }
     const wsTab = target.closest('[data-ws-tab]');
     if (wsTab) return setTab(wsTab.dataset.wsTab);
+    const tabScroll = target.closest('[data-tab-scroll]');
+    if (tabScroll) { const items = tabScroll.parentElement.querySelector('.tab-strip-items'); items.scrollBy({ left: Number(tabScroll.dataset.tabScroll) * Math.max(120, items.clientWidth * 0.6), behavior: 'smooth' }); setTimeout(updateTabStrips, 350); return undefined; }
     const cmTab = target.closest('[data-cm-tab]');
     if (cmTab) { state.cmTab = cmTab.dataset.cmTab; return renderRibbon(); }
     const eye = target.closest('[data-eye]');
@@ -1565,7 +1801,7 @@ function bindEvents() {
     const command = target.closest('[data-command]');
     if (command && !command.disabled && command.tagName !== 'INPUT') {
       const id = command.dataset.command;
-      const anchored = ['newMenu', 'themeMenu', 'viewsMenu', 'openExample'].includes(id);
+      const anchored = ['newMenu', 'themeMenu', 'viewsMenu', 'openExample', 'units', 'bool:subtract', 'bool:union', 'bool:intersect'].includes(id);
       return run(id, { anchor: anchored ? anchorBelow(command.closest('.split-button') ?? command) : undefined });
     }
     const bottomTab = target.closest('[data-bottom-tab]');
@@ -1576,9 +1812,11 @@ function bindEvents() {
     const chart = target.closest('[data-chart]');
     if (chart) { state.chartIndex = Number(chart.dataset.chart); return renderBottom(); }
     const mat = target.closest('[data-mat]');
-    if (mat) { state.dataSel = mat.dataset.mat; return renderTab(); }
+    if (mat) { state.dataSel = mat.dataset.mat; renderLeft(); return renderTab(); }
     const addMat = target.closest('[data-add-mat]');
-    if (addMat) { change('op.addMaterial', (p) => ensureMaterial(p, addMat.dataset.addMat), { keepResults: true }); state.dataSel = addMat.dataset.addMat; return renderTab(); }
+    if (addMat) { state.dataSel = addMat.dataset.addMat; change('op.addMaterial', (p) => ensureMaterial(p, addMat.dataset.addMat), { keepResults: true }); return undefined; }
+    const studyParam = target.closest('[data-study-param]');
+    if (studyParam) { root.querySelector('.param-table')?.scrollIntoView({ block: 'nearest' }); return undefined; }
     const matDel = target.closest('[data-mat-del]');
     if (matDel) return change('op.delete', (p) => { p.materials = p.materials.filter((m) => m.id !== matDel.dataset.matDel); state.dataSel = null; });
     const matReset = target.closest('[data-mat-reset]');
@@ -1586,9 +1824,11 @@ function bindEvents() {
     const paramDel = target.closest('[data-param-del]');
     if (paramDel) return change('op.delete', (p) => { p.parameters = p.parameters.filter((q) => q.id !== paramDel.dataset.paramDel); p.study.rows = []; p.study.fit = null; }, { keepResults: true });
     const tAdd = target.closest('[data-table-add]');
-    if (tAdd) return change('op.edit', (p) => { const rows = pathGet(p, tAdd.dataset.tableAdd); const last = rows.at(-1) ?? [0, 0]; rows.push([last[0] * 1.5 || 1, last[1]]); });
+    if (tAdd) return change('op.edit', (p) => { const rows = pathGet(p, tAdd.dataset.tableAdd); const last = rows.at(-1) ?? [0, 0]; const first = rows[0] ?? [0, 0]; rows.push(tAdd.dataset.tableAdd.startsWith('bodies.') ? [(last[0] + first[0]) / 2, (last[1] + first[1]) / 2 + 5] : [last[0] * 1.5 || 1, last[1]]); }, { geometry: tAdd.dataset.tableAdd.startsWith('bodies.') });
     const tDel = target.closest('[data-table-del]');
-    if (tDel) { const [path, i] = tDel.dataset.tableDel.split('|'); return change('op.edit', (p) => { pathGet(p, path).splice(Number(i), 1); }); }
+    if (tDel) { const [path, i] = tDel.dataset.tableDel.split('|'); return change('op.edit', (p) => { const rows = pathGet(p, path); if (!path.startsWith('bodies.') || rows.length > 3) rows.splice(Number(i), 1); }, { geometry: path.startsWith('bodies.') }); }
+    const opDel = target.closest('[data-op-del]');
+    if (opDel) { const [bid, i] = opDel.dataset.opDel.split('|'); return removeBooleanOp(bid, Number(i)); }
     return undefined;
   });
   root.addEventListener('dblclick', (event) => {
@@ -1598,12 +1838,23 @@ function bindEvents() {
   });
   root.addEventListener('contextmenu', onContextMenu);
   root.addEventListener('pointerdown', (event) => { if (event.button === 2) rightDown = { x: event.clientX, y: event.clientY }; }, true);
+  // Start page sliders (speed, opacity): live while dragging; the number box beside follows.
+  root.addEventListener('input', (event) => {
+    const el = event.target;
+    if (el.dataset?.bgRange === undefined) return;
+    const v = Number(el.value);
+    const box = el.parentElement.querySelector('.stepper-value');
+    if (box) box.value = String(v);
+    if (el.dataset.bgRange === '$bgSpeed') updateSettings({ animationSpeed: v }, { quiet: true });
+    else { updateSettings({ startBgOpacity: v }, { quiet: true }); applyStartBgOpacity(); }
+  });
   root.addEventListener('change', (event) => {
     const el = event.target;
     if (el.dataset.select !== undefined) return onSelect(el.dataset.select, el.value);
     if (el.dataset.toggleField !== undefined) return onToggle(el.dataset.toggleField, el.checked);
     if (el.dataset.text !== undefined) return onText(el.dataset.text, el.value);
     if (el.dataset.cell !== undefined) return onCell(el.dataset.cell, el.value);
+    if (el.dataset.lightColor !== undefined) return change('op.edit', (p) => { const l = (p.lights ?? []).find((x) => x.id === el.dataset.lightColor); if (l) l.color = el.value; }, { keepResults: true });
     if (el.dataset.matColor !== undefined) return change('op.edit', (p) => { const m = p.materials.find((x) => x.id === el.dataset.matColor); if (m) m.color = el.value; }, { keepResults: true });
     if (el.dataset.bcBody !== undefined) { const bc = activeSystem()?.bcs.find((b) => b.id === state.sel.id); if (bc) change('op.pickBody', () => { bc.bodies = el.checked ? [...new Set([...bc.bodies, el.dataset.bcBody])] : bc.bodies.filter((b) => b !== el.dataset.bcBody); }); return undefined; }
     if (el.dataset.startToggle !== undefined) return updateSettings({ showStartPage: el.checked }, { quiet: true });
@@ -1641,7 +1892,7 @@ function bindEvents() {
     });
   }
   window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('resize', frameThrottle(() => { fitToolbar(); model.view?.resize(); }));
+  window.addEventListener('resize', frameThrottle(() => { fitToolbar(); model.view?.resize(); updateTabStrips(); }));
   window.addEventListener('beforeunload', (event) => { if (!desktop && state.dirty) { event.preventDefault(); event.returnValue = ''; } });
   window.addEventListener('error', (event) => { if (/ResizeObserver/.test(String(event.message))) return; notify('error', String(event.message)); });
   window.addEventListener('unhandledrejection', (event) => notify('error', errorText(event.reason)));
@@ -1654,6 +1905,7 @@ function onKeyDown(event) {
     if (c.key && c.key.toUpperCase() === key.toUpperCase()) { event.preventDefault(); run(id); return; }
   }
   if (event.key === 'Escape' && state.animate) model.stopAnimation();
+  if (event.key === 'Escape' && state.pickProbe) { state.pickProbe = false; renderToolbarState(); }
 }
 
 function bindPopupActions() {
@@ -1712,7 +1964,7 @@ async function start() {
 window.__my3dmaker = {
   state, commands, run, popups, t,
   get model() { return model; },
-  actions: { openSample, newProject, addSystemOf, addCondition, addTemplateBody, solve, select, setTab, change, undo, redo, saveProject, openContent, updateSettings, facePicked, runStudy, fitStudy, addParameter, meshActive },
+  actions: { addLightNear, openSample, newProject, addSystemOf, addCondition, addTemplateBody, solve, select, setTab, change, undo, redo, saveProject, openContent, updateSettings, facePicked, runStudy, fitStudy, addParameter, meshActive, addProbeAt, setSection, addBooleanOp, removeBooleanOp },
   menus: { MENUS, SUBMENUS: Object.fromEntries(Object.entries(SUBMENUS).map(([k, f]) => [k, f()])) },
 };
 

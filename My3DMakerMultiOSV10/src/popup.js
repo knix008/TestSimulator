@@ -281,7 +281,11 @@ function settingsStart() {
     row('list', t('settings.startRecentCount'), numberField('startRecentCount', s().startRecentCount, 1, 10, 1, '', t('settings.startRecentCount'))),
     toggle('startShowFolders', t('settings.startShowFolders'), 'recentFolder'),
     toggle('startShowSamples', t('settings.startShowSamples'), 'samples'),
-        toggle('startShowBackground', t('settings.startShowBackground'), 'sparkles'),
+    toggle('startShowBackground', t('settings.startShowBackground'), 'sparkles'),
+    row('clock', t('settings.bgInterval'), select('data-select', 'animationInterval', ANIMATION_INTERVALS.map((n) => [n, intervalLabel(n)]), s().animationInterval, t('settings.bgInterval'))),
+    toggle('animationRandom', t('settings.bgRandom'), 'dice'),
+    row('speed', t('settings.animationSpeed'), numberField('animationSpeed', s().animationSpeed, 0, 200, 5, '%', t('settings.animationSpeed'))),
+    row('opacity', t('settings.startBgOpacity'), numberField('startBgOpacity', s().startBgOpacity, 0, 100, 5, '%', t('settings.startBgOpacity'))),
     toggle('startShowTutorialBanner', t('settings.startShowTutorialBanner'), 'bulb'),
     row('home', t('settings.startOpen'), button('show-start', t('settings.startOpenButton'), 'home', 'small')),
     row('info', '', `<span class="muted">${escapeHtml(t('settings.startHint'))}</span>`, t('settings.startHint')),
@@ -346,8 +350,8 @@ function renderThemePicker() {
       <span class="theme-name">${escapeHtml(themeName(theme.id, L()))}</span>${current === theme.id ? icon('check', 'icon check') : ''}
     </button>`).join('')}
   </div>`;
-  root.innerHTML = frame({
-    glyph: 'palette', title: t('theme.pickTitle'),
+  // A drop-down (no title bar): it closes when a theme is picked or it loses focus.
+  root.innerHTML = `<div class="theme-dropdown" role="menu" aria-label="${escapeHtml(t('theme.pickTitle'))}">${(({ body, foot }) => `${body}<div class="theme-dropdown-foot">${foot}</div>`)({
     body: `<div class="theme-picker">
       <div class="picker-top">
         <button class="picker-item ${current === SYSTEM ? 'active' : ''}" data-pick-theme="${SYSTEM}" title="${escapeHtml(themeName(SYSTEM, L()))}">${icon('sun')}<span class="theme-name">${escapeHtml(themeName(SYSTEM, L()))}</span>${current === SYSTEM ? icon('check', 'icon check') : ''}</button>
@@ -355,8 +359,8 @@ function renderThemePicker() {
       </div>
       <div class="picker-columns">${column('moon', t('theme.darkGroup', { count: DARK_THEMES.length }), DARK_THEMES)}${column('sun', t('theme.lightGroup', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}</div>
     </div>`,
-    foot: `<button class="button small" data-action="edit-custom" title="${escapeHtml(t('settings.editCustom'))}">${icon('edit')}<span>${escapeHtml(t('settings.editCustom'))}</span></button><button class="button small" data-action="random-theme" title="${escapeHtml(t('action.themeRandom'))}">${icon('dice')}<span>${escapeHtml(t('action.themeRandom'))}</span></button><span class="grow"></span>${button('close', t('common.close'), 'close')}`,
-  });
+    foot: `<button class="button small" data-action="edit-custom" title="${escapeHtml(t('settings.editCustom'))}">${icon('edit')}<span>${escapeHtml(t('settings.editCustom'))}</span></button><button class="button small" data-action="random-theme" title="${escapeHtml(t('action.themeRandom'))}">${icon('dice')}<span>${escapeHtml(t('action.themeRandom'))}</span></button>`,
+  })}</div>`;
   const anchor = P().anchor;
   if (anchor && !state.placed) {
     state.placed = true;
@@ -400,7 +404,7 @@ function settingsBackground() {
     row('layers', t('settings.bgKind'), segmented('backgroundKind', BACKGROUND_KINDS.map((k) => [k, t(`bgKind.${k}`)]), s().backgroundKind)),
     row('sparkles', t('settings.animation'), select('data-select', 'animation', ANIMATIONS.map((a) => [a, t(`animation.${a}`)]), s().animation, t('settings.animation'), 'data-icon-prefix="anim"')
       + button('shuffle-background', t('action.shuffleBackground'), 'dice', 'small'), t('settings.animation'), 'full'),
-    row('speed', t('settings.animationSpeed'), numberField('animationSpeed', s().animationSpeed, 0, 300, 10, '%', t('settings.animationSpeed'))),
+    row('speed', t('settings.animationSpeed'), numberField('animationSpeed', s().animationSpeed, 0, 200, 5, '%', t('settings.animationSpeed'))),
     toggle('animationRandom', t('settings.bgRandom'), 'dice'),
     row('clock', t('settings.bgInterval'), select('data-select', 'animationInterval', ANIMATION_INTERVALS.map((n) => [n, intervalLabel(n)]), s().animationInterval, t('settings.bgInterval'))),
     toggle('animationOnStartOnly', t('settings.animationOnStartOnly'), 'home'),

@@ -115,6 +115,40 @@
     "wait": 300
   },
   {
+    "name": "results: a section plane cuts and moves",
+    "eval": "(async()=>{ const a=window.__my3dmaker.actions; const s=window.__my3dmaker.state; s.dirty=false; await a.openSample('cantilever'); await a.solve(); const sid=s.project.systems[0].id; a.select({kind:'result', id: sid+':vonMises'}); a.setSection({ enabled:true, axis:'x', offset:0.3, clip:true }); await new Promise(r=>setTimeout(r,300)); const v=window.__my3dmaker.model.view; const cap=v.overlay.children.find(o=>o.userData.cap); const x1=v.section.point[0]; a.setSection({ offset:0.8 }); await new Promise(r=>setTimeout(r,200)); const ok=(cap?.geometry.getAttribute('position').count>0) && v.renderer.localClippingEnabled && v.section.point[0]>x1 && Boolean(document.querySelector('[data-stepper=\"k|ratio|$section.offset\"]')); a.setSection({ enabled:false }); return ok })()",
+    "expect": "true",
+    "wait": 300,
+    "shot": "section"
+  },
+  {
+    "name": "results: a probe shows its value",
+    "eval": "(async()=>{ const a=window.__my3dmaker.actions; const s=window.__my3dmaker.state; a.addProbeAt([100,0,5]); await new Promise(r=>setTimeout(r,300)); const v=window.__my3dmaker.model.probeValues(); return s.project.systems[0].probes.length + ':' + (v[0]?.value>0) + ':' + document.querySelectorAll('.sv-label.probe').length })()",
+    "expect": "^1:true:1$",
+    "wait": 300,
+    "shot": "probe"
+  },
+  {
+    "name": "results: vector arrows of the heat flux",
+    "eval": "(async()=>{ const a=window.__my3dmaker.actions; const s=window.__my3dmaker.state; s.dirty=false; await a.openSample('heatSink'); await a.solve(); const sid=s.project.systems[0].id; a.select({kind:'result', id: sid+':flux'}); await new Promise(r=>setTimeout(r,400)); return window.__my3dmaker.model.view.arrowCount > 10 })()",
+    "expect": "true",
+    "wait": 300,
+    "shot": "arrows"
+  },
+  {
+    "name": "geometry: subtract a tool body",
+    "eval": "(async()=>{ const a=window.__my3dmaker.actions; const s=window.__my3dmaker.state; s.dirty=false; await a.newProject(); a.addSystemOf('static'); a.setTab('model'); a.addTemplateBody('box'); a.addTemplateBody('cylinder'); const [b1,b2]=s.project.bodies; a.change('op.edit', () => { b2.position=[0,0,0]; }, { geometry:true }); a.addBooleanOp(b1.id,'subtract',b2.id); return s.project.bodies[1].tool })()",
+    "expect": "true",
+    "wait": 300
+  },
+  {
+    "name": "geometry: the tool body cuts a hole",
+    "eval": "(async()=>{ for (let i = 0; i < 150; i++) { const m = window.__my3dmaker.state.setupMesh; if (m?.info) return m.info.bodies.length + ':' + m.info.faces.length; await new Promise(r => setTimeout(r, 200)); } return 'no mesh' })()",
+    "expect": "^1:7$",
+    "wait": 300,
+    "shot": "boolean"
+  },
+  {
     "name": "app: no errors in the log",
     "eval": "JSON.stringify(window.__my3dmaker.state.log.filter(l => l.kind === 'error').map(l => l.text))",
     "expect": "^\\[\\]$"

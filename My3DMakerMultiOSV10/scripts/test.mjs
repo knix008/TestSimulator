@@ -241,6 +241,17 @@ for (const id of selected) {
           if (/panicked at|assertion/.test(line)) { const t = [...tests].reverse().find((x) => x.status === 'fail' && !x.error); if (t) t.error = line.trim(); }
         },
       });
+      // The solver core compiles for macOS and Linux too (what the installers there are built from):
+      // a type check for each of those targets this toolchain has.
+      if (id === 'rust') {
+        const installed = (await run('rustup', ['target', 'list', '--installed'])).out.split(/?
+/).map((x) => x.trim());
+        for (const target of ['x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu', 'x86_64-apple-darwin', 'aarch64-apple-darwin'].filter((x) => installed.includes(x))) {
+          const k = await run('cargo', ['check', '--release', '--target', target, '--target-dir', path.join(root, 'target-check')], { cwd });
+          tests.push({ group: 'cross-compile', name: target, status: k.code ? 'fail' : 'pass', ms: k.ms, error: k.code ? k.out.slice(-800) : undefined });
+          if (k.code) r.code = 1;
+        }
+      }
       // Ignored tests are debugging aids (not part of the suite).
       return { tests: tests.filter((t) => t.status !== 'skip'), ...r };
     });

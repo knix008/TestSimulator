@@ -6,6 +6,8 @@
 // picks the face under the pointer. Coordinates are model units (mm).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { Guides } from './guides.js';
 
 export const VIEWS = {
   iso: [1, -1, 0.8], front: [0, -1, 0], back: [0, 1, 0], top: [0, 0, 1], bottom: [0, 0, -1], right: [1, 0, 0], left: [-1, 0, 0],
@@ -38,6 +40,32 @@ export function mapColor(t, name = 'rainbow', bands = 0, out = new THREE.Color()
 export function cssColor(t, name, bands) { return `#${mapColor(t, name, bands).getHexString()}`; }
 
 const BC_COLORS = { support: '#2f7de1', load: '#e5484d', thermal: '#f08a24', electric: '#9b59d0', magnetic: '#14a3a3', acoustic: '#d0479b', fluid: '#2fb37a', pick: '#1f7ae0', hover: '#f6a23a' };
+
+/** A sun (disc and twelve rays) on a transparent canvas: the marker of a light. Made once. */
+let sunTex = null;
+function sunTexture() {
+  if (sunTex) return sunTex;
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const g = c.getContext('2d');
+  g.translate(64, 64);
+  g.strokeStyle = '#f59f00';
+  g.lineCap = 'round';
+  g.lineWidth = 7;
+  for (let i = 0; i < 12; i++) {
+    const a = (i * Math.PI) / 6;
+    const r0 = 34; const r1 = i % 2 ? 50 : 60;
+    g.beginPath(); g.moveTo(r0 * Math.cos(a), r0 * Math.sin(a)); g.lineTo(r1 * Math.cos(a), r1 * Math.sin(a)); g.stroke();
+  }
+  const grad = g.createRadialGradient(-6, -6, 4, 0, 0, 26);
+  grad.addColorStop(0, '#fff3b0'); grad.addColorStop(1, '#ffb703');
+  g.fillStyle = grad;
+  g.beginPath(); g.arc(0, 0, 25, 0, Math.PI * 2); g.fill();
+  g.lineWidth = 3; g.strokeStyle = '#9a5b00'; g.stroke();
+  sunTex = new THREE.CanvasTexture(c);
+  sunTex.colorSpace = THREE.SRGBColorSpace;
+  return sunTex;
+}
 
 export class SimView {
   constructor(host, { onPick = null, onHover = null } = {}) {
@@ -111,11 +139,16 @@ export class SimView {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(host);
     this.box = new THREE.Box3(new THREE.Vector3(-50, -50, -50), new THREE.Vector3(50, 50, 50));
+    // Ground grid (3D) and rulers (2D: with the mouse position).
+    this.guides = new Guides(this);
+    this.canvas.addEventListener('pointermove', (e) => { const r = this.canvas.getBoundingClientRect(); this.guides.cursor = [e.clientX - r.left, e.clientY - r.top]; if (this.guides.showRulers) this.guides.update(); });
+    this.canvas.addEventListener('pointerleave', () => { this.guides.cursor = null; if (this.guides.showRulers) this.guides.update(); });
     this.setView('iso', false);
   }
 
   dispose() {
     this.stopAnimation();
+    this.guides.dispose();
     this.resizeObserver.disconnect();
     this.controls.dispose();
     this.renderer.dispose();
@@ -215,7 +248,7 @@ export class SimView {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(p, 3));
     g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(nt * 9).fill(0.7), 3));
-    g.computeVertexNormals();
+    g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nt * 9), 3));
     g.computeBoundingBox();
     this.faceOfTri = mesh.triFace;
     this.faceBody = (mesh.faces ?? []).map((f) => f.body);
@@ -235,6 +268,7 @@ export class SimView {
     this.wire = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x23272e, transparent: true, opacity: 0.35 }));
     this.root.add(this.wire);
     this.basePositions = p.slice();
+    this.smoothNormals();
     this.baseEdges = ep.slice();
     this.baseWire = wp.slice();
     this.bodyColor = new Map(bodies.map((b) => [b.id, new THREE.Color(b.color ?? '#9aa4b1')]));
@@ -242,6 +276,43 @@ export class SimView {
     this.applyStyle();
     this.paintFaces();
     this.render();
+  }
+
+  /**
+   * Normals smooth within each face of the model (averaged over the triangles of the same face at a node,
+   * area weighted) and sharp where faces meet: curved faces look round, edges stay crisp.
+   */
+  smoothNormals() {
+    if (!this.mesh || !this.info) return;
+    const g = this.mesh.geometry;
+    const pos = g.getAttribute('position').array;
+    const nrm = g.getAttribute('normal');
+    const tris = this.info.tris;
+    const faceOf = this.faceOfTri;
+    const nt = tris.length / 3;
+    const acc = new Map();
+    const tn = new Float32Array(nt * 3);
+    for (let t = 0; t < nt; t++) {
+      const o = 9 * t;
+      const ux = pos[o + 3] - pos[o]; const uy = pos[o + 4] - pos[o + 1]; const uz = pos[o + 5] - pos[o + 2];
+      const vx = pos[o + 6] - pos[o]; const vy = pos[o + 7] - pos[o + 1]; const vz = pos[o + 8] - pos[o + 2];
+      // Cross product: length = twice the area (area weighting).
+      tn[3 * t] = uy * vz - uz * vy; tn[3 * t + 1] = uz * vx - ux * vz; tn[3 * t + 2] = ux * vy - uy * vx;
+      for (let k = 0; k < 3; k++) {
+        const key = tris[3 * t + k] * 65536 + (faceOf[t] % 65536);
+        const a = acc.get(key);
+        if (a) { a[0] += tn[3 * t]; a[1] += tn[3 * t + 1]; a[2] += tn[3 * t + 2]; } else acc.set(key, [tn[3 * t], tn[3 * t + 1], tn[3 * t + 2]]);
+      }
+    }
+    const out = nrm.array;
+    for (let t = 0; t < nt; t++) {
+      for (let k = 0; k < 3; k++) {
+        const a = acc.get(tris[3 * t + k] * 65536 + (faceOf[t] % 65536));
+        const l = Math.hypot(a[0], a[1], a[2]) || 1;
+        out[9 * t + 3 * k] = a[0] / l; out[9 * t + 3 * k + 1] = a[1] / l; out[9 * t + 3 * k + 2] = a[2] / l;
+      }
+    }
+    nrm.needsUpdate = true;
   }
 
   setStyle(style) { this.style = style; this.applyStyle(); this.render(); }
@@ -385,7 +456,7 @@ export class SimView {
       pos.array.set(out);
     }
     pos.needsUpdate = true;
-    this.mesh.geometry.computeVertexNormals();
+    this.smoothNormals();
     // Edges and wireframe follow (from the node positions).
     const pn = this.info.positions;
     const at = (n, c) => pn[3 * n + c] + (v && s ? s * v[3 * n + c] : 0);
@@ -412,7 +483,7 @@ export class SimView {
   }
 
   /** Animation: frames [{ vector, values }] or a sine of the current deformation. */
-  animate({ frames = null, fps = 18, onFrame = null } = {}) {
+  animate({ frames = null, fps = 18, onFrame = null, onPhase = null } = {}) {
     this.stopAnimation();
     const t0 = performance.now();
     const tick = () => {
@@ -425,7 +496,9 @@ export class SimView {
         this.applyDeformation(1);
         onFrame?.(i, f);
       } else {
-        this.applyDeformation(Math.sin(t * 2 * Math.PI * 0.8));
+        const phase = Math.sin(t * 2 * Math.PI * 0.8);
+        this.applyDeformation(phase);
+        onPhase?.(phase);
       }
       this.anim = requestAnimationFrame(tick);
     };
@@ -516,15 +589,145 @@ export class SimView {
     this.render();
   }
 
-  /** Arrows (glyphs) at points: [{ p:[x,y,z], d:[dx,dy,dz], color }], length in model units. */
-  setArrows(list, length = 10) {
-    for (const o of this.overlay.children.filter((x) => x.userData.arrow)) { this.overlay.remove(o); o.dispose?.(); }
-    for (const a of list ?? []) {
-      const d = new THREE.Vector3(...a.d);
-      if (d.lengthSq() === 0) continue;
-      const arrow = new THREE.ArrowHelper(d.clone().normalize(), new THREE.Vector3(...a.p), a.length ?? length, a.color ?? 0xe5484d, (a.length ?? length) * 0.3, (a.length ?? length) * 0.18);
-      arrow.userData.arrow = true;
-      this.overlay.add(arrow);
+  /**
+   * Arrows at points: [{ p:[x,y,z], d:[dx,dy,dz], m? }], drawn as one instanced mesh. length: the
+   * longest arrow (model units); `colour` by magnitude through the colormap, or one colour.
+   */
+  setArrows(list, length = 10, { colormap = null, color = '#e5484d', scaleByMagnitude = true } = {}) {
+    for (const o of this.overlay.children.filter((x) => x.userData.arrow)) { this.overlay.remove(o); o.geometry?.dispose(); o.material?.dispose(); }
+    const items = (list ?? []).filter((a) => a.d && (a.d[0] || a.d[1] || a.d[2]));
+    this.arrowCount = items.length;
+    if (!items.length) { this.render(); return; }
+    const mags = items.map((a) => a.m ?? Math.hypot(...a.d));
+    const mmax = Math.max(...mags) || 1;
+    const mmin = Math.min(...mags);
+    // A unit arrow along +Y: shaft and head merged.
+    // Centred on its point (half in front, half behind), so arrows into a surface still show.
+    const shaft = new THREE.CylinderGeometry(0.045, 0.045, 0.7, 8).translate(0, -0.15, 0);
+    const head = new THREE.ConeGeometry(0.14, 0.3, 12).translate(0, 0.35, 0);
+    const geo = mergeGeometries([shaft, head]);
+    shaft.dispose(); head.dispose();
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.05 });
+    const inst = new THREE.InstancedMesh(geo, mat, items.length);
+    const q = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    const m4 = new THREE.Matrix4();
+    const c = new THREE.Color();
+    items.forEach((a, i) => {
+      const dir = new THREE.Vector3(...a.d).normalize();
+      q.setFromUnitVectors(up, dir);
+      const l = length * (scaleByMagnitude ? 0.25 + 0.75 * (mags[i] / mmax) : 1);
+      m4.compose(new THREE.Vector3(...a.p), q, new THREE.Vector3(l, l, l));
+      inst.setMatrixAt(i, m4);
+      if (colormap) mapColor((mags[i] - mmin) / (mmax - mmin || 1), colormap, 0, c); else c.set(color);
+      inst.setColorAt(i, c);
+    });
+    inst.instanceMatrix.needsUpdate = true;
+    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    inst.userData.arrow = true;
+    inst.renderOrder = 6;
+    this.overlay.add(inst);
+    this.render();
+  }
+
+  /**
+   * A section plane: { normal, point, clip, cap } — clip hides the model on the normal's side, cap:
+   * the cut triangles { positions, values } coloured with the current contour (or the body colour).
+   * null removes it.
+   */
+  setSection(section) {
+    for (const o of this.overlay.children.filter((x) => x.userData.cap)) { this.overlay.remove(o); o.geometry.dispose(); o.material.dispose(); }
+    this.section = section;
+    const planes = section?.clip ? [new THREE.Plane(new THREE.Vector3(...section.normal).negate(), section.normal[0] * section.point[0] + section.normal[1] * section.point[1] + section.normal[2] * section.point[2])] : [];
+    this.renderer.localClippingEnabled = planes.length > 0;
+    for (const m of [this.mesh?.material, this.edges?.material, this.wire?.material, this.undeformed?.material]) { if (m) { m.clippingPlanes = planes; m.needsUpdate = true; } }
+    for (const o of this.overlay.children) if (o.userData.stream || o.userData.surface) { o.material.clippingPlanes = planes; o.material.needsUpdate = true; }
+    const cap = section?.cap;
+    if (cap?.count) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(cap.positions, 3));
+      const col = new Float32Array(cap.positions.length);
+      const cc = new THREE.Color();
+      for (let i = 0; i < cap.positions.length / 3; i++) {
+        if (cap.values && this.contour) mapColor(this.contour.norm(cap.values[i]), this.contour.colormap, this.contour.bands, cc);
+        else cc.set(section.color ?? '#b9c2cc');
+        col[3 * i] = cc.r; col[3 * i + 1] = cc.g; col[3 * i + 2] = cc.b;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+      m.userData.cap = true;
+      m.renderOrder = 4;
+      this.overlay.add(m);
+    }
+    this.render();
+  }
+
+  /**
+   * The user's lights: [{ type: 'directional' | 'point' | 'spot', position, target, color, intensity, angle,
+   * enabled }] in model units. Each shows as a sun (a disc with rays, always facing the camera) at its
+   * position, with a dashed line to where it points. With lights of its own the scene's default lighting
+   * is dimmed so they show.
+   */
+  setLights(lights, size = 100, { showGizmos = true } = {}) {
+    if (this.userLights) {
+      this.scene.remove(this.userLights);
+      this.userLights.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); });
+      this.userLights = null;
+    }
+    const on = (lights ?? []).filter((l) => l.enabled !== false);
+    this.hemi.intensity = on.length ? 0.55 : 1.25;
+    this.key.intensity = on.length ? 0.35 : 1.4;
+    this.lightCount = on.length;
+    if (!(lights ?? []).length) { this.render(); return; }
+    const group = new THREE.Group();
+    group.name = 'userLights';
+    const tex = sunTexture();
+    for (const l of lights) {
+      const pos = new THREE.Vector3(...(l.position ?? [0, 0, 100]));
+      const target = new THREE.Vector3(...(l.target ?? [0, 0, 0]));
+      const color = new THREE.Color(l.color ?? '#fff4d6');
+      if (l.enabled !== false) {
+        let light;
+        if (l.type === 'point') light = new THREE.PointLight(color, l.intensity ?? 1.5, 0, 0);
+        else if (l.type === 'spot') light = new THREE.SpotLight(color, (l.intensity ?? 1.5) * 1.5, 0, THREE.MathUtils.degToRad(l.angle ?? 30), 0.3, 0);
+        else light = new THREE.DirectionalLight(color, l.intensity ?? 1.5);
+        light.position.copy(pos);
+        if (light.target) { light.target.position.copy(target); group.add(light.target); }
+        group.add(light);
+      }
+      if (!showGizmos) continue;
+      // The sun: always facing the camera, drawn over the model.
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, opacity: l.enabled === false ? 0.35 : 1 }));
+      sprite.position.copy(pos);
+      const s = 0.2 * size;
+      sprite.scale.set(s, s, 1);
+      sprite.renderOrder = 8;
+      sprite.userData.light = l.id;
+      group.add(sprite);
+      if (l.type !== 'point') {
+        const g = new THREE.BufferGeometry().setFromPoints([pos, target]);
+        const line = new THREE.Line(g, new THREE.LineDashedMaterial({ color: 0xe08a00, dashSize: 0.03 * size, gapSize: 0.02 * size, transparent: true, opacity: 0.9, depthTest: false }));
+        line.computeLineDistances();
+        line.renderOrder = 8;
+        group.add(line);
+      }
+    }
+    this.userLights = group;
+    this.scene.add(group);
+    this.render();
+  }
+
+
+  /** Probe markers: small spheres at points (model units), radius r. */
+  setMarkers(points, r = 1, color = '#f6a23a') {
+    for (const o of this.overlay.children.filter((x) => x.userData.marker)) { this.overlay.remove(o); o.geometry.dispose(); o.material.dispose(); }
+    for (const p of points ?? []) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, roughness: 0.4 }));
+      m.position.set(...p);
+      m.userData.marker = true;
+      m.renderOrder = 7;
+      this.overlay.add(m);
     }
     this.render();
   }
@@ -547,7 +750,11 @@ export class SimView {
     }).join('');
   }
 
+  /** Grid and rulers on or off. */
+  setGuides(opts) { this.guides.set(opts); this.render(); }
+
   render() {
+    this.guides?.update();
     this.key.position.copy(this.camera.position);
     this.renderer.render(this.scene, this.camera);
     if (this.labelList?.length) this.placeLabels();

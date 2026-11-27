@@ -6,7 +6,9 @@ const solid = (id, group, ko, en, color, p) => ({
   density: p[0], young: p[1] * 1e9, poisson: p[2], cte: p[3], conductivity: p[4], specificHeat: p[5],
   yield: p[6] * 1e6, ultimate: p[7] * 1e6, tangent: p[1] * 1e9 / 100, fatigueSf: p[8] * 1e6, fatigueB: p[9], endurance: 0,
   resistivity: p[10], permittivity: p[11] ?? 1, permeability: p[12] ?? 1, viscosity: 0, soundSpeed: 0, expansion: 0, emissivity: p[13] ?? 0.8,
+  fatigueEf: p[8] > 0 ? 0.5 : 0, fatigueC: p[8] > 0 ? -0.6 : 0, c10: 0, c01: 0, d1: 0, creepA: 0, creepN: 0, creepM: 0,
 });
+const withProps = (m, props) => Object.assign(m, props);
 const fluid = (id, ko, en, color, p) => ({
   id, group: 'fluid', name: { ko, en }, color,
   density: p[0], young: 0, poisson: 0, cte: 0, conductivity: p[1], specificHeat: p[2], yield: 0, ultimate: 0, tangent: 0,
@@ -27,7 +29,10 @@ export const MATERIALS = [
   solid('concrete', 'other', '콘크리트', 'Concrete', '#a7a29a', [2300, 30, 0.18, 1.4e-5, 0.72, 780, 30, 3, 0, -0.1, 1e3, 4.5, 1, 0.9]),
   solid('abs', 'polymer', 'ABS 수지', 'ABS plastic', '#e9d8a6', [1040, 2.2, 0.35, 9e-5, 0.17, 1400, 40, 45, 0, -0.1, 1e14, 3, 1, 0.9]),
   solid('nylon', 'polymer', '나일론', 'Nylon', '#e6e1d3', [1140, 2.7, 0.39, 8e-5, 0.25, 1700, 60, 75, 0, -0.1, 1e13, 3.5, 1, 0.9]),
-  solid('rubber', 'polymer', '고무', 'Rubber', '#3c3c3c', [1000, 0.01, 0.49, 2e-4, 0.16, 2000, 10, 15, 0, -0.1, 1e13, 3, 1, 0.9]),
+  // Rubber: hyperelastic (Mooney–Rivlin); E and ν are its small-strain values for linear analyses.
+  withProps(solid('rubber', 'polymer', '고무', 'Rubber', '#3c3c3c', [1000, 0.0036, 0.49, 2e-4, 0.16, 2000, 10, 15, 0, -0.1, 1e13, 3, 1, 0.9]), { c10: 0.5e6, c01: 0.1e6, d1: 3.33e-8 }),
+  // A heat-resistant steel at 550 °C with Norton creep (ε̇ = A σⁿ tᵐ, σ in Pa, t in s).
+  withProps(solid('creepSteel', 'metal', '내열강(550 °C)', 'Heat-resistant steel (550 °C)', '#9c7f6b', [7900, 170, 0.3, 1.4e-5, 25, 560, 180, 450, 700, -0.1, 9e-7, 1, 1, 0.7]), { creepA: 2e-49, creepN: 5, creepM: 0 }),
   solid('pcb', 'electronic', 'FR-4 기판', 'FR-4 board', '#3f7d4c', [1850, 22, 0.15, 1.4e-5, 0.3, 1100, 300, 310, 0, -0.1, 1e14, 4.4, 1, 0.9]),
   solid('silicon', 'electronic', '실리콘', 'Silicon', '#59616e', [2330, 130, 0.28, 2.6e-6, 148, 712, 7000, 7000, 0, -0.1, 6.4e2, 11.7, 1, 0.7]),
   solid('glass', 'other', '유리', 'Glass', '#9fd0dc', [2500, 70, 0.22, 9e-6, 1.05, 840, 50, 50, 0, -0.1, 1e12, 6, 1, 0.9]),
@@ -46,7 +51,8 @@ export const materialName = (m, lang) => (m?.name ? m.name[lang] ?? m.name.en : 
 export const MATERIAL_FIELDS = [
   ['density', 'density'], ['young', 'modulus'], ['poisson', 'ratio'], ['yield', 'stress'], ['ultimate', 'stress'], ['tangent', 'modulus'],
   ['cte', 'cte'], ['conductivity', 'conductivity'], ['specificHeat', 'specificHeat'], ['emissivity', 'ratio'],
-  ['fatigueSf', 'stress'], ['fatigueB', 'ratio'], ['endurance', 'stress'],
+  ['fatigueSf', 'stress'], ['fatigueB', 'ratio'], ['endurance', 'stress'], ['fatigueEf', 'ratio'], ['fatigueC', 'ratio'],
+  ['c10', 'stress'], ['c01', 'stress'], ['d1', 'compliance'], ['creepA', 'ratio'], ['creepN', 'ratio'], ['creepM', 'ratio'],
   ['resistivity', 'resistivity'], ['permittivity', 'ratio'], ['permeability', 'ratio'],
   ['viscosity', 'viscosity'], ['soundSpeed', 'velocity'], ['expansion', 'cte'],
 ];
@@ -58,5 +64,7 @@ export function solverMaterial(m) {
     specificHeat: m.specificHeat, yield: m.yield, ultimate: m.ultimate, tangent: m.tangent, fatigueSf: m.fatigueSf, fatigueB: m.fatigueB,
     endurance: m.endurance, resistivity: m.resistivity, permittivity: m.permittivity, permeability: m.permeability,
     viscosity: m.viscosity, soundSpeed: m.soundSpeed, expansion: m.expansion, emissivity: m.emissivity,
+    fatigueEf: m.fatigueEf ?? 0, fatigueC: m.fatigueC ?? 0, c10: m.c10 ?? 0, c01: m.c01 ?? 0, d1: m.d1 ?? 0,
+    creepA: m.creepA ?? 0, creepN: m.creepN ?? 0, creepM: m.creepM ?? 0,
   };
 }

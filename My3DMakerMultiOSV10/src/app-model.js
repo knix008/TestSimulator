@@ -8,6 +8,8 @@ import { displayOf, rangeOf, argExtremes } from './sim/results.js';
 import { materialById } from './sim/materials.js';
 import { fmt, toDisplay, unitLabel } from './sim/units.js';
 import { runJob } from './sim/engine.js';
+import { cutRegions, cutTets, gridArrows, meshBox, nodalArrows, sectionPlane, valueAt } from './sim/section.js';
+import { fluidSlices } from './sim/results.js';
 
 export function createModel(ctx) {
   const { state, t } = ctx;
@@ -31,6 +33,8 @@ export function createModel(ctx) {
     const bg = css.getPropertyValue('--surface').trim() || '#eef1f5';
     const dark = document.documentElement.classList.contains('dark');
     view.setTheme({ bg: dark ? '#1b1f26' : '#e9edf2', bg2: dark ? '#2b313b' : '#fdfdfe', text: css.getPropertyValue('--text').trim() || '#222' });
+    view.guides.setColors({ minor: dark ? '#56606e' : '#8b95a3', major: dark ? '#7c8696' : '#5d6775', ruler: css.getPropertyValue('--panel').trim() || (dark ? '#22272f' : '#f3f5f8'), rulerLine: css.getPropertyValue('--border').trim() || '#c5ccd6', text: css.getPropertyValue('--muted').trim() || '#505a66', mark: '#e5484d' });
+    view.setGuides({ grid: state.settings.showGrid !== false, rulers: state.settings.showRulers !== false });
     void bg;
   }
 
@@ -40,13 +44,13 @@ export function createModel(ctx) {
   function setupKey() {
     const p = state.project;
     if (!p) return '';
-    return JSON.stringify(p.bodies.map((b) => [b.template, b.params, b.position, b.rotation, b.suppressed, b.stl?.length ?? 0]));
+    return JSON.stringify(p.bodies.map((b) => [b.template, b.params, b.position, b.rotation, b.suppressed, b.stl?.length ?? 0, b.profile ?? null, b.ops ?? null, Boolean(b.tool), b.cad?.length ?? 0]));
   }
 
   /** Meshes the geometry (coarse, for display and picking) if it changed. */
   async function refreshSetupMesh({ force = false } = {}) {
     const p = state.project;
-    if (!p || !p.bodies.some((b) => !b.suppressed)) { state.setupMesh = null; if (view && !shownResult()) view.setMesh(null); return; }
+    if (!p || !p.bodies.some((b) => !b.suppressed && !b.tool)) { state.setupMesh = null; if (view && !shownResult()) view.setMesh(null); return; }
     const key = setupKey();
     if (!force && state.setupMesh?.key === key) return;
     const sys = ctx.activeSystem() ?? { type: 'static', settings: {}, bcs: [], mesh: { size: 0, order: 1 }, enclosure: {} };
@@ -78,7 +82,10 @@ export function createModel(ctx) {
     view.setStreamlines(null);
     view.setSurface(null);
     view.setLabels([]);
+    view.setArrows(null);
+    applySection(null);
     paintSetup();
+    showProbes();
   }
 
   /** Mesh face of a picked-face signature (the same scoring as the solver's find_face). */
@@ -144,12 +151,13 @@ export function createModel(ctx) {
   }
 
   function onPick(hit, event) {
+    if (state.pickProbe && hit) { state.pickProbe = false; ctx.addProbeAt(hit.point); return; }
     if (shownResult()) {
       if (hit?.value !== null && hit?.value !== undefined) {
         const r = shown.display;
         const kind = r?.kind ?? 'ratio';
         state.probe = { point: hit.point, value: hit.value, kind };
-        view.setLabels([...extremeLabels(), { p: hit.point, text: `${fmt(toDisplay(kind, hit.value, unitSystem()))} ${unitLabel(kind, unitSystem())}`, cls: 'probe' }]);
+        view.setLabels([...extremeLabels(), ...probeLabels(), { p: hit.point, text: `${fmt(toDisplay(kind, hit.value, unitSystem()))} ${unitLabel(kind, unitSystem())}`, cls: 'probe' }]);
         ctx.renderSome(['status']);
       }
       return;
@@ -229,10 +237,130 @@ export function createModel(ctx) {
     shown.scale = scale;
     view.setDeformation(d.vector, scale);
     view.showUndeformed(Boolean(d.vector && scale && state.settings.showUndeformed));
-    view.setLabels(extremeLabels());
+    applyOverlays();
     if (state.animate && (d.frames || d.animate)) startAnimation();
     ctx.renderSome(['status']);
   }
+
+  // ───────────────────────── section plane, arrows, probes
+
+  /** The plane of the current section settings over a mesh (null when off). */
+  function planeFor(info) {
+    const sec = state.section;
+    if (!sec?.enabled || !info?.positions) return null;
+    return sectionPlane(meshBox(info), sec);
+  }
+
+  /** Nodal values behind a slice result (the same quantity on the mesh nodes). */
+  function nodalOfSlice(r, field) {
+    const f = r.result?.fields ?? {};
+    return { field: f.field, potential: f.potential, flux: f.flux }[field] ?? null;
+  }
+
+  function slicesRange(slices) {
+    let lo = Infinity; let hi = -Infinity;
+    for (const sl of slices) for (const v of sl.values) if (Number.isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    return [lo, hi];
+  }
+
+  function drawSlices(slices) {
+    const [lo, hi] = slicesRange(slices);
+    view.setSlices(slices, { min: lo, max: hi, colormap: state.settings.colormap ?? 'rainbow', bands: Number(state.settings.contourBands) || 0, opacity: (state.settings.sliceOpacity ?? 85) / 100 });
+  }
+
+  /** Section, arrows and probe labels for what is shown now (results) — after any change of them. */
+  function applyOverlays() {
+    if (!view || !shownResult()) return;
+    const sys = ctx.systemById(shown.sysId);
+    const r = sys?.result;
+    const d = shown.display;
+    const info = shown.meshInfo;
+    const spec = RESULTS[shown.item.quantity];
+    const plane = planeFor(info);
+    if (d.fluidField && r?.fluid) {
+      // Flow: the grid plane moves with the section (one plane on its axis); otherwise the two mid-planes.
+      const slices = plane ? fluidSlices(r.fluid, d.fluidField, [plane.axis], state.section.offset) : d.slices;
+      if (slices) drawSlices(slices);
+      applySection(plane ? { ...plane, clip: Boolean(state.section.clip), cap: null } : null);
+    } else if (spec?.source === 'slice') {
+      // Electromagnetic fields: the tetrahedra of the bodies and the air cut by the plane.
+      const values = nodalOfSlice(r, spec.field);
+      if (plane && values) {
+        view.setSlices(null);
+        applySection({ ...plane, clip: Boolean(state.section.clip), cap: cutTets(info, values, plane, { regions: cutRegions(info, true) }) });
+      } else {
+        if (d.slices) drawSlices(d.slices);
+        applySection(null);
+      }
+    } else if (plane) {
+      const withAir = Boolean(spec?.vector && ['efield', 'flux'].includes(spec.kind));
+      applySection({ ...plane, clip: Boolean(state.section.clip), cap: cutTets(info, d.values, plane, { vector: d.vector, scale: shown.scale, regions: cutRegions(info, withAir) }) });
+    } else applySection(null);
+    // Vector arrows: nodal vector fields, or the flow velocity on a grid plane.
+    const size = meshSize(info);
+    let arrows = null;
+    if (state.settings.showArrows !== false) {
+      const count = state.settings.arrowCount ?? 300;
+      if (spec?.vector && r?.result?.fields?.[spec.vector]) {
+        const band = plane ? 0.6 * (r.mesh?.size ?? size / 25) : 0;
+        arrows = nodalArrows(info, r.result.fields[spec.vector], { count, plane, band });
+      } else if (d.fluidField === 'speed' && r?.fluid?.fields?.ux) {
+        arrows = gridArrows(r.fluid, plane ? { axis: plane.axis, offset: state.section.offset, count } : { axis: 2, offset: 0.5, count });
+      }
+    }
+    shown.arrows = arrows;
+    view.setArrows(arrows, 0.07 * size, { color: '#111418' });
+    showProbes();
+  }
+
+  function applySection(sec) { view.setSection(sec); }
+
+  /** The project's lights (and their sun markers) in the view. */
+  function showLights() {
+    if (!view) return;
+    const info = shown?.meshInfo;
+    view.setLights(state.project?.lights ?? [], info?.positions ? meshSize(info) : 100, { showGizmos: state.settings.showLightGizmos !== false });
+  }
+
+  /** Probe markers (and their values on a result). */
+  function showProbes() {
+    if (!view) return;
+    showLights();
+    const sys = shownResult() ? ctx.systemById(shown.sysId) : ctx.activeSystem();
+    const probes = state.settings.showProbes === false ? [] : sys?.probes ?? [];
+    const info = shown?.meshInfo;
+    view.setMarkers(probes.map((q) => q.point), info?.positions ? 0.012 * meshSize(info) : 1);
+    view.setLabels([...extremeLabels(), ...probeLabels()]);
+  }
+
+  function probeLabels() {
+    if (!shownResult() || state.settings.showProbes === false) return [];
+    return probeValues().map((v, i) => ({ p: v.probe.point, text: `${v.probe.name || `P${i + 1}`}: ${fmt(toDisplay(v.kind, v.value, unitSystem()))} ${unitLabel(v.kind, unitSystem())}`, cls: 'probe' }));
+  }
+
+  /** Probe values of the shown result: [{ probe, node, value, distance, kind }]. */
+  function probeValues() {
+    if (!shownResult()) return [];
+    const sys = ctx.systemById(shown.sysId);
+    const d = shown.display;
+    if (!sys?.probes?.length || !d?.values) return [];
+    return sys.probes.map((q) => ({ probe: q, ...valueAt(shown.meshInfo, d.values, q.point), kind: d.kind }));
+  }
+
+  // The section cap follows animations (its values and the deformed shape), at most ~10 times a second.
+  let capAt = 0;
+  function capFrame(values, vector, phase = 1) {
+    if (!state.section?.enabled || !shownResult()) return;
+    const now = performance.now();
+    if (now - capAt < 100) return;
+    capAt = now;
+    const info = shown.meshInfo;
+    const plane = planeFor(info);
+    const spec = RESULTS[shown.item.quantity];
+    if (!plane || spec?.source === 'slice' || shown.display.fluidField) return;
+    view.setSection({ ...plane, clip: Boolean(state.section.clip), cap: cutTets(info, values ?? shown.display.values, plane, { vector: vector ?? shown.display.vector, scale: shown.scale * phase, regions: cutRegions(info, false) }) });
+  }
+
 
   function legendOnly(lo, hi, colormap, bands, title, unit, format) {
     view.contour = { nodeValues: null, min: lo, max: hi, norm: (v) => (v - lo) / (hi - lo || 1), colormap, bands, log: false };
@@ -256,9 +384,9 @@ export function createModel(ctx) {
     const fps = state.settings.animFps ?? 18;
     if (d.frames) {
       const frames = d.frames.map((f) => ({ vector: f.vector ?? null, values: f.values ?? null }));
-      view.animate({ frames, fps, onFrame: (i) => { state.frameIndex = i; ctx.renderSome(['status']); } });
+      view.animate({ frames, fps, onFrame: (i, f) => { state.frameIndex = i; capFrame(f.values, f.vector); ctx.renderSome(['status']); } });
     } else if (d.vector) {
-      view.animate({});
+      view.animate({ onPhase: (ph) => capFrame(null, null, ph) });
     }
     ctx.renderSome(['toolbar']);
   }
@@ -266,13 +394,15 @@ export function createModel(ctx) {
   function stopAnimation() {
     state.animate = false;
     view?.stopAnimation();
-    if (shown?.kind === 'result') view.setDeformation(shown.display.vector, shown.scale);
+    if (shown?.kind === 'result') { view.setDeformation(shown.display.vector, shown.scale); applyOverlays(); }
     ctx.renderSome(['toolbar']);
   }
 
   return {
     ensureView, applyTheme, refreshSetupMesh, showSetup, showResult, paintSetup, startAnimation, stopAnimation, faceOf, sigOf,
-    get view() { return view; }, get shown() { return shown; }, setupKey,
+    get view() { return view; }, get shown() { return shown; }, setupKey, applyOverlays, showProbes, probeValues,
+    /** Section, arrows or probes changed: redraw them only. */
+    overlays() { if (shownResult()) applyOverlays(); else showProbes(); },
     resetSetup() { state.setupMesh = null; shown = null; },
     rescale() { if (shown?.kind === 'result') { const sys = ctx.systemById(shown.sysId); if (sys) showResult(sys, shown.item); } },
   };

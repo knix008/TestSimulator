@@ -20,6 +20,78 @@ pub struct Assembly {
     pub n: usize,
     /// Dofs of nodes that belong to no solid element (kept at zero).
     pub unused: Vec<bool>,
+    /// Coordinates of every node of the system (mesh nodes, then the pilot nodes of remote points).
+    pub xs: Vec<V3>,
+    /// Remote points tied rigidly to faces (pilot translation and rotation nodes).
+    pub pilots: Vec<Pilot>,
+}
+
+/// A remote point: two pilot nodes (translations U, rotations θ) at `point`, tied to face nodes by
+/// penalty springs that keep u_i = U + θ × (x_i − point).
+pub struct Pilot {
+    /// Index of the job's boundary condition.
+    pub bc: usize,
+    /// The translation node; the rotation node follows it.
+    pub node: usize,
+    pub point: V3,
+    /// Face node and its spring stiffness.
+    pub links: Vec<(u32, f64)>,
+}
+
+impl Pilot {
+    /// Dofs of a link (node, U, θ) and its 3×9 constraint matrix B (g = B · [u_i, U, θ]).
+    fn link(&self, model: &Model, node: u32) -> ([usize; 9], [[f64; 9]; 3]) {
+        let r = geom::sub(model.x[node as usize], self.point);
+        let (a, b, c) = (3 * node as usize, 3 * self.node, 3 * (self.node + 1));
+        let dofs = [a, a + 1, a + 2, b, b + 1, b + 2, c, c + 1, c + 2];
+        // u_i − U − θ × r = u_i − U + S(r) θ,  S(r) θ = r × θ.
+        let srm = [[0.0, -r[2], r[1]], [r[2], 0.0, -r[0]], [-r[1], r[0], 0.0]];
+        let mut bm = [[0.0; 9]; 3];
+        for i in 0..3 { bm[i][i] = 1.0; bm[i][3 + i] = -1.0; for j in 0..3 { bm[i][6 + j] = srm[i][j]; } }
+        (dofs, bm)
+    }
+}
+
+/// Adds the pilot couplings: K += k Bᵀ B and, with displacements, the internal force k Bᵀ B u.
+pub fn add_pilots(model: &Model, pilots: &[Pilot], k: &mut Csr, fint: Option<(&mut [f64], &[f64])>) {
+    let mut fint = fint;
+    for p in pilots {
+        for &(node, kk) in &p.links {
+            let (dofs, bm) = p.link(model, node);
+            let mut ke = vec![0.0; 81];
+            for i in 0..9 { for j in 0..9 { ke[i * 9 + j] = kk * (0..3).map(|q| bm[q][i] * bm[q][j]).sum::<f64>(); } }
+            k.add_element(&dofs, &ke);
+            if let Some((f, u)) = fint.as_mut() {
+                for i in 0..9 { f[dofs[i]] += (0..9).map(|j| ke[i * 9 + j] * u[dofs[j]]).sum::<f64>(); }
+            }
+        }
+    }
+}
+
+/// The remote points of a job (remote displacements, and remote forces with rigid behaviour).
+fn plan_pilots(model: &Model, nn: usize) -> Vec<Pilot> {
+    let e_ref = model.mats.iter().map(|m| m.young).fold(0.0, f64::max);
+    let h = model.mesh.h * model.unit();
+    let mut out = Vec::new();
+    for (i, bc) in model.job.bcs.iter().enumerate() {
+        if !enabled(bc) { continue; }
+        let rigid = kind(bc) == "remoteDisplacement" || (kind(bc) == "remoteForce" && bc.get("behavior").and_then(|v| v.as_str()) == Some("rigid"));
+        if !rigid { continue; }
+        let faces = model.faces_of(bc);
+        if faces.is_empty() { continue; }
+        let point = geom::scale(vec3(bc, "point").unwrap_or_else(|| centroid_of(model, &faces)), model.unit());
+        let links = model.face_weights(&faces).into_iter().map(|(n, w, _)| (n, 100.0 * e_ref * w.max(0.05 * h * h) / h)).collect();
+        out.push(Pilot { bc: i, node: nn + 2 * out.len(), point, links });
+    }
+    out
+}
+
+/// Area centroid of faces (model units).
+fn centroid_of(model: &Model, faces: &[usize]) -> V3 {
+    let mut c = [0.0; 3];
+    let mut a = 0.0;
+    for &f in faces { let fc = &model.mesh.faces[f]; for k in 0..3 { c[k] += fc.centroid[k] * fc.area; } a += fc.area; }
+    if a > 0.0 { geom::scale(c, 1.0 / a) } else { c }
 }
 
 pub fn element_points(model: &Model, e: usize, degree: u8) -> Result<(Vec<u32>, Vec<Gp>), String> {
@@ -41,14 +113,19 @@ pub struct Thermal<'a> {
 /// Stiffness (and mass), loads and supports.
 pub fn assemble(model: &Model, with_mass: bool, thermal: Option<&Thermal>, ctx: &mut Ctx) -> Result<Assembly, String> {
     let mesh = &model.mesh;
-    let nn = mesh.nnodes();
+    let nmesh = mesh.nnodes();
+    let pilots = plan_pilots(model, nmesh);
+    let nn = nmesh + 2 * pilots.len();
     let n = 3 * nn;
     let solid = model.solid_elements();
-    // Contact pairs couple nodes that share no element: they join the pattern as two-node elements.
-    let mut k = Csr::pattern(nn, 3, &mut solid.iter().map(|&e| mesh.element(e)).chain(mesh.contact_nodes.iter().map(|c| vec![c.a, c.b])));
+    // Contact pairs couple nodes that share no element: they join the pattern as two-node elements;
+    // remote points as (face node, pilot U, pilot θ) triples.
+    let links: Vec<Vec<u32>> = pilots.iter().flat_map(|p| p.links.iter().map(move |&(nd, _)| vec![nd, p.node as u32, p.node as u32 + 1])).collect();
+    let mut k = Csr::pattern(nn, 3, &mut solid.iter().map(|&e| mesh.element(e)).chain(mesh.contact_nodes.iter().map(|c| vec![c.a, c.b])).chain(links.into_iter()));
     let mut m = if with_mass { Some(k.same_pattern()) } else { None };
     let mut f = vec![0.0; n];
     let mut used = vec![false; nn];
+    let nn = nmesh;
     for (i, &e) in solid.iter().enumerate() {
         let r = mesh.region[e] as usize;
         let mat = &model.mats[r];
@@ -88,8 +165,17 @@ pub fn assemble(model: &Model, with_mass: bool, thermal: Option<&Thermal>, ctx: 
     let mut fixed = vec![false; n];
     let values = vec![0.0; n];
     let mut unused = vec![false; n];
+    for p in &pilots { used[p.node] = true; used[p.node + 1] = true; }
     for node in 0..nn { if !used[node] { for c in 0..3 { fixed[3 * node + c] = true; unused[3 * node + c] = true; } } }
-    let mut asm = Assembly { k, m, f, fixed, values, n, unused };
+    add_pilots(model, &pilots, &mut k, None);
+    if let Some(mm) = m.as_mut() {
+        // Pilot nodes get a small mass (and rotary inertia) so the mass matrix stays definite.
+        let avg = mm.diag().iter().take(3 * nmesh).sum::<f64>() / (3 * nmesh).max(1) as f64;
+        for p in &pilots { for d in 0..6 { mm.add(3 * p.node + d, 3 * p.node + d, 1e-6 * avg); } }
+    }
+    let mut xs = model.x.clone();
+    for p in &pilots { xs.push(p.point); xs.push(p.point); }
+    let mut asm = Assembly { k, m, f, fixed, values, n, unused, xs, pilots };
     apply_bcs(model, &mut asm, 1.0, ctx)?;
     contact_springs(model, &mut asm);
     Ok(asm)
@@ -159,24 +245,36 @@ pub fn apply_bcs(model: &Model, asm: &mut Assembly, scale: f64, _ctx: &mut Ctx) 
                             }
                         }
                     }
-                    _ => {
-                        // Moment: f_i = w_i (I⁻¹M) × d_i with I = Σ w (|d|² 1 − d dᵀ).
-                        let mv = vec3(bc, "vector").unwrap_or([0.0; 3]);
-                        let mut c = [0.0; 3];
-                        for (node, w, _) in &wts { for q in 0..3 { c[q] += model.x[*node as usize][q] * w / total; } }
-                        let mut im = [[0.0; 3]; 3];
-                        for (node, w, _) in &wts {
-                            let d = geom::sub(model.x[*node as usize], c);
-                            let dd = geom::dot(d, d);
-                            for i in 0..3 { for j in 0..3 { im[i][j] += w * (if i == j { dd } else { 0.0 } - d[i] * d[j]); } }
-                        }
-                        if let Some((inv, _)) = crate::dense::inv3(&im) {
-                            let v = [inv[0][0] * mv[0] + inv[0][1] * mv[1] + inv[0][2] * mv[2], inv[1][0] * mv[0] + inv[1][1] * mv[1] + inv[1][2] * mv[2], inv[2][0] * mv[0] + inv[2][1] * mv[1] + inv[2][2] * mv[2]];
-                            for (node, w, _) in &wts {
-                                let d = geom::sub(model.x[*node as usize], c);
-                                let fv = geom::cross(v, d);
-                                for q in 0..3 { asm.f[3 * *node as usize + q] += scale * w * fv[q]; }
-                            }
+                    _ => distribute_moment(model, &wts, vec3(bc, "vector").unwrap_or([0.0; 3]), scale, &mut asm.f),
+                }
+            }
+            "remoteForce" => {
+                let fv = vec3(bc, "vector").unwrap_or([0.0; 3]);
+                let mv = vec3(bc, "moment").unwrap_or([0.0; 3]);
+                if let Some(p) = asm.pilots.iter().find(|p| std::ptr::eq(&model.job.bcs[p.bc], bc)) {
+                    // Rigid: the force and moment act on the pilot node at the remote point.
+                    for q in 0..3 { asm.f[3 * p.node + q] += scale * fv[q]; asm.f[3 * (p.node + 1) + q] += scale * mv[q]; }
+                } else {
+                    // Deformable: the force spread by area, plus the moment of the offset (P − c) × F and M.
+                    let wts = model.face_weights(&faces);
+                    let total: f64 = wts.iter().map(|w| w.1).sum();
+                    if total <= 0.0 { continue; }
+                    let mut c = [0.0; 3];
+                    for (node, w, _) in &wts { for q in 0..3 { c[q] += model.x[*node as usize][q] * w / total; } }
+                    let point = geom::scale(vec3(bc, "point").unwrap_or_else(|| geom::scale(c, 1.0 / model.unit())), model.unit());
+                    for (node, w, _) in &wts { for q in 0..3 { asm.f[3 * *node as usize + q] += scale * fv[q] * w / total; } }
+                    let m_c = geom::add(mv, geom::cross(geom::sub(point, c), fv));
+                    distribute_moment(model, &wts, m_c, scale, &mut asm.f);
+                }
+            }
+            "remoteDisplacement" => {
+                if let Some(p) = asm.pilots.iter().find(|p| std::ptr::eq(&model.job.bcs[p.bc], bc)) {
+                    for (c, key) in ["x", "y", "z", "rx", "ry", "rz"].iter().enumerate() {
+                        if let Some(v) = bc.get(*key).and_then(|v| v.as_f64()) {
+                            let dof = 3 * p.node + c;
+                            asm.fixed[dof] = true;
+                            // Rotations come in degrees.
+                            asm.values[dof] = scale * if c >= 3 { v.to_radians() } else { v };
                         }
                     }
                 }
@@ -212,6 +310,28 @@ pub fn apply_bcs(model: &Model, asm: &mut Assembly, scale: f64, _ctx: &mut Ctx) 
     Ok(())
 }
 
+/// A moment on faces: f_i = w_i (I⁻¹M) × d_i about the area centroid, I = Σ w (|d|² 1 − d dᵀ).
+fn distribute_moment(model: &Model, wts: &[(u32, f64, V3)], mv: V3, scale: f64, f: &mut [f64]) {
+    let total: f64 = wts.iter().map(|w| w.1).sum();
+    if total <= 0.0 { return; }
+    let mut c = [0.0; 3];
+    for (node, w, _) in wts { for q in 0..3 { c[q] += model.x[*node as usize][q] * w / total; } }
+    let mut im = [[0.0; 3]; 3];
+    for (node, w, _) in wts {
+        let d = geom::sub(model.x[*node as usize], c);
+        let dd = geom::dot(d, d);
+        for i in 0..3 { for j in 0..3 { im[i][j] += w * (if i == j { dd } else { 0.0 } - d[i] * d[j]); } }
+    }
+    if let Some((inv, _)) = crate::dense::inv3(&im) {
+        let v = [inv[0][0] * mv[0] + inv[0][1] * mv[1] + inv[0][2] * mv[2], inv[1][0] * mv[0] + inv[1][1] * mv[1] + inv[1][2] * mv[2], inv[2][0] * mv[0] + inv[2][1] * mv[1] + inv[2][2] * mv[2]];
+        for (node, w, _) in wts {
+            let d = geom::sub(model.x[*node as usize], c);
+            let fv = geom::cross(v, d);
+            for q in 0..3 { f[3 * *node as usize + q] += scale * w * fv[q]; }
+        }
+    }
+}
+
 /// Contact pairs other than bonded: penalty springs on the duplicated interface nodes.
 fn contact_springs(model: &Model, asm: &mut Assembly) {
     let mesh = &model.mesh;
@@ -224,8 +344,11 @@ fn contact_springs(model: &Model, asm: &mut Assembly) {
         let s = 100.0 * e_ref * area.max(0.05 * h * h) / h;
         let (a, b) = (cn.a as usize, cn.b as usize);
         // Tied in the normal direction (no separation); rough and bonded also tangentially.
+        // Linear analyses: frictional contact with friction sticks (tied in every direction), frictionless
+        // and no separation stay tied normal to the interface and free to slide (the notes say so).
         let dirs: Vec<V3> = match ct.kind.as_str() {
             "rough" | "bonded" => vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            "frictional" if ct.friction > 0.0 => vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
             _ => vec![cn.normal],
         };
         for d in dirs {
@@ -243,7 +366,7 @@ fn contact_springs(model: &Model, asm: &mut Assembly) {
 }
 
 /// Solves K u = f with the supports.
-pub fn solve_static(model: &Model, asm: &Assembly, ctx: &mut Ctx) -> Result<Vec<f64>, String> {
+pub fn solve_static(_model: &Model, asm: &Assembly, ctx: &mut Ctx) -> Result<Vec<f64>, String> {
     let mut k = asm.k.clone();
     let mut f = asm.f.clone();
     if !asm.fixed.iter().zip(asm.unused.iter()).any(|(fx, un)| *fx && !un) && asm.f.iter().any(|v| *v != 0.0) {
@@ -254,7 +377,7 @@ pub fn solve_static(model: &Model, asm: &Assembly, ctx: &mut Ctx) -> Result<Vec<
         for i in 0..asm.n { if !asm.fixed[i] { k.add(i, i, 1e-8 * avg); } }
     }
     k.constrain(&asm.fixed, &asm.values, &mut f);
-    let u = crate::sparse::solve_mesh(&k, &f, &model.x, 3, ctx, 0.35, 0.85)?;
+    let u = crate::sparse::solve_mesh(&k, &f, &asm.xs, 3, ctx, 0.35, 0.85)?;
     Ok(u)
 }
 
@@ -267,6 +390,11 @@ pub struct Stress {
 }
 
 pub fn stresses(model: &Model, u: &[f64], thermal: Option<&Thermal>) -> Result<Stress, String> {
+    stresses_eigen(model, u, thermal, &[])
+}
+
+/// Stresses with initial (eigen) strains per region: σ = D (ε − ε_th − ε₀) (bolt pretension).
+pub fn stresses_eigen(model: &Model, u: &[f64], thermal: Option<&Thermal>, eigen: &[(u32, [f64; 6])]) -> Result<Stress, String> {
     let mesh = &model.mesh;
     let nn = mesh.nnodes();
     let mut s = vec![[0.0; 6]; nn];
@@ -279,6 +407,7 @@ pub fn stresses(model: &Model, u: &[f64], thermal: Option<&Thermal>) -> Result<S
         let r = mesh.region[el] as usize;
         let mat = &model.mats[r];
         let d = fem::d_iso(mat.young, mat.poisson);
+        let e0 = eigen.iter().find(|(reg, _)| *reg as usize == r).map(|e| e.1);
         let conn = mesh.element(el);
         let x: Vec<V3> = conn.iter().map(|&i| model.x[i as usize]).collect();
         let ue: Vec<f64> = conn.iter().flat_map(|&n| [u[3 * n as usize], u[3 * n as usize + 1], u[3 * n as usize + 2]]).collect();
@@ -298,6 +427,7 @@ pub fn stresses(model: &Model, u: &[f64], thermal: Option<&Thermal>) -> Result<S
             let eth = mat.cte * dt;
             let total = eps;
             for c in 0..3 { eps[c] -= eth; }
+            if let Some(e0) = e0 { for c in 0..6 { eps[c] -= e0[c]; } }
             (fem::mat6_vec(&d, &eps), total)
         };
         for gp in fem::points(&x, fem::stiffness_degree(nel))? { gp_s[el].push(stress_at(&gp).0); }
@@ -363,6 +493,28 @@ pub fn put_fields(model: &Model, out: &mut Out, u: &[f64], st: &Stress, prefix: 
 /// Reaction forces of every support (fixed, displacement, frictionless, elastic).
 fn reactions(model: &Model, asm: &Assembly, u: &[f64]) -> Value {
     let ku = asm.k.mul(u);
+    let r: Vec<f64> = ku.iter().zip(asm.f.iter()).map(|(a, b)| a - b).collect();
+    reactions_with_pilots(model, &asm.pilots, &r)
+}
+
+/// Reactions from an out-of-balance vector, with the remote displacements' pilot nodes.
+pub fn reactions_with_pilots(model: &Model, pilots: &[Pilot], r: &[f64]) -> Value {
+    let mut list = reactions_from(model, r);
+    // Remote displacements: the reaction is at the pilot node (force, and moment about the origin).
+    if let Value::Array(items) = &mut list {
+        for p in pilots {
+            let bc = &model.job.bcs[p.bc];
+            if kind(bc) != "remoteDisplacement" { continue; }
+            let f = [r[3 * p.node], r[3 * p.node + 1], r[3 * p.node + 2]];
+            let m = geom::add([r[3 * p.node + 3], r[3 * p.node + 4], r[3 * p.node + 5]], geom::cross(p.point, f));
+            items.push(json!({ "id": bc.get("id").cloned().unwrap_or(Value::Null), "force": f, "moment": m }));
+        }
+    }
+    list
+}
+
+/// Reactions from the nodal out-of-balance force (internal − external) of a solution.
+pub fn reactions_from(model: &Model, residual: &[f64]) -> Value {
     let mut list = Vec::new();
     for bc in &model.job.bcs {
         if !enabled(bc) || !matches!(kind(bc), "fixed" | "displacement" | "frictionless" | "elastic") { continue; }
@@ -372,7 +524,7 @@ fn reactions(model: &Model, asm: &Assembly, u: &[f64]) -> Value {
         let mut mo = [0.0; 3];
         for &nd in &nodes {
             let nd = nd as usize;
-            let f = [ku[3 * nd] - asm.f[3 * nd], ku[3 * nd + 1] - asm.f[3 * nd + 1], ku[3 * nd + 2] - asm.f[3 * nd + 2]];
+            let f = [residual[3 * nd], residual[3 * nd + 1], residual[3 * nd + 2]];
             for c in 0..3 { r[c] += f[c]; }
             let m = geom::cross(model.x[nd], f);
             for c in 0..3 { mo[c] += m[c]; }
@@ -409,13 +561,48 @@ pub fn summary(model: &Model, out: &mut Out) -> Result<(), String> {
 
 // ───────────────────────── analyses
 
+/// Whether the job has contact that only a nonlinear solution handles exactly (it can open or slide).
+pub fn has_nonlinear_contact(model: &Model) -> bool {
+    !model.mesh.contact_nodes.is_empty() && model.contact_ids.iter().any(|&i| matches!(model.job.contacts[i].kind.as_str(), "frictionless" | "frictional"))
+}
+
+/// Notes for linear analyses that linearise contact which could open or slide.
+pub fn contact_notes(model: &Model, out: &mut Out) {
+    for &i in &model.contact_ids {
+        match model.job.contacts[i].kind.as_str() {
+            "frictionless" => out.note("contact.linearFrictionless"),
+            "frictional" => out.note("contact.linearFrictional"),
+            _ => {}
+        }
+    }
+}
+
 pub fn run_static(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), String> {
+    if has_nonlinear_contact(model) && uniform_temperature(model).is_none() {
+        // Contact that can open or slide: an elastic nonlinear (Newton) solution with the same supports and loads.
+        out.note("contact.nonlinearPath");
+        let st = crate::nonlinear::solve(model, out, ctx, false, false, model.setting_u("steps", 4).clamp(1, 200))?;
+        if model.setting_b("fatigue", false) { fatigue(model, out, &st)?; }
+        return Ok(());
+    }
     let uniform = uniform_temperature(model);
     let th = Thermal { nodal: None, uniform, reference: model.setting_f("referenceTemperature", 22.0) };
     let asm = assemble(model, false, if uniform.is_some() { Some(&th) } else { None }, ctx)?;
-    let u = solve_static(model, &asm, ctx)?;
+    let mut u = solve_static(model, &asm, ctx)?;
+    // Bolt pretension: unit shortening solutions superposed so each bolt carries its force.
+    let bolts = bolts_of(model);
+    let mut eigen = Vec::new();
+    if !bolts.is_empty() {
+        let (scales, units) = bolt_scales(model, &asm, &bolts, &u, ctx)?;
+        for (j, b) in bolts.iter().enumerate() {
+            for i in 0..u.len() { u[i] += scales[j] * units[j][i]; }
+            eigen.push((b.region, b.unit.map(|v| v * scales[j])));
+        }
+        let rows: Vec<Value> = bolts.iter().enumerate().map(|(j, b)| json!({ "id": b.id, "force": bolt_force(model, b, &u, &eigen), "adjustment": scales[j] * b.length, "length": b.length })).collect();
+        out.set("bolts", Value::Array(rows));
+    }
     ctx.step(0.9, "progress.results")?;
-    let st = stresses(model, &u, if uniform.is_some() { Some(&th) } else { None })?;
+    let st = stresses_eigen(model, &u, if uniform.is_some() { Some(&th) } else { None }, &eigen)?;
     let res = put_fields(model, out, &u, &st, "");
     out.set("result", res);
     out.set("reactions", reactions(model, &asm, &u));
@@ -424,6 +611,108 @@ pub fn run_static(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), Str
     summary(model, out)?;
     if model.setting_b("fatigue", false) { fatigue(model, out, &st)?; }
     Ok(())
+}
+
+/// A pretensioned bolt: a body shortened along its axis (an initial strain) until it carries the
+/// given force, or by a given length.
+pub struct Bolt {
+    pub id: Value,
+    pub region: u32,
+    pub axis: V3,
+    /// Length along the axis (m).
+    pub length: f64,
+    /// Unit shortening strain −a⊗a (Voigt, engineering shears).
+    pub unit: [f64; 6],
+    /// Force (N) when `adjust` is None, else the shortening (m).
+    pub force: f64,
+    pub adjust: Option<f64>,
+}
+
+pub fn bolts_of(model: &Model) -> Vec<Bolt> {
+    let mut out = Vec::new();
+    for bc in &model.job.bcs {
+        if !enabled(bc) || kind(bc) != "boltPretension" { continue; }
+        let Some(&region) = model.bodies_of(bc).first() else { continue };
+        let a = geom::normalize(vec3(bc, "axis").unwrap_or([0.0, 0.0, 1.0]));
+        let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
+        for e in model.solid_elements() {
+            if model.mesh.region[e] != region { continue; }
+            for &nd in &model.mesh.tets[e] { let d = geom::dot(model.x[nd as usize], a); lo = lo.min(d); hi = hi.max(d); }
+        }
+        if !(hi > lo) { continue; }
+        let unit = [-a[0] * a[0], -a[1] * a[1], -a[2] * a[2], -2.0 * a[0] * a[1], -2.0 * a[1] * a[2], -2.0 * a[2] * a[0]];
+        let adjust = if bc.get("mode").and_then(|v| v.as_str()) == Some("adjustment") { Some(num(bc, "adjustment", 1e-4)) } else { None };
+        out.push(Bolt { id: bc.get("id").cloned().unwrap_or(Value::Null), region, axis: a, length: hi - lo, unit, force: num(bc, "force", 10000.0), adjust });
+    }
+    out
+}
+
+/// Load vector of an initial strain in a region: f = ∫ Bᵀ D ε₀ dV.
+fn eigen_load(model: &Model, region: u32, e0: &[f64; 6], n: usize) -> Result<Vec<f64>, String> {
+    let mut f = vec![0.0; n];
+    let nel = if model.mesh.order() == 2 { 10 } else { 4 };
+    for e in model.solid_elements() {
+        if model.mesh.region[e] != region { continue; }
+        let mat = &model.mats[region as usize];
+        let d = fem::d_iso(mat.young, mat.poisson);
+        let (conn, gps) = element_points(model, e, fem::stiffness_degree(nel))?;
+        let s = fem::mat6_vec(&d, e0);
+        let mut fe = vec![0.0; 3 * nel];
+        for gp in &gps { fem::bt_s(&gp.dn, &s, gp.w, &mut fe); }
+        for (a, dof) in dofs3(&conn).into_iter().enumerate() { f[dof] += fe[a]; }
+    }
+    Ok(f)
+}
+
+/// Axial force of a bolt: (1/L) ∫ a·σ·a dV over its body.
+pub fn bolt_force(model: &Model, b: &Bolt, u: &[f64], eigen: &[(u32, [f64; 6])]) -> f64 {
+    let nel = if model.mesh.order() == 2 { 10 } else { 4 };
+    let e0 = eigen.iter().find(|e| e.0 == b.region).map(|e| e.1).unwrap_or([0.0; 6]);
+    let a = b.axis;
+    let mut sum = 0.0;
+    for e in model.solid_elements() {
+        if model.mesh.region[e] != b.region { continue; }
+        let mat = &model.mats[b.region as usize];
+        let d = fem::d_iso(mat.young, mat.poisson);
+        let Ok((conn, gps)) = element_points(model, e, fem::stiffness_degree(nel)) else { continue };
+        let ue: Vec<f64> = conn.iter().flat_map(|&nd| [u[3 * nd as usize], u[3 * nd as usize + 1], u[3 * nd as usize + 2]]).collect();
+        for gp in &gps {
+            let mut eps = fem::strain(&gp.dn, &ue);
+            for c in 0..6 { eps[c] -= e0[c]; }
+            let s = fem::mat6_vec(&d, &eps);
+            let saa = s[0] * a[0] * a[0] + s[1] * a[1] * a[1] + s[2] * a[2] * a[2] + 2.0 * (s[3] * a[0] * a[1] + s[4] * a[1] * a[2] + s[5] * a[2] * a[0]);
+            sum += gp.w * saa;
+        }
+    }
+    sum / b.length.max(1e-300)
+}
+
+/// Scales of the bolts' unit shortenings (and the unit solutions) so that each bolt carries its force
+/// together with the external loads (u_ext), or is shortened by its adjustment.
+pub fn bolt_scales(model: &Model, asm: &Assembly, bolts: &[Bolt], u_ext: &[f64], ctx: &mut Ctx) -> Result<(Vec<f64>, Vec<Vec<f64>>), String> {
+    let mut units = Vec::new();
+    for b in bolts {
+        // The unit case: no external loads, supports held at zero.
+        let mut k = asm.k.clone();
+        let mut f = eigen_load(model, b.region, &b.unit, asm.n)?;
+        k.constrain(&asm.fixed, &vec![0.0; asm.n], &mut f);
+        units.push(crate::sparse::solve_mesh(&k, &f, &asm.xs, 3, ctx, 0.85, 0.9)?);
+    }
+    let m = bolts.len();
+    // A s = r: row i is bolt i's force (or its fixed adjustment).
+    let mut a = vec![vec![0.0; m]; m];
+    let mut r = vec![0.0; m];
+    for (i, bi) in bolts.iter().enumerate() {
+        if let Some(adj) = bi.adjust { a[i][i] = 1.0; r[i] = adj / bi.length.max(1e-300); continue; }
+        r[i] = bi.force - bolt_force(model, bi, u_ext, &[]);
+        for (j, bj) in bolts.iter().enumerate() {
+            let e: Vec<(u32, [f64; 6])> = if i == j { vec![(bj.region, bj.unit)] } else { vec![] };
+            a[i][j] = bolt_force(model, bi, &units[j], &e);
+        }
+    }
+    let flat: Vec<f64> = a.iter().flatten().copied().collect();
+    let s = crate::dense::solve(&flat, &r, m).ok_or("bolt.singular")?;
+    Ok((s, units))
 }
 
 pub fn uniform_temperature(model: &Model) -> Option<f64> {
@@ -444,7 +733,7 @@ pub fn run_thermal_stress(model: &Model, temps: &[f64], out: &mut Out, ctx: &mut
 }
 
 /// Lowest modes of the supported structure. Returns (ω², B-normalised shapes, mass matrix).
-pub fn modes(model: &Model, asm: &Assembly, nev: usize, ctx: &mut Ctx) -> Result<(Vec<f64>, Vec<Vec<f64>>), String> {
+pub fn modes(_model: &Model, asm: &Assembly, nev: usize, ctx: &mut Ctx) -> Result<(Vec<f64>, Vec<Vec<f64>>), String> {
     let m = asm.m.as_ref().ok_or("modal.noMass")?;
     let mut k = asm.k.clone();
     let mut mm = m.clone();
@@ -460,7 +749,7 @@ pub fn modes(model: &Model, asm: &Assembly, nev: usize, ctx: &mut Ctx) -> Result
         1e-6 * dk / dm.max(1e-300)
     };
     let ks = if sigma > 0.0 { k.axpy(sigma, &mm) } else { k.clone() };
-    let pre = crate::sparse::precond(&ks, &model.x, 3);
+    let pre = crate::sparse::precond(&ks, &asm.xs, 3);
     let mask: Vec<bool> = asm.fixed.iter().map(|f| !f).collect();
     let a = |x: &[f64], y: &mut [f64]| ks.matvec(x, y);
     let b = |x: &[f64], y: &mut [f64]| mm.matvec(x, y);
@@ -529,7 +818,7 @@ pub fn run_buckling(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), S
     let zero = vec![0.0; asm.n];
     k.constrain(&asm.fixed, &zero, &mut dummy);
     kg.zero_fixed(&asm.fixed, 0.0);
-    let pre = crate::sparse::precond(&k, &model.x, 3);
+    let pre = crate::sparse::precond(&k, &asm.xs, 3);
     let mask: Vec<bool> = asm.fixed.iter().map(|f| !f).collect();
     // Kg φ = μ K φ; the most negative μ give the load factors λ = −1/μ.
     let a = |x: &[f64], y: &mut [f64]| kg.matvec(x, y);
@@ -577,7 +866,7 @@ pub fn run_harmonic(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), S
     let md = ctx.sub(0.0, 0.8, |c| modal_basis(model, &asm, nev, c))?;
     // Modal forces from the applied loads (with the supports' prescribed values ignored).
     let q: Vec<f64> = md.phi.iter().map(|p| p.iter().zip(asm.f.iter()).map(|(a, b)| a * b).sum()).collect();
-    let probe = model.job.probes.first().and_then(|p| model.nearest_node(*p)).unwrap_or_else(|| {
+    let probes = model.probe_nodes(|| {
         // Default probe: the node that moves most in the first mode.
         let p = &md.phi[0];
         (0..model.mesh.ncorner).max_by(|&a, &b| {
@@ -586,9 +875,12 @@ pub fn run_harmonic(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), S
             ma.partial_cmp(&mb).unwrap()
         }).unwrap_or(0)
     });
+    let probe = probes[0];
     let mut freqs = Vec::with_capacity(npts);
     let mut amp = [Vec::new(), Vec::new(), Vec::new()];
     let mut phase = [Vec::new(), Vec::new(), Vec::new()];
+    // Every probe: amplitude per component.
+    let mut pamp: Vec<[Vec<f64>; 3]> = probes.iter().map(|_| [Vec::new(), Vec::new(), Vec::new()]).collect();
     let mut best = (0.0, f0);
     let coef = |w: f64| -> Vec<(f64, f64)> {
         md.w.iter().zip(q.iter()).map(|(wi, qi)| {
@@ -608,6 +900,13 @@ pub fn run_harmonic(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), S
             amp[comp].push((re * re + im * im).sqrt());
             phase[comp].push(im.atan2(re).to_degrees());
             mag2 += re * re + im * im;
+        }
+        for (pi, &pn) in probes.iter().enumerate() {
+            for comp in 0..3 {
+                let (mut re, mut im) = (0.0, 0.0);
+                for (i, (a, b)) in c.iter().enumerate() { re += a * md.phi[i][3 * pn + comp]; im += b * md.phi[i][3 * pn + comp]; }
+                pamp[pi][comp].push((re * re + im * im).sqrt());
+            }
         }
         if mag2.sqrt() > best.0 { best = (mag2.sqrt(), f); }
         freqs.push(f);
@@ -634,6 +933,7 @@ pub fn run_harmonic(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), S
     out.set("harmonic", json!({
         "frequencies": freqs, "amplitude": amp, "phase": phase, "probe": probe, "probePoint": model.mesh.nodes[probe],
         "frequency": fsel, "re": re_v, "im": im_v, "total": tot_v,
+        "probes": probes.iter().zip(pamp.iter()).map(|(&pn, a)| json!({ "node": pn, "point": model.mesh.nodes[pn], "amplitude": a })).collect::<Vec<_>>(),
         "naturalFrequencies": md.w.iter().map(|w| w / (2.0 * std::f64::consts::PI)).collect::<Vec<_>>(),
     }));
     summary(model, out)?;
@@ -676,19 +976,21 @@ pub fn run_transient(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), 
     let mut dummy = vec![0.0; n];
     let zero = vec![0.0; n];
     keff.constrain(&asm.fixed, &zero, &mut dummy);
-    let pre = crate::sparse::precond(&keff, &model.x, 3);
+    let pre = crate::sparse::precond(&keff, &asm.xs, 3);
     let mut u = vec![0.0; n];
     let mut v = vec![0.0; n];
     // Initial acceleration: the load at t = 0 against the mass (lumped approximation).
     let md = m.diag();
     let f_at = |t: f64| -> f64 { if history.is_empty() { 1.0 } else { table(&history, t) } };
     let mut acc: Vec<f64> = (0..n).map(|i| if asm.fixed[i] || md[i] <= 0.0 { 0.0 } else { asm.f[i] * f_at(0.0) / md[i] }).collect();
-    let probe = model.job.probes.first().and_then(|p| model.nearest_node(*p)).unwrap_or_else(|| {
+    let probes = model.probe_nodes(|| {
         // The loaded node farthest from the supports: the node with the largest static response guess (|f|).
         let mut best = (0.0, 0);
         for i in 0..model.mesh.ncorner { let s = asm.f[3 * i].abs() + asm.f[3 * i + 1].abs() + asm.f[3 * i + 2].abs(); if s > best.0 { best = (s, i); } }
         best.1
     });
+    let probe = probes[0];
+    let mut phist: Vec<[Vec<f64>; 3]> = probes.iter().map(|_| [vec![0.0], vec![0.0], vec![0.0]]).collect();
     let frames_wanted = model.setting_u("frames", 30).clamp(2, 120);
     let every = (steps / frames_wanted).max(1);
     let nc = model.mesh.ncorner;
@@ -718,6 +1020,7 @@ pub fn run_transient(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), 
         acc = an;
         times.push(t);
         for c3 in 0..3 { hist[c3].push(u[3 * probe + c3]); }
+        for (pi, &pn) in probes.iter().enumerate() { for c3 in 0..3 { phist[pi][c3].push(u[3 * pn + c3]); } }
         if s % every == 0 || s == steps {
             let st = stress_of_vector(model, &u)?;
             let vm: Vec<f64> = (0..nc).map(|i| fem::von_mises(&st[i])).collect();
@@ -734,20 +1037,53 @@ pub fn run_transient(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), 
     let res = put_fields(model, out, &u, &st, "");
     out.set("result", res);
     let mv = out.f32s(&max_vm);
-    out.set("transient", json!({ "times": times, "probe": probe, "probePoint": model.mesh.nodes[probe], "history": hist, "frames": frames, "maxVonMises": mv }));
+    out.set("transient", json!({ "times": times, "probe": probe, "probePoint": model.mesh.nodes[probe], "history": hist, "frames": frames, "maxVonMises": mv,
+        "probes": probes.iter().zip(phist.iter()).map(|(&pn, h)| json!({ "node": pn, "point": model.mesh.nodes[pn], "history": h })).collect::<Vec<_>>() }));
     summary(model, out)?;
     Ok(())
+}
+
+/// Double-sum combination of modal responses: r = √(Σᵢ Σⱼ ρᵢⱼ rᵢ rⱼ) for every displacement dof and
+/// stress component (ρ = identity gives SRSS). Negative sums (round-off) are clamped to zero.
+fn combine(model: &Model, ui: &[Vec<f64>], si: &[Vec<[f64; 6]>], rho: &[Vec<f64>]) -> (Vec<f64>, Vec<[f64; 6]>) {
+    let n = ui.first().map(|v| v.len()).unwrap_or(0);
+    let nn = model.mesh.nnodes();
+    let m = ui.len();
+    let mut u = vec![0.0; n];
+    for k in 0..n {
+        let mut acc = 0.0;
+        for i in 0..m { for j in 0..m { let r = rho[i][j]; if r != 0.0 { acc += r * ui[i][k] * ui[j][k]; } } }
+        u[k] = acc.max(0.0).sqrt();
+    }
+    let mut st = vec![[0.0; 6]; nn];
+    for k in 0..nn {
+        for c in 0..6 {
+            let mut acc = 0.0;
+            for i in 0..m { for j in 0..m { let r = rho[i][j]; if r != 0.0 { acc += r * si[i][k][c] * si[j][k][c]; } } }
+            st[k][c] = acc.max(0.0).sqrt();
+        }
+    }
+    (u, st)
+}
+
+/// CQC correlation coefficient of two modes (equal damping ζ): Der Kiureghian.
+pub fn cqc_rho(wi: f64, wj: f64, zeta: f64) -> f64 {
+    let r = wj / wi;
+    let z2 = zeta * zeta;
+    8.0 * z2 * (1.0 + r) * r.powf(1.5) / ((1.0 - r * r).powi(2) + 4.0 * z2 * r * (1.0 + r).powi(2))
 }
 
 pub fn run_spectrum(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), String> {
     let nev = model.setting_u("modes", 12).clamp(1, 60);
     let spec = read_table(&model.job.settings, "spectrum");
     let dir = geom::normalize(vec3(&model.job.settings, "direction").unwrap_or([0.0, 0.0, 1.0]));
+    let method = model.setting_s("combination", "srss");
+    let zeta = model.setting_f("damping", 0.05);
     let asm = assemble(model, true, None, ctx)?;
     let md = ctx.sub(0.0, 0.85, |c| modal_basis(model, &asm, nev, c))?;
-    let nn = model.mesh.nnodes();
-    let mut u2 = vec![0.0; asm.n];
-    let mut s2 = vec![[0.0; 6]; nn];
+    let mut ui_all = Vec::new();
+    let mut si_all = Vec::new();
+    let mut ws = Vec::new();
     let mut table_rows = Vec::new();
     for (i, w) in md.w.iter().enumerate() {
         if *w <= 1e-9 { continue; }
@@ -756,17 +1092,20 @@ pub fn run_spectrum(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), S
         let g = geom::dot(md.gamma[i], dir);
         let scale = g * sa / (w * w);
         let ui: Vec<f64> = md.phi[i].iter().map(|p| p * scale).collect();
-        let si = stress_of_vector(model, &ui)?;
-        for k in 0..asm.n { u2[k] += ui[k] * ui[k]; }
-        for k in 0..nn { for c in 0..6 { s2[k][c] += si[k][c] * si[k][c]; } }
+        si_all.push(stress_of_vector(model, &ui)?);
+        ui_all.push(ui);
+        ws.push(*w);
         table_rows.push(json!({ "mode": i + 1, "frequency": f, "acceleration": sa, "participation": g }));
     }
-    let u: Vec<f64> = u2.iter().map(|v| v.sqrt()).collect();
-    let s: Vec<[f64; 6]> = s2.iter().map(|v| { let mut o = [0.0; 6]; for c in 0..6 { o[c] = v[c].sqrt(); } o }).collect();
+    let m = ws.len();
+    let cqc = method == "cqc";
+    let rho: Vec<Vec<f64>> = (0..m).map(|i| (0..m).map(|j| if i == j { 1.0 } else if cqc { cqc_rho(ws[i], ws[j], zeta) } else { 0.0 }).collect()).collect();
+    let (u, s) = combine(model, &ui_all, &si_all, &rho);
+    let nn = model.mesh.nnodes();
     let st = Stress { s, e: vec![[0.0; 6]; nn], gp: Vec::new() };
     let res = put_fields(model, out, &u, &st, "");
     out.set("result", res);
-    out.set("spectrum", json!({ "modes": table_rows, "combination": "SRSS" }));
+    out.set("spectrum", json!({ "modes": table_rows, "combination": if cqc { "CQC" } else { "SRSS" }, "damping": zeta }));
     summary(model, out)?;
     Ok(())
 }
@@ -776,53 +1115,165 @@ pub fn run_random(model: &Model, out: &mut Out, ctx: &mut Ctx) -> Result<(), Str
     let psd = read_table(&model.job.settings, "psd");
     let zeta = model.setting_f("damping", 0.02);
     let dir = geom::normalize(vec3(&model.job.settings, "direction").unwrap_or([0.0, 0.0, 1.0]));
+    let cross = model.setting_b("crossTerms", true);
     let asm = assemble(model, true, None, ctx)?;
     let md = ctx.sub(0.0, 0.85, |c| modal_basis(model, &asm, nev, c))?;
     let (fa, fb) = if psd.len() >= 2 { (psd[0].0.max(0.1), psd.last().unwrap().0) } else { (20.0, 2000.0) };
     let g2 = 9.80665f64.powi(2);
-    let nn = model.mesh.nnodes();
-    let mut u2 = vec![0.0; asm.n];
-    let mut s2 = vec![[0.0; 6]; nn];
+    // Modes with frequency, unit-participation responses aᵢ = Γᵢ φᵢ.
+    let mut ws = Vec::new();
+    let mut ui_all = Vec::new();
+    let mut si_all = Vec::new();
     for (i, w) in md.w.iter().enumerate() {
         if *w <= 1e-9 { continue; }
-        // ∫ |H|² S df on a log grid (S in g²/Hz → (m/s²)²/Hz).
-        let steps = 400;
-        let mut integral = 0.0;
-        let (la, lb) = (fa.ln(), fb.ln());
-        for s in 0..steps {
-            let f = (la + (lb - la) * (s as f64 + 0.5) / steps as f64).exp();
-            let df = f * (lb - la) / steps as f64;
-            let om = 2.0 * std::f64::consts::PI * f;
-            let h2 = 1.0 / ((w * w - om * om).powi(2) + (2.0 * zeta * w * om).powi(2));
-            let sv = if psd.is_empty() { 0.01 } else { table(&psd, f) };
-            integral += h2 * sv * g2 * df;
-        }
         let g = geom::dot(md.gamma[i], dir);
-        let scale = g * integral.sqrt();
-        let ui: Vec<f64> = md.phi[i].iter().map(|p| p * scale).collect();
-        let si = stress_of_vector(model, &ui)?;
-        for k in 0..asm.n { u2[k] += ui[k] * ui[k]; }
-        for k in 0..nn { for c in 0..6 { s2[k][c] += si[k][c] * si[k][c]; } }
+        let ui: Vec<f64> = md.phi[i].iter().map(|p| p * g).collect();
+        si_all.push(stress_of_vector(model, &ui)?);
+        ui_all.push(ui);
+        ws.push(*w);
     }
-    let u: Vec<f64> = u2.iter().map(|v| v.sqrt()).collect();
-    let s: Vec<[f64; 6]> = s2.iter().map(|v| { let mut o = [0.0; 6]; for c in 0..6 { o[c] = v[c].sqrt(); } o }).collect();
+    // Cᵢⱼ = ∫ Re(Hᵢ Hⱼ*) S df on a log grid (S in g²/Hz → (m/s²)²/Hz), Hᵢ = 1 / (ωᵢ² − ω² + 2iζωᵢω).
+    let m = ws.len();
+    let steps = 800;
+    let (la, lb) = (fa.ln(), fb.ln());
+    let mut cmat = vec![vec![0.0; m]; m];
+    let mut freqs = Vec::with_capacity(steps);
+    for s in 0..steps {
+        let f = (la + (lb - la) * (s as f64 + 0.5) / steps as f64).exp();
+        let df = f * (lb - la) / steps as f64;
+        let om = 2.0 * std::f64::consts::PI * f;
+        let sv = if psd.is_empty() { 0.01 } else { table(&psd, f) } * g2;
+        let h: Vec<(f64, f64)> = ws.iter().map(|w| { let (re, im) = (w * w - om * om, 2.0 * zeta * w * om); let d = re * re + im * im; (re / d, -im / d) }).collect();
+        for i in 0..m {
+            for j in 0..m {
+                if !cross && i != j { continue; }
+                cmat[i][j] += (h[i].0 * h[j].0 + h[i].1 * h[j].1) * sv * df;
+            }
+        }
+        freqs.push(f);
+    }
+    let (u, s) = combine(model, &ui_all, &si_all, &cmat);
+    let nn = model.mesh.nnodes();
     let st = Stress { s, e: vec![[0.0; 6]; nn], gp: Vec::new() };
     let res = put_fields(model, out, &u, &st, "");
     out.set("result", res);
-    out.set("random", json!({ "sigma": 1, "frequencies": md.w.iter().map(|w| w / (2.0 * std::f64::consts::PI)).collect::<Vec<_>>() }));
+    // Response PSD of the most responsive node's displacement along the excitation (m²/Hz).
+    let nc = model.mesh.ncorner;
+    let node = (0..nc).max_by(|&a, &b| u[3 * a..3 * a + 3].iter().map(|v| v * v).sum::<f64>().partial_cmp(&u[3 * b..3 * b + 3].iter().map(|v| v * v).sum::<f64>()).unwrap()).unwrap_or(0);
+    let mut rpsd = Vec::with_capacity(steps);
+    for &f in &freqs {
+        let om = 2.0 * std::f64::consts::PI * f;
+        let sv = if psd.is_empty() { 0.01 } else { table(&psd, f) } * g2;
+        let (mut re, mut im) = (0.0, 0.0);
+        for (i, w) in ws.iter().enumerate() {
+            let (hr, hi) = (w * w - om * om, 2.0 * zeta * w * om);
+            let d = hr * hr + hi * hi;
+            let a = geom::dot([ui_all[i][3 * node], ui_all[i][3 * node + 1], ui_all[i][3 * node + 2]], dir);
+            re += a * hr / d;
+            im -= a * hi / d;
+        }
+        rpsd.push((re * re + im * im) * sv);
+    }
+    let every = (steps / 200).max(1);
+    out.set("random", json!({ "sigma": 1, "crossTerms": cross,
+        "frequencies": ws.iter().map(|w| w / (2.0 * std::f64::consts::PI)).collect::<Vec<_>>(),
+        "psdNode": node, "psdPoint": model.mesh.nodes[node],
+        "responsePsd": { "frequencies": freqs.iter().step_by(every).collect::<Vec<_>>(), "values": rpsd.iter().step_by(every).collect::<Vec<_>>() } }));
     summary(model, out)?;
     Ok(())
 }
 
-/// Stress-life fatigue from the static stresses (constant amplitude).
+/// Rainflow counting (ASTM E1049, the four-point method) of a load history: cycles as (range, mean,
+/// count), with the half cycles of the residue counted as 0.5.
+pub fn rainflow(history: &[f64]) -> Vec<(f64, f64, f64)> {
+    // Turning points only.
+    let mut tp: Vec<f64> = Vec::new();
+    for &v in history {
+        if let Some(&last) = tp.last() { if v == last { continue; } }
+        if tp.len() >= 2 {
+            let (a, b) = (tp[tp.len() - 2], tp[tp.len() - 1]);
+            if (b - a) * (v - b) > 0.0 { tp.pop(); }
+        }
+        tp.push(v);
+    }
+    let mut out = Vec::new();
+    let mut stack: Vec<f64> = Vec::new();
+    for &p in &tp {
+        stack.push(p);
+        while stack.len() >= 3 {
+            let n = stack.len();
+            let x = (stack[n - 1] - stack[n - 2]).abs();
+            let y = (stack[n - 2] - stack[n - 3]).abs();
+            if x < y { break; }
+            if n == 3 {
+                out.push((y, 0.5 * (stack[0] + stack[1]), 0.5));
+                stack.remove(0);
+            } else {
+                out.push((y, 0.5 * (stack[n - 2] + stack[n - 3]), 1.0));
+                stack.remove(n - 2);
+                stack.remove(n - 3);
+            }
+        }
+    }
+    for w in stack.windows(2) { out.push(((w[1] - w[0]).abs(), 0.5 * (w[0] + w[1]), 0.5)); }
+    out.retain(|c| c.0 > 0.0);
+    out
+}
+
+/// Cycles to failure (reversals 2N found by bisection) of the strain-life curve with Morrow's mean
+/// stress correction: εa = (σf' − σm)/E (2N)^b + εf' (2N)^c.
+fn strain_life_cycles(eps_a: f64, sm: f64, e: f64, sf: f64, b: f64, ef: f64, c: f64) -> f64 {
+    let f = |rev: f64| (sf - sm).max(1.0) / e * rev.powf(b) + ef * rev.powf(c);
+    if eps_a <= f(2e9) { return 1e9; }
+    if eps_a >= f(1.0) { return 0.5; }
+    let (mut lo, mut hi) = (0.0f64, 9.3f64); // log10 of reversals
+    for _ in 0..80 {
+        let mid = 0.5 * (lo + hi);
+        if f(10f64.powf(mid)) > eps_a { lo = mid; } else { hi = mid; }
+    }
+    0.5 * 10f64.powf(0.5 * (lo + hi))
+}
+
+/// Neuber's rule on the cyclic stress–strain curve ε = σ/E + (σ/K')^(1/n'): the local elastic-plastic
+/// stress and strain amplitudes from an elastic stress amplitude.
+fn neuber(se: f64, e: f64, kp: f64, np: f64) -> (f64, f64) {
+    if se <= 0.0 { return (0.0, 0.0); }
+    let target = se * se / e;
+    let mut s = se;
+    for _ in 0..60 {
+        let eps = s / e + (s / kp).powf(1.0 / np);
+        let g = s * eps - target;
+        let dg = eps + s * (1.0 / e + (1.0 / np) * (s / kp).powf(1.0 / np - 1.0) / kp);
+        let next = (s - g / dg).max(1e-9 * se);
+        if (next - s).abs() < 1e-10 * se { s = next; break; }
+        s = next;
+    }
+    (s, s / e + (s / kp).powf(1.0 / np))
+}
+
+/// Fatigue from the static stresses: stress-life (Basquin with a mean-stress theory) or strain-life
+/// (Coffin–Manson with Morrow, local strains by Neuber), for a constant amplitude or a load history
+/// (rainflow counted, damage summed with Miner's rule). Life is in cycles, or in repeats of the history.
 pub fn fatigue(model: &Model, out: &mut Out, st: &Stress) -> Result<(), String> {
     let s = &model.job.settings;
     let loading = s.get("loading").and_then(|v| v.as_str()).unwrap_or("fullyReversed");
+    let method = s.get("method").and_then(|v| v.as_str()).unwrap_or("stressLife");
     let ratio = num(s, "ratio", -1.0);
     let theory = s.get("meanTheory").and_then(|v| v.as_str()).unwrap_or("goodman");
     let measure = s.get("stressMeasure").and_then(|v| v.as_str()).unwrap_or("vonMises");
     let factor = num(s, "loadScale", 1.0);
     let design = num(s, "designLife", 1e6).max(1.0);
+    // The loading as cycles of the load factor (range, mean, count) per block.
+    let cycles: Vec<(f64, f64, f64)> = match loading {
+        "history" => {
+            let h = read_table(s, "loadHistory");
+            if h.len() < 2 { return Err("fatigue.noHistory".into()); }
+            rainflow(&h.iter().map(|p| p.1).collect::<Vec<_>>())
+        }
+        "zeroBased" => vec![(1.0, 0.5, 1.0)],
+        "ratio" => vec![(1.0 - ratio, 0.5 * (1.0 + ratio), 1.0)],
+        _ => vec![(2.0, 0.0, 1.0)],
+    };
     let nc = model.mesh.ncorner;
     let mut mat_of = vec![0usize; nc];
     for el in model.solid_elements() { for &c in &model.mesh.tets[el] { mat_of[c as usize] = model.mesh.region[el] as usize; } }
@@ -834,30 +1285,51 @@ pub fn fatigue(model: &Model, out: &mut Out, st: &Stress) -> Result<(), String> 
         let p = crate::dense::principal3(st.s[i]);
         let signed = if p[0].abs() >= p[2].abs() { 1.0 } else { -1.0 };
         let eq = factor * match measure { "maxPrincipal" => p[0], _ => signed * fem::von_mises(&st.s[i]) };
-        let (sa, sm) = match loading {
-            "zeroBased" => (eq.abs() / 2.0, eq / 2.0),
-            "ratio" => ((1.0 - ratio) / 2.0 * eq.abs(), (1.0 + ratio) / 2.0 * eq),
-            _ => (eq.abs(), 0.0),
-        };
         let (su, sy) = (m.ultimate.max(1.0), m.yield_strength.max(1.0));
-        let sar = match theory {
-            "soderberg" => sa / (1.0 - sm / sy).max(1e-6),
-            "gerber" => sa / (1.0 - (sm / su).powi(2)).max(1e-6),
-            "none" => sa,
-            _ => if sm > 0.0 { sa / (1.0 - sm / su).max(1e-6) } else { sa },
-        };
         let (sfp, b) = (if m.fatigue_sf > 0.0 { m.fatigue_sf } else { 1.5 * su }, if m.fatigue_b < 0.0 { m.fatigue_b } else { -0.1 });
-        let n = if sar <= 0.0 || (m.endurance > 0.0 && sar < m.endurance) { 1e9 } else { (0.5 * (sar / sfp).powf(1.0 / b)).min(1e9) };
+        let (efp, c) = (if m.fatigue_ef > 0.0 { m.fatigue_ef } else { 0.6 }, if m.fatigue_c < 0.0 { m.fatigue_c } else { -0.6 });
+        let e = m.young.max(1.0);
+        // Cyclic curve compatible with Basquin and Coffin–Manson: n' = b/c, K' = σf' / εf'^n'.
+        let np = (b / c).clamp(0.05, 0.5);
+        let kp = sfp / efp.powf(np);
+        let cycles_to_failure = |sa: f64, sm: f64| -> f64 {
+            if sa <= 0.0 { return 1e9; }
+            if method == "strainLife" {
+                let (_, eps_a) = neuber(sa, e, kp, np);
+                strain_life_cycles(eps_a, sm, e, sfp, b, efp, c)
+            } else {
+                let sar = match theory {
+                    "soderberg" => sa / (1.0 - sm / sy).max(1e-6),
+                    "gerber" => sa / (1.0 - (sm / su).powi(2)).max(1e-6),
+                    "none" => sa,
+                    _ => if sm > 0.0 { sa / (1.0 - sm / su).max(1e-6) } else { sa },
+                };
+                if m.endurance > 0.0 && sar < m.endurance { 1e9 } else { (0.5 * (sar / sfp).powf(1.0 / b)).min(1e9) }
+            }
+        };
+        // Damage of one block (Miner); for a single cycle per block that is 1/N.
+        let block: f64 = cycles.iter().map(|&(r, mean, count)| count / cycles_to_failure(0.5 * r * eq.abs(), mean * eq).max(1e-300)).sum();
+        let n = if block > 0.0 { (1.0 / block).min(1e9) } else { 1e9 };
         life[i] = n;
         damage[i] = design / n.max(1e-300);
-        let s_design = sfp * (2.0 * design).powf(b);
-        sf[i] = if sar > 0.0 { (s_design / sar).min(15.0) } else { 15.0 };
+        // Safety factor: the load scale that brings the life to the design life (bisection on the scale).
+        let life_at = |k: f64| -> f64 {
+            let d: f64 = cycles.iter().map(|&(r, mean, count)| count / cycles_to_failure(0.5 * r * k * eq.abs(), mean * k * eq).max(1e-300)).sum();
+            if d > 0.0 { 1.0 / d } else { 1e12 }
+        };
+        sf[i] = if eq == 0.0 || life_at(15.0) >= design { 15.0 } else {
+            let (mut lo, mut hi) = (0.0f64, 15.0f64);
+            for _ in 0..50 { let mid = 0.5 * (lo + hi); if life_at(mid) >= design { lo = mid; } else { hi = mid; } }
+            0.5 * (lo + hi)
+        };
     }
     let imin = argmin(&life);
     let lv = out.f32s(&life);
     let dv = out.f32s(&damage);
     let sv = out.f32s(&sf);
-    out.set("fatigue", json!({ "fields": { "life": lv, "damage": dv, "safety": sv }, "minLife": life[imin], "minLifeNode": imin, "maxDamage": damage[imin], "minSafety": sf.iter().cloned().fold(f64::INFINITY, f64::min), "designLife": design }));
+    let counted: Vec<Value> = cycles.iter().map(|c| json!({ "range": c.0, "mean": c.1, "count": c.2 })).collect();
+    out.set("fatigue", json!({ "fields": { "life": lv, "damage": dv, "safety": sv }, "minLife": life[imin], "minLifeNode": imin, "maxDamage": damage[imin],
+        "minSafety": sf.iter().cloned().fold(f64::INFINITY, f64::min), "designLife": design, "method": method, "loading": loading, "cycles": counted, "perBlock": loading == "history" }));
     Ok(())
 }
 
@@ -929,5 +1401,176 @@ mod tests {
         let pcr = std::f64::consts::PI.powi(2) * 200e9 * i / (4.0 * 0.2f64.powi(2));
         let factor = v["modes"][0]["factor"].as_f64().unwrap();
         assert!((factor * 1000.0 - pcr).abs() / pcr < 0.06, "Pcr {} vs {pcr}", factor * 1000.0);
+    }
+
+    #[test]
+    fn cqc_correlation() {
+        use super::cqc_rho;
+        assert!((cqc_rho(10.0, 10.0, 0.05) - 1.0).abs() < 1e-12);
+        assert!(cqc_rho(10.0, 30.0, 0.05) < 0.01);
+        assert!(cqc_rho(10.0, 10.5, 0.05) > 0.5);
+    }
+
+    #[test]
+    fn spectrum_cqc_and_srss_agree_for_separated_modes() {
+        let srss = cantilever("spectrum", r#""modes": 4, "combination": "srss""#, 1);
+        let cqc = cantilever("spectrum", r#""modes": 4, "combination": "cqc", "damping": 0.05"#, 1);
+        assert_eq!(cqc["spectrum"]["combination"], "CQC");
+        let a = srss["result"]["max"]["displacement"].as_f64().unwrap();
+        let b = cqc["result"]["max"]["displacement"].as_f64().unwrap();
+        // The square section has close mode pairs, but they bend in different planes (orthogonal shapes):
+        // the cross terms are small and the two combinations stay within a few percent.
+        assert!(a > 0.0 && (a - b).abs() / a < 0.1, "srss {a} cqc {b}");
+    }
+
+    #[test]
+    fn random_vibration_cross_terms() {
+        let with = cantilever("random", r#""modes": 4, "psd": [[20, 0.01], [2000, 0.01]], "crossTerms": true"#, 1);
+        let without = cantilever("random", r#""modes": 4, "psd": [[20, 0.01], [2000, 0.01]], "crossTerms": false"#, 1);
+        let a = with["result"]["max"]["displacement"].as_f64().unwrap();
+        let b = without["result"]["max"]["displacement"].as_f64().unwrap();
+        assert!(a > 0.0 && b > 0.0 && (a - b).abs() / b < 0.2, "{a} vs {b}");
+        assert!(with["random"]["responsePsd"]["values"].as_array().unwrap().len() > 50);
+    }
+
+    #[test]
+    fn harmonic_reports_every_probe() {
+        let job = r#"{ "analysis": "harmonic", "unit": 0.001,
+          "bodies": [{ "id": "b1", "material": "steel", "shape": { "type": "box", "size": [100, 10, 10], "placement": { "position": [50, 0, 0] } } }],
+          "mesh": { "size": 5, "order": 1 },
+          "bcs": [
+            { "type": "fixed", "faces": [{ "body": "b1", "c": [0, 0, 0], "n": [-1, 0, 0], "a": 100 }] },
+            { "type": "force", "vector": [0, 0, -10], "faces": [{ "body": "b1", "c": [100, 0, 0], "n": [1, 0, 0], "a": 100 }] }
+          ],
+          "probes": [[100, 0, 5], [50, 0, 5]],
+          "settings": { "fmax": 2000, "points": 20, "modes": 4 } }"#;
+        let (v, _) = crate::out::decode(&run_job_json(job, &mut |_, _| true).unwrap()).unwrap();
+        let p = v["harmonic"]["probes"].as_array().unwrap();
+        assert_eq!(p.len(), 2);
+        let tip = p[0]["amplitude"][2][0].as_f64().unwrap();
+        let mid = p[1]["amplitude"][2][0].as_f64().unwrap();
+        assert!(tip > mid && mid > 0.0, "tip {tip} mid {mid}");
+    }
+
+    fn stacked(kind: &str, analysis: &str) -> serde_json::Value {
+        // Two blocks, the lower one fixed at its base, the upper one pressed down onto it.
+        let job = format!(r#"{{ "analysis": "{analysis}", "unit": 0.001,
+          "bodies": [
+            {{ "id": "lo", "material": "steel", "shape": {{ "type": "box", "size": [20, 20, 10], "placement": {{ "position": [0, 0, 5] }} }} }},
+            {{ "id": "up", "material": "steel", "shape": {{ "type": "box", "size": [20, 20, 10], "placement": {{ "position": [0, 0, 15] }} }} }}
+          ],
+          "mesh": {{ "size": 2.5, "order": 1 }},
+          "contacts": [{{ "a": "lo", "b": "up", "type": "{kind}", "friction": 0.3 }}],
+          "bcs": [
+            {{ "id": "s", "type": "fixed", "faces": [{{ "body": "lo", "c": [0, 0, 0], "n": [0, 0, -1], "a": 400 }}] }},
+            {{ "type": "pressure", "value": 1e6, "faces": [{{ "body": "up", "c": [0, 0, 20], "n": [0, 0, 1], "a": 400 }}] }},
+            {{ "type": "frictionless", "faces": [{{ "body": "up", "c": [-10, 0, 15], "n": [-1, 0, 0], "a": 200 }}] }},
+            {{ "type": "frictionless", "faces": [{{ "body": "up", "c": [0, -10, 15], "n": [0, -1, 0], "a": 200 }}] }}
+          ], "settings": {{ "modes": 2 }} }}"#);
+        crate::out::decode(&run_job_json(&job, &mut |_, _| true).unwrap()).unwrap().0
+    }
+
+    #[test]
+    fn static_contact_takes_the_nonlinear_path() {
+        let v = stacked("frictionless", "static");
+        assert!(v["notes"].as_array().unwrap().iter().any(|n| n == "contact.nonlinearPath"), "{}", v["notes"]);
+        // 1 MPa on 400 mm² = 400 N through the contact into the fixed base.
+        let rz = v["reactions"][0]["force"][2].as_f64().unwrap();
+        assert!((rz - 400.0).abs() < 20.0, "reaction {rz}");
+        let m = stacked("frictional", "modal");
+        assert!(m["notes"].as_array().unwrap().iter().any(|n| n == "contact.linearFrictional"));
+    }
+
+    fn beam_with(bc: &str, settings: &str) -> serde_json::Value {
+        let job = format!(r#"{{ "analysis": "static", "unit": 0.001,
+          "bodies": [{{ "id": "b1", "material": "steel", "shape": {{ "type": "box", "size": [100, 10, 10], "placement": {{ "position": [50, 0, 0] }} }} }}],
+          "mesh": {{ "size": 2.5, "order": 2 }},
+          "bcs": [ {{ "id": "s1", "type": "fixed", "faces": [{{ "body": "b1", "c": [0, 0, 0], "n": [-1, 0, 0], "a": 100 }}] }}, {bc} ],
+          "settings": {{ {settings} }} }}"#);
+        crate::out::decode(&run_job_json(&job, &mut |_, _| true).unwrap()).unwrap().0
+    }
+    const TIP: &str = r#""faces": [{ "body": "b1", "c": [100, 0, 0], "n": [1, 0, 0], "a": 100 }]"#;
+
+    #[test]
+    fn remote_force_at_the_face_matches_a_force() {
+        let plain = beam_with(&format!(r#"{{ "type": "force", "vector": [0, 0, -1000], {TIP} }}"#), "");
+        let d0 = plain["result"]["max"]["displacement"].as_f64().unwrap();
+        for behavior in ["deformable", "rigid"] {
+            let v = beam_with(&format!(r#"{{ "type": "remoteForce", "behavior": "{behavior}", "point": [100, 0, 0], "vector": [0, 0, -1000], {TIP} }}"#), "");
+            let d = v["result"]["max"]["displacement"].as_f64().unwrap();
+            assert!((d - d0).abs() / d0 < 0.03, "{behavior}: {d} vs {d0}");
+            assert!((v["reactions"][0]["force"][2].as_f64().unwrap() - 1000.0).abs() < 2.0);
+        }
+    }
+
+    #[test]
+    fn remote_force_offset_adds_its_moment() {
+        // 1000 N along +X at 50 mm above the axis: the root sees M = 50 N·m about −Y (bending down… or up).
+        let v = beam_with(&format!(r#"{{ "type": "remoteForce", "behavior": "deformable", "point": [100, 0, 50], "vector": [1000, 0, 0], {TIP} }}"#), "");
+        let my = v["reactions"][0]["moment"][1].as_f64().unwrap();
+        let fx = v["reactions"][0]["force"][0].as_f64().unwrap();
+        // Reaction moment about the origin: the applied one is r × F = (100, 0, 50) mm × (1000, 0, 0) → My = 50 N·m.
+        assert!((fx + 1000.0).abs() < 2.0, "fx {fx}");
+        assert!((my + 50.0).abs() < 1.5, "my {my}");
+    }
+
+    #[test]
+    fn remote_displacement_moves_the_face_rigidly() {
+        // The tip pushed 0.1 mm down at its centre, rotation free: the beam bends like a propped tip.
+        let v = beam_with(&format!(r#"{{ "id": "r1", "type": "remoteDisplacement", "point": [100, 0, 0], "z": -1e-4, {TIP} }}"#), "");
+        let uz = v["result"]["max"]["displacement"].as_f64().unwrap();
+        assert!((uz - 1e-4).abs() < 1.5e-5, "tip {uz}");
+        // Its reaction is the force that bends a cantilever 0.1 mm: P = 3 E I δ / L³ ≈ 50 N.
+        let r = v["reactions"].as_array().unwrap().iter().find(|r| r["id"] == "r1").unwrap()["force"][2].as_f64().unwrap();
+        let i = 0.01f64.powi(4) / 12.0;
+        let p = 3.0 * 200e9 * i * 1e-4 / 0.1f64.powi(3);
+        assert!((r.abs() - p).abs() / p < 0.1, "reaction {r} vs {p}");
+    }
+
+    #[test]
+    fn bolt_carries_its_pretension() {
+        // A bar held at both ends, pretensioned to 5 kN, then also pulled at its middle: still 5 kN in it.
+        let job = r#"{ "analysis": "static", "unit": 0.001,
+          "bodies": [{ "id": "bolt", "material": "steel", "shape": { "type": "cylinder", "radius": 5, "height": 60 } }],
+          "mesh": { "size": 2, "order": 2 },
+          "bcs": [
+            { "type": "fixed", "faces": [{ "body": "bolt", "c": [0, 0, -30], "n": [0, 0, -1], "a": 78.5 }] },
+            { "type": "fixed", "faces": [{ "body": "bolt", "c": [0, 0, 30], "n": [0, 0, 1], "a": 78.5 }] },
+            { "id": "p", "type": "boltPretension", "bodies": ["bolt"], "axis": [0, 0, 1], "force": 5000 }
+          ] }"#;
+        let (v, _) = crate::out::decode(&run_job_json(job, &mut |_, _| true).unwrap()).unwrap();
+        let f = v["bolts"][0]["force"].as_f64().unwrap();
+        assert!((f - 5000.0).abs() < 5.0, "bolt force {f}");
+        // Axial stress ≈ F / A in the shank.
+        let a = std::f64::consts::PI * 25e-6;
+        let s = v["result"]["max"]["vonMises"].as_f64().unwrap();
+        assert!(s > 0.8 * 5000.0 / a, "stress {s}");
+        let adj = v["bolts"][0]["adjustment"].as_f64().unwrap();
+        assert!(adj > 0.0);
+    }
+
+    #[test]
+    fn rainflow_counts_cycles() {
+        use super::rainflow;
+        // ASTM E1049 example: −2 1 −3 5 −1 3 −4 4 −2 → ranges 3 (0.5), 4 (1.5), 6 (0.5), 8 (1.0), 9 (0.5).
+        let c = rainflow(&[-2.0, 1.0, -3.0, 5.0, -1.0, 3.0, -4.0, 4.0, -2.0]);
+        let total = |r: f64| c.iter().filter(|x| (x.0 - r).abs() < 1e-9).map(|x| x.2).sum::<f64>();
+        assert_eq!((total(3.0), total(4.0), total(6.0), total(8.0), total(9.0)), (0.5, 1.5, 0.5, 1.0, 0.5), "{c:?}");
+    }
+
+    #[test]
+    fn strain_life_and_history_fatigue() {
+        let base = |extra: &str| cantilever("static", &format!(r#""fatigue": true, "designLife": 1e5{extra}"#), 1);
+        let sl = base("");
+        let en = base(r#", "method": "strainLife""#);
+        let l1 = sl["fatigue"]["minLife"].as_f64().unwrap();
+        let l2 = en["fatigue"]["minLife"].as_f64().unwrap();
+        assert!(l1 > 10.0 && l2 > 10.0, "{l1} {l2}");
+        // 0 → 1 → −1 → 1 → −1 → 0 counts as 1½ full reversals and two small half cycles: a little less than
+        // l1 / 1.5 blocks.
+        let h = base(r#", "loading": "history", "loadHistory": [[0, 0], [1, 1], [2, -1], [3, 1], [4, -1], [5, 0]]"#);
+        let lh = h["fatigue"]["minLife"].as_f64().unwrap();
+        assert!(lh < l1 / 1.5 && lh > l1 / 2.0, "history {lh} vs {l1}");
+        assert!(h["fatigue"]["cycles"].as_array().unwrap().len() >= 2);
     }
 }

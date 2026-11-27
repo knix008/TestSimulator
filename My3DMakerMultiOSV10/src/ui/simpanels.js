@@ -4,10 +4,10 @@
 import { icon } from '../icons.js';
 import { escapeHtml } from './dom.js';
 import { stepperHtml } from '../stepper.js';
-import { BCS, BC_CATS, GROUPS, RESULTS, SYSTEMS, SYSTEM_IDS, FOLLOW_UPS } from '../sim/catalog.js';
-import { TEMPLATES } from '../sim/shapes.js';
+import { BCS, BC_CATS, GROUPS, RESULTS, SYSTEMS, SYSTEM_IDS, FOLLOW_UPS, fieldShown } from '../sim/catalog.js';
+import { TEMPLATES, selfIntersects } from '../sim/shapes.js';
 import { MATERIALS, MATERIAL_FIELDS, MATERIAL_GROUPS, materialName } from '../sim/materials.js';
-import { factor, fmt, toDisplay, unitLabel } from '../sim/units.js';
+import { factor, fmt, toDisplay, unitLabel, SYSTEMS as UNIT_SYSTEMS } from '../sim/units.js';
 import { resultItems } from '../sim/results.js';
 import { OUTPUT_KINDS, outputsOf } from '../sim/project.js';
 
@@ -23,9 +23,11 @@ export function numberControl(ctx, path, si, kind, { min = -1e30, max = 1e30, st
   const us = ctx.units();
   const f = model ? 1 : factor(kind, us);
   const unit = model ? (kind === 'angle' ? '°' : 'mm') : unitLabel(kind, us);
-  const shown = si === null || si === undefined ? '' : integer ? Math.round(si) : Number((si * f).toPrecision(6));
+  // Display = SI × factor (+ offset for temperatures in °F / K).
+  const disp = (v) => (model ? v : toDisplay(kind, v, us));
+  const shown = si === null || si === undefined ? '' : integer ? Math.round(si) : Number(disp(si).toPrecision(6));
   const dstep = integer ? Math.max(1, step) : niceStep(step * f);
-  return stepperHtml({ key: `${model ? 'm' : 'k'}|${kind}|${path}`, value: shown, min: min === -1e30 ? -1e30 : min * f, max: max === 1e30 ? 1e30 : max * f, step: dstep, unit, label, decreaseTip: ctx.t('stepper.decrease', { label }), increaseTip: ctx.t('stepper.increase', { label }) });
+  return stepperHtml({ key: `${model ? 'm' : 'k'}|${kind}|${path}`, value: shown, min: min === -1e30 ? -1e30 : disp(min), max: max === 1e30 ? 1e30 : disp(max), step: dstep, unit, label, decreaseTip: ctx.t('stepper.decrease', { label }), increaseTip: ctx.t('stepper.increase', { label }) });
 }
 
 function niceStep(s) {
@@ -80,8 +82,10 @@ const FIELD_ICONS = {
 
 function tableRows(ctx, path, rows, f, label) {
   const us = ctx.units();
-  const head = f.cols.map(([key, kind]) => `<th>${e(ctx.t(`col.${key}`, null, key))}${unitLabel(kind, us) ? ` <small>(${e(unitLabel(kind, us))})</small>` : ''}</th>`).join('');
-  const body = rows.map((r, i) => `<tr>${f.cols.map(([, kind], c) => `<td><input class="sd-cell" type="text" inputmode="decimal" data-cell="${e(path)}|${i}|${c}|${kind}" value="${e(fmt(toDisplay(kind, r[c], us), 6))}" /></td>`).join('')}<td><button class="icon-button" data-table-del="${e(path)}|${i}" title="${e(ctx.t('action.deleteRow'))}">${icon('trash', 'icon tiny')}</button></td></tr>`).join('');
+  const ul = (kind) => (kind === 'model' ? 'mm' : unitLabel(kind, us));
+  const shown = (kind, v) => (kind === 'model' ? v : toDisplay(kind, v, us));
+  const head = f.cols.map(([key, kind]) => `<th>${e(ctx.t(`col.${key}`, null, key))}${ul(kind) ? ` <small>(${e(ul(kind))})</small>` : ''}</th>`).join('');
+  const body = rows.map((r, i) => `<tr>${f.cols.map(([, kind], c) => `<td><input class="sd-cell" type="text" inputmode="decimal" data-cell="${e(path)}|${i}|${c}|${kind}" value="${e(fmt(shown(kind, r[c]), 6))}" /></td>`).join('')}<td><button class="icon-button" data-table-del="${e(path)}|${i}" title="${e(ctx.t('action.deleteRow'))}">${icon('trash', 'icon tiny')}</button></td></tr>`).join('');
   return `<div class="sd-table" title="${e(label)}"><div class="sd-table-head">${icon(FIELD_ICONS[f.key] ?? 'chartLine', 'icon tiny')}<span>${e(label)}</span><span class="grow"></span><button class="small-button" data-table-add="${e(path)}">${icon('plus', 'icon tiny')}<span>${e(ctx.t('action.addRow'))}</span></button></div>
     <table><thead><tr>${head}<th></th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
@@ -104,10 +108,17 @@ export function outlineHtml(ctx) {
   out.push(treeRow('project', 'project', p.name || t('tabs.untitled', { n: 1 }), { selected: isSel('project'), cls: 'tree-root' }));
   out.push(treeRow('geometry', 'geometry', `${t('outline.geometry')} (${p.bodies.length})`, { depth: 1, selected: isSel('geometry') }));
   for (const b of p.bodies) {
+    if (b.tool) {
+      const owner = p.bodies.find((x) => (x.ops ?? []).some((o) => o.tool === b.id));
+      out.push(treeRow(`body:${b.id}`, 'solidSubtract', `${b.name} · ${t('outline.toolOf', { name: owner?.name ?? '?' })}`, { depth: 3, selected: isSel('body', b.id), cls: 'tool-body' }));
+      continue;
+    }
     const mat = materialName(p.materials.find((m) => m.id === b.material) ?? MATERIALS.find((m) => m.id === b.material), ctx.lang());
     out.push(treeRow(`body:${b.id}`, TEMPLATES[b.template]?.icon ?? 'shapeBox', `${b.name} · ${mat}`, { depth: 2, selected: isSel('body', b.id), cls: b.suppressed ? 'suppressed' : '', eye: { id: b.id, hidden: b.hidden, tip: t(b.hidden ? 'action.showBody' : 'action.hideBody') } }));
   }
   out.push(treeRow('materials', 'material', `${t('outline.materials')} (${p.materials.length})`, { depth: 1, selected: isSel('materials') }));
+  out.push(treeRow('lights', 'sun', `${t('outline.lights')} (${(p.lights ?? []).length})`, { depth: 1, selected: isSel('lights') }));
+  for (const l of p.lights ?? []) out.push(treeRow(`light:${l.id}`, LIGHT_ICONS[l.type] ?? 'sun', `${l.name} · ${t(`light.${l.type}`)}`, { depth: 2, selected: isSel('light', l.id), cls: l.enabled ? '' : 'suppressed' }));
   const sys = ctx.activeSystem();
   for (const s of p.systems) {
     const def = SYSTEMS[s.type];
@@ -127,6 +138,9 @@ export function outlineHtml(ctx) {
       const missing = def2?.target !== 'none' && !(bc.faces?.length || bc.bodies?.length);
       out.push(treeRow(`bc:${bc.id}`, def2?.icon ?? 'dot', `${bc.name || t(`bc.${bc.type}`)}${count}`, { depth: 2, selected: isSel('bc', bc.id), cls: `${bc.suppressed ? 'suppressed' : ''} ${missing ? 'warn' : ''} bc-${def2?.cat}` }));
     }
+    const probes = s.probes ?? [];
+    out.push(treeRow(`probes:${s.id}`, 'probe', `${t('outline.probes')} (${probes.length})`, { depth: 2, selected: isSel('probes', s.id) }));
+    probes.forEach((q, i) => out.push(treeRow(`probe:${q.id}`, 'probe', `${q.name || `P${i + 1}`} · ${q.point.map((v) => fmt(v, 4)).join(', ')}`, { depth: 3, selected: isSel('probe', q.id) })));
     out.push(treeRow(`solution:${s.id}`, 'solution', t('outline.solution'), { depth: 2, selected: isSel('solution', s.id), cls: s.status === 'error' ? 'error' : '' }));
     for (const item of resultItems(s, s.result)) {
       out.push(treeRow(`result:${s.id}:${item.key}`, RESULT_ICONS[item.quantity] ?? 'contour', ctx.resultTitle(s, item), { depth: 3, selected: isSel('result', `${s.id}:${item.key}`) }));
@@ -134,6 +148,8 @@ export function outlineHtml(ctx) {
   }
   return `<div class="tree sim-tree" role="tree">${out.join('')}</div>`;
 }
+
+const LIGHT_ICONS = { directional: 'sun', point: 'lightsOn', spot: 'lightSpot' };
 
 const RESULT_ICONS = {
   displacement: 'resDisplacement', vonMises: 'resStress', safety: 'resSafety', temperature: 'thermometer', flux: 'arrowVector', mode: 'simModal', bucklingMode: 'simBuckling',
@@ -161,7 +177,7 @@ export function detailsHtml(ctx) {
   switch (sel.kind) {
     case 'project': return section('project', t('outline.project'), [
       row('rename', t('details.name'), textControl('name', p.name, t('details.name'))),
-      row('units', t('settings.unitSystem'), selectControl('$units', us, [['mm', t('units.mm'), 'units'], ['si', t('units.si'), 'units']], 'units')),
+      row('units', t('settings.unitSystem'), selectControl('$units', us, UNIT_SYSTEMS.map((k) => [k, t(`units.${k}`), 'units']), 'units')),
       info('geometry', t('outline.geometry'), String(p.bodies.length)), info('simSystems', t('details.systems'), String(p.systems.length)),
     ].join(''));
     case 'geometry': return section('geometry', t('outline.geometry'), `<p class="sd-help">${e(t('help.geometry'))}</p><div class="sd-buttons">${['addBox', 'addCylinder', 'addTube', 'addSphere', 'importStl'].map((c) => button(c, ctx.commands[c]?.icon ?? 'plus', t(ctx.commands[c]?.label ?? c))).join('')}</div>`);
@@ -178,6 +194,8 @@ export function detailsHtml(ctx) {
           row('grid', t('details.meshSize'), numberControl(ctx, `bodies.${b.id}.meshSize`, b.meshSize ?? 0, 'length', { min: 0, step: 0.0005, label: t('details.meshSize') })),
         ].join('')),
         section('ruler', t('details.dimensions'), (tpl?.params ?? []).map((q) => row(PARAM_ICONS[q.key] ?? 'smartDim', t(`param.${q.key}`, null, q.key), numberControl(ctx, `bodies.${b.id}.params.${q.key}`, b.params[q.key] ?? q.def, 'length', { model: true, min: q.min ?? 0, max: q.max ?? 1e6, step: q.step ?? 1, integer: q.integer, label: t(`param.${q.key}`, null, q.key) }))).join('')),
+        tpl?.profile ? profileSection(ctx, b, tpl) : '',
+        opsSection(ctx, b),
         section('move', t('details.placement'), [
           ...['X', 'Y', 'Z'].map((a, i) => row(i ? 'dot' : 'move', `${t('details.position')} ${a}`, numberControl(ctx, `bodies.${b.id}.position.${i}`, b.position[i], 'length', { model: true, step: 1, label: `${t('details.position')} ${a}` }))),
           ...['X', 'Y', 'Z'].map((a, i) => row(i ? 'dot' : 'rotate', `${t('details.rotation')} ${a}`, numberControl(ctx, `bodies.${b.id}.rotation.${i}`, b.rotation[i], 'angle', { model: true, step: 5, min: -360, max: 360, label: `${t('details.rotation')} ${a}` }))),
@@ -185,6 +203,26 @@ export function detailsHtml(ctx) {
         `<div class="sd-buttons">${button('duplicateBody', 'copy', t('cmd.duplicateBody'))}${button('deleteSelection', 'trash', t('cmd.delete'), 'danger')}</div>`,
       ].join('');
     }
+    case 'lights': return section('sun', t('outline.lights'), `<p class="sd-help">${e(t('help.lights'))}</p>${(p.lights ?? []).map((l) => info(LIGHT_ICONS[l.type] ?? 'sun', l.name, t(`light.${l.type}`))).join('')}<div class="sd-buttons">${button('addLight', 'sun', t('cmd.addLight'), 'primary')}</div>`);
+    case 'light': {
+      const l = (p.lights ?? []).find((x) => x.id === sel.id);
+      if (!l) return '';
+      const base = `lights.${l.id}`;
+      const xyz = (key, glyph, label) => ['X', 'Y', 'Z'].map((a, i) => row(i ? 'dot' : glyph, `${label} ${a}`, numberControl(ctx, `${base}.${key}.${i}`, l[key][i], 'length', { model: true, step: 5, label: `${label} ${a}` }))).join('');
+      return [section(LIGHT_ICONS[l.type] ?? 'sun', t('details.light'), [
+        row('rename', t('details.name'), textControl(`${base}.name`, l.name, t('details.name'))),
+        row('sun', t('light.type'), selectControl(`${base}.type`, l.type, ['directional', 'point', 'spot'].map((k) => [k, t(`light.${k}`), LIGHT_ICONS[k]]), 'sun')),
+        row('toggleOn', t('light.enabled'), toggleControl(`${base}.enabled`, l.enabled !== false, t('light.enabled'))),
+        row('palette', t('light.color'), `<input type="color" data-light-color="${e(l.id)}" value="${e(l.color ?? '#fff4d6')}" aria-label="${e(t('light.color'))}" />`),
+        row('sparkles', t('light.intensity'), numberControl(ctx, `${base}.intensity`, l.intensity ?? 1.5, 'ratio', { min: 0, max: 20, step: 0.1, label: t('light.intensity') })),
+        l.type === 'spot' ? row('lightSpot', t('light.angle'), numberControl(ctx, `${base}.angle`, l.angle ?? 30, 'angle', { model: true, min: 1, max: 89, step: 1, label: t('light.angle') })) : '',
+      ].join('')),
+      section('move', t('light.position'), xyz('position', 'move', t('details.position'))),
+      l.type === 'point' ? '' : section('target', t('light.target'), xyz('target', 'target', t('light.target'))),
+      `<p class="sd-help">${e(t('help.light'))}</p>`,
+      `<div class="sd-buttons">${button('deleteSelection', 'trash', t('cmd.delete'), 'danger')}</div>`].join('');
+    }
+
     case 'materials': return section('material', t('outline.materials'), `${p.materials.map((m) => info('material', materialName(m, ctx.lang()), `${p.bodies.filter((b) => b.material === m.id).length} ${t('details.bodiesShort')}`)).join('')}<div class="sd-buttons">${button('tabData', 'material', t('cmd.tabData'))}</div>`);
     case 'system': case 'settings': {
       const s = ctx.systemById(sel.id);
@@ -229,6 +267,23 @@ export function detailsHtml(ctx) {
         `<p class="sd-help">${e(t('help.enclosure'))}</p>`,
       ].join(''));
     }
+    case 'probes': {
+      const s = ctx.systemById(sel.id);
+      return section('probe', t('outline.probes'), `<p class="sd-help">${e(t('help.probes'))}</p>${(s?.probes ?? []).map((q, i) => info('probe', q.name || `P${i + 1}`, q.point.map((v) => fmt(v, 4)).join(', '))).join('')}<div class="sd-buttons">${button('addProbe', 'probe', t('cmd.addProbe'), state.pickProbe ? 'primary' : '')}</div>`);
+    }
+    case 'probe': {
+      const q = sys?.probes?.find((x) => x.id === sel.id);
+      if (!q) return '';
+      const base = `systems.${sys.id}.probes.${q.id}`;
+      const values = (ctx.model.probeValues?.() ?? []).find((v) => v.probe.id === q.id);
+      return [section('probe', t('details.probe'), [
+        row('rename', t('details.name'), textControl(`${base}.name`, q.name ?? '', t('details.name'))),
+        ...['X', 'Y', 'Z'].map((a, i) => row(i ? 'dot' : 'probe', `${t('details.position')} ${a}`, numberControl(ctx, `${base}.point.${i}`, q.point[i], 'length', { model: true, step: 1, label: `${t('details.position')} ${a}` }))),
+        values ? info('cursor', t('res.probeValue'), `${fmt(toDisplay(values.kind, values.value, us))} ${unitLabel(values.kind, us)}`) : '',
+        values ? info('dot', t('res.probeNode'), `#${values.node} · ${fmt(values.distance, 3)} mm`) : '',
+        `<p class="sd-help">${e(t('help.probe'))}</p>`,
+      ].join('')), `<div class="sd-buttons">${button('deleteSelection', 'trash', t('cmd.delete'), 'danger')}</div>`].join('');
+    }
     case 'contacts': return section('simContact', t('outline.contacts'), `<p class="sd-help">${e(t('help.contacts'))}</p><div class="sd-buttons">${button('addContact', 'plus', t('cmd.addContact'))}${button('autoContacts', 'magic', t('cmd.autoContacts'))}</div>`);
     case 'contact': {
       const c = sys?.contacts.find((x) => x.id === sel.id);
@@ -259,7 +314,7 @@ export function detailsHtml(ctx) {
         section(def.icon, t(`bc.${bc.type}`), [
           row('rename', t('details.name'), textControl(`${base}.name`, bc.name ?? '', t('details.name'))),
           scope,
-          ...def.fields.map((f) => fieldRows(ctx, base, bc, f, 'bcf')),
+          ...def.fields.filter((f) => fieldShown(f, bc)).map((f) => fieldRows(ctx, base, bc, f, 'bcf')),
           row('suppress', t('details.suppressed'), toggleControl(`${base}.suppressed`, bc.suppressed, t('details.suppressed'))),
           `<p class="sd-help">${e(t(`bcDesc.${bc.type}`))}</p>`,
         ].join('')),
@@ -272,6 +327,7 @@ export function detailsHtml(ctx) {
       return [section('solution', t('outline.solution'), [
         info('statusSetup', t('details.status'), t(`status.sys.${s.status}`)),
         s.error ? `<p class="sd-error">${icon('error', 'icon tiny')}${e(ctx.errorText(s.error))}</p>` : '',
+        ...(s.result?.notes ?? []).map((n) => `<p class="sd-note">${icon('warning', 'icon tiny')}${e(ctx.noteText(n))}</p>`),
         s.result ? info('clock', t('details.solveTime'), `${fmt((s.result.elapsedMs ?? 0) / 1000, 3)} s`) : '',
         s.result?.mesh ? info('mesh', t('mesh.nodes'), s.result.mesh.nodes.toLocaleString()) : '',
         ...Object.entries(outputsOf(s, s.result)).map(([k, v]) => info('dot', t(`out.${k}`), `${fmt(toDisplay(OUTPUT_KINDS[k] ?? 'ratio', v, us))} ${unitLabel(OUTPUT_KINDS[k] ?? 'ratio', us)}`)),
@@ -299,6 +355,13 @@ export function detailsHtml(ctx) {
           row('palette', t('res.colormap'), selectControl('$colormap', state.settings.colormap ?? 'rainbow', ['rainbow', 'viridis', 'coolwarm', 'thermal', 'grayscale'].map((c) => [c, t(`cmap.${c}`), 'palette']), 'palette')),
           row('bands', t('res.bands'), selectControl('$bands', String(state.settings.contourBands ?? 0), [['0', t('opt.smooth'), 'bands'], ['8', '8', 'bands'], ['12', '12', 'bands'], ['16', '16', 'bands']], 'bands')),
         ].join('')),
+        sectionControls(ctx),
+        (spec.vector || item.quantity === 'speed') ? section('arrowField', t('res.vectors'), [
+          row('arrowField', t('cmd.showArrows'), toggleControl('$showArrows', state.settings.showArrows !== false, t('cmd.showArrows'))),
+          state.settings.showArrows !== false ? row('count', t('res.arrowCount'), stepperHtml({ key: 'k|count|$arrowCount', value: state.settings.arrowCount ?? 300, min: 20, max: 3000, step: 20, unit: '', label: t('res.arrowCount') })) : '',
+          `<p class="sd-help">${e(t('help.arrows'))}</p>`,
+        ].join('')) : '',
+        probeSection(ctx),
         `<div class="sd-buttons">${(spec.animate || shown?.frames) ? button('animate', state.animate ? 'pause' : 'play', t(state.animate ? 'cmd.stopAnimation' : 'cmd.animate'), 'primary') : ''}${button('exportCsv', 'csvFile', t('cmd.exportCsv'))}${button('exportImage', 'exportImage', t('cmd.exportImage'))}${item.quantity === 'density' ? button('exportStl', 'stlFile', t('cmd.exportStl')) : ''}</div>`,
       ].join('');
     }
@@ -306,14 +369,65 @@ export function detailsHtml(ctx) {
   }
 }
 
+/** The profile points of a profile body (model units), as an editable table. */
+function profileSection(ctx, b, tpl) {
+  const cols = tpl.profile === 'rz' ? [['r', 'model'], ['z', 'model']] : [['x', 'model'], ['y', 'model']];
+  const pts = b.profile ?? [];
+  const warn = pts.length >= 3 && selfIntersects(pts) ? `<p class="sd-error">${icon('warning', 'icon tiny')}${e(ctx.t('help.profileCrossing'))}</p>` : '';
+  return section('polygonTool', ctx.t('details.profile'), `${tableRows(ctx, `bodies.${b.id}.profile`, pts, { key: 'profile', cols }, ctx.t('details.profile'))}${warn}<p class="sd-help">${e(ctx.t(tpl.profile === 'rz' ? 'help.profileRz' : 'help.profileXy'))}</p>`);
+}
+
+/** Boolean operations of a body: each tool with a remove button, and the add buttons. */
+function opsSection(ctx, b) {
+  const p = ctx.state.project;
+  const ops = b.ops ?? [];
+  if (b.tool) {
+    const owner = p.bodies.find((x) => (x.ops ?? []).some((o) => o.tool === b.id));
+    return section('solidSubtract', ctx.t('details.operations'), `<p class="sd-help">${e(ctx.t('help.toolBody', { name: owner?.name ?? '?' }))}</p>`);
+  }
+  const list = ops.map((o, i) => {
+    const tool = p.bodies.find((x) => x.id === o.tool);
+    const glyph = { subtract: 'solidSubtract', union: 'solidUnion', intersect: 'solidIntersect' }[o.op] ?? 'solidUnion';
+    const label = ctx.t(`cmd.bool${o.op[0].toUpperCase()}${o.op.slice(1)}`);
+    return row(glyph, label, `<span class="sd-value">${e(tool?.name ?? '?')}</span><button class="icon-button" data-op-del="${e(b.id)}|${i}" title="${e(ctx.t('cmd.delete'))}">${icon('trash', 'icon tiny')}</button>`);
+  }).join('');
+  const buttons = p.bodies.length > 1 ? `<div class="sd-buttons">${['subtract', 'union', 'intersect'].map((op) => button(`bool:${op}`, { subtract: 'solidSubtract', union: 'solidUnion', intersect: 'solidIntersect' }[op], ctx.t(`cmd.bool${op[0].toUpperCase()}${op.slice(1)}`))).join('')}</div>` : '';
+  return section('solidUnion', ctx.t('details.operations'), `${list || `<p class="sd-help">${e(ctx.t('help.operations'))}</p>`}${buttons}`);
+}
+
+/** The section plane of the 3D view: on/off, axis, offset, clipping. */
+function sectionControls(ctx) {
+  const { t, state } = ctx;
+  const sec = state.section;
+  return section('sectionPlane', t('res.section'), [
+    row('sectionPlane', t('cmd.sectionPlane'), toggleControl('$section.enabled', sec.enabled, t('cmd.sectionPlane'))),
+    sec.enabled ? row('axis', t('res.sectionAxis'), selectControl('$section.axis', sec.axis, [['x', 'X', 'axisX'], ['y', 'Y', 'axisY'], ['z', 'Z', 'axisZ']], 'axis')) : '',
+    sec.enabled ? row('move', t('res.sectionOffset'), stepperHtml({ key: 'k|ratio|$section.offset', value: Math.round(sec.offset * 100), min: 0, max: 100, step: 1, unit: '%', label: t('res.sectionOffset') })) : '',
+    sec.enabled ? row('styleHidden', t('res.sectionClip'), toggleControl('$section.clip', sec.clip, t('res.sectionClip'))) : '',
+    sec.enabled ? row('flipTool', t('res.sectionFlip'), toggleControl('$section.flip', sec.flip, t('res.sectionFlip'))) : '',
+    `<p class="sd-help">${e(t('help.section'))}</p>`,
+  ].join(''));
+}
+
+/** Probe values of the shown result. */
+function probeSection(ctx) {
+  const { t } = ctx;
+  const vals = ctx.model.probeValues?.() ?? [];
+  const us = ctx.units();
+  const body = vals.map((v, i) => info('probe', v.probe.name || `P${i + 1}`, `${fmt(toDisplay(v.kind, v.value, us))} ${unitLabel(v.kind, us)}`)).join('');
+  return section('probe', t('outline.probes'), `${body || `<p class="sd-help">${e(t('help.probes'))}</p>`}<div class="sd-buttons">${button('addProbe', 'probe', t('cmd.addProbe'), ctx.state.pickProbe ? 'primary' : '')}</div>`);
+}
+
 function visibleSetting(s, f) {
   const st = s.settings;
+  if (!fieldShown(f, st)) return false;
   if (s.type === 'fluid') {
     if (['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'].includes(f.key)) return st.flowType !== 'internal';
     if (f.key === 'endTime') return !st.steady;
     if (['buoyancy', 'inletTemperature', 'initialTemperature', 'gravity'].includes(f.key)) return Boolean(st.thermal);
   }
   if (s.type === 'fatigue' && f.key === 'ratio') return st.loading === 'ratio';
+  if (s.type === 'fatigue' && f.key === 'meanTheory') return st.method !== 'strainLife';
   return true;
 }
 
@@ -397,9 +511,10 @@ export function dataTabHtml(ctx) {
   const m = p.materials.find((x) => x.id === selId);
   const list = p.materials.map((x) => `<button class="data-mat ${x.id === selId ? 'active' : ''}" data-mat="${e(x.id)}"><span class="mat-swatch" style="background:${e(x.color ?? '#999')}"></span><span>${e(materialName(x, ctx.lang()))}</span><small>${p.bodies.filter((b) => b.material === x.id).length}</small></button>`).join('');
   const lib = MATERIAL_GROUPS.map((g) => `<section class="toolbox-group"><h4>${icon('material', 'icon tiny')}<span>${e(t(`matGroup.${g}`))}</span></h4><div class="toolbox-items">${MATERIALS.filter((x) => x.group === g).map((x) => `<button class="toolbox-item" data-add-mat="${x.id}" ${p.materials.some((y) => y.id === x.id) ? 'disabled' : ''}><span class="mat-swatch" style="background:${x.color}"></span><span>${e(materialName(x, ctx.lang()))}</span></button>`).join('')}</div></section>`).join('');
-  const props = m ? MATERIAL_FIELDS.map(([key, kind]) => row(MAT_ICONS[key] ?? 'dot', t(`mat.${key}`), numberControl(ctx, `materials.${m.id}.${key}`, m[key] ?? 0, kind, { min: key === 'fatigueB' ? -1 : 0, step: stepOf(m[key]), label: t(`mat.${key}`) }))).join('') : '';
+  const props = m ? MATERIAL_FIELDS.map(([key, kind]) => row(MAT_ICONS[key] ?? 'dot', t(`mat.${key}`), numberControl(ctx, `materials.${m.id}.${key}`, m[key] ?? 0, kind, { min: key === 'fatigueB' || key === 'fatigueC' ? -1 : 0, step: stepOf(m[key]), label: t(`mat.${key}`) }))).join('') : '';
+  // The material lists sit in the left panel (dataListHtml); this tab shows the chosen material's properties.
+  void list; void lib;
   return `<div class="data-tab">
-    <aside class="data-list"><h3>${icon('material')}<span>${e(t('data.project'))}</span></h3>${list || `<p class="muted">${e(t('data.none'))}</p>`}<h3>${icon('library')}<span>${e(t('data.library'))}</span></h3>${lib}</aside>
     <section class="data-props">${m ? `<h3>${icon('material')}<span>${e(materialName(m, ctx.lang()))}</span><span class="grow"></span><button class="small-button" data-mat-reset="${e(m.id)}">${icon('undo', 'icon tiny')}<span>${e(t('data.reset'))}</span></button><button class="small-button danger" data-mat-del="${e(m.id)}" ${p.bodies.some((b) => b.material === m.id) ? 'disabled' : ''}>${icon('trash', 'icon tiny')}<span>${e(t('cmd.delete'))}</span></button></h3>
       ${row('rename', t('details.name'), textControl(`materials.${m.id}.name.${ctx.lang()}`, materialName(m, ctx.lang()), t('details.name')))}
       ${row('palette', t('data.color'), `<input type="color" data-mat-color="${e(m.id)}" value="${e(m.color ?? '#999999')}" />`)}
@@ -407,6 +522,39 @@ export function dataTabHtml(ctx) {
       <p class="sd-help">${e(t('data.help'))}</p>` : `<p class="muted">${e(t('data.pick'))}</p>`}</section>
   </div>`;
   void us;
+}
+
+/** Engineering Data's left panel: the project's materials (with how many bodies use each) and the library. */
+export function dataListHtml(ctx) {
+  const { state, t } = ctx;
+  const p = state.project;
+  const selId = state.dataSel ?? p.materials[0]?.id;
+  const list = p.materials.map((x) => `<button class="data-mat ${x.id === selId ? 'active' : ''}" data-mat="${e(x.id)}" title="${e(materialName(x, ctx.lang()))}"><span class="mat-swatch" style="background:${e(x.color ?? '#999')}"></span><span>${e(materialName(x, ctx.lang()))}</span><small>${p.bodies.filter((b) => b.material === x.id).length}</small></button>`).join('');
+  const lib = MATERIAL_GROUPS.map((g) => `<section class="toolbox-group"><h4>${icon('material', 'icon tiny')}<span>${e(t(`matGroup.${g}`))}</span></h4><div class="toolbox-items">${MATERIALS.filter((x) => x.group === g).map((x) => `<button class="toolbox-item" data-add-mat="${x.id}" ${p.materials.some((y) => y.id === x.id) ? 'disabled' : ''} title="${e(t('data.addToProject', { name: materialName(x, ctx.lang()) }))}"><span class="mat-swatch" style="background:${x.color}"></span><span>${e(materialName(x, ctx.lang()))}</span></button>`).join('')}</div></section>`).join('');
+  return `<div class="data-list"><h3>${icon('material')}<span>${e(t('data.project'))}</span><small class="muted">${p.materials.length}</small></h3>${list || `<p class="muted">${e(t('data.none'))}</p>`}<h3>${icon('library')}<span>${e(t('data.library'))}</span></h3>${lib}</div>`;
+}
+
+/** Design Exploration's left panel: the parameters, the objective and the design points as a tree. */
+export function studyTreeHtml(ctx) {
+  const { state, t } = ctx;
+  const p = state.project;
+  const st = p.study;
+  const us = ctx.units();
+  const rows = st.rows ?? [];
+  const shown = (q, v) => fmt(q?.model ? v : toDisplay(q?.kind ?? 'ratio', v, us), 4);
+  const item = (glyph, label, attrs = '') => `<div class="tree-row sim-row" ${attrs} style="padding-left:22px" title="${e(label)}">${icon(glyph)}<span class="tree-label">${e(label)}</span></div>`;
+  const head = (glyph, label, n = '') => `<div class="tree-row sim-row tree-root" title="${e(label)}">${icon(glyph)}<span class="tree-label">${e(label)}</span>${n !== '' ? `<small class="muted">${n}</small>` : ''}</div>`;
+  const params = p.parameters.map((q) => item('parameter', `${q.label} · ${shown(q, q.min)} … ${shown(q, q.max)} ${q.model ? 'mm' : unitLabel(q.kind, us)}`, `data-study-param="${e(q.id)}"`)).join('');
+  const sys = ctx.activeSystem();
+  const objective = st.objective ?? (sys ? SYSTEMS[sys.type].outputs?.[0] : null);
+  const points = rows.map((r, i) => item(r.error ? 'error' : Object.keys(r.outputs ?? {}).length ? 'check' : 'hourglass', `#${i + 1} · ${r.inputs.map((v, j) => shown(p.parameters[j], v)).join(', ')}`)).join('');
+  const optimum = st.fit?.optimum ? `${head('simDoe', t('study.optimum'))}${item('target', st.fit.optimum.inputs.map((v, j) => `${p.parameters[j]?.label} ${shown(p.parameters[j], v)}`).join(', '))}` : '';
+  return `<div class="tree sim-tree study-tree">
+    ${head('parameter', t('study.parameters'), p.parameters.length)}${params || `<p class="sd-help pad">${e(t('study.noParams'))}</p>`}
+    ${head('target', t('study.objective'))}${objective ? item(st.goal === 'max' ? 'arrowUp' : 'arrowDown', `${t(`out.${objective}`)} — ${t(st.goal === 'max' ? 'opt.maximize' : 'opt.minimize')}`) : ''}
+    ${head('table', t('study.results'), rows.length)}${points || `<p class="sd-help pad">${e(t('study.noRows'))}</p>`}
+    ${optimum}
+  </div>`;
 }
 
 const stepOf = (v) => { const a = Math.abs(Number(v) || 1); return 10 ** Math.floor(Math.log10(a)) / 10; };

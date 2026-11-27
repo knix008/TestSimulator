@@ -50,30 +50,50 @@ function recentBody(app, settings) {
   return `<h3 class="start-sub">${icon('recent')}<span>${e(t('start.recent'))}</span><span class="grow"></span>${recent.length ? `<button class="small-button danger" data-start="clear-recent">${icon('clearHistory')}<span>${e(t('recent.clear'))}</span></button>` : ''}</h3><div class="start-list">${html}</div>`;
 }
 
+/** Columns that fill every row for `n` items (4–7, the most columns that divide n; 5 otherwise). */
+export function fullColumns(n, min = 4, max = 7) {
+  for (let c = max; c >= min; c--) if (n % c === 0) return c;
+  return 5;
+}
+
 function systemsBody() {
-  return `<div class="sample-groups">${GROUPS.map((g) => `<section class="sample-group"><h3>${icon(g.icon)}<span>${e(t(`group.${g.id}`))}</span></h3>
-    <div class="template-grid">${SYSTEM_IDS.filter((id) => SYSTEMS[id].group === g.id).map((id) => tile('new-system', SYSTEMS[id].icon, t(`sys.${id}`), t(`sysDesc.${id}`), { value: id, cls: 'start-tile template-tile' })).join('')}</div></section>`).join('')}</div>`;
+  // One grid of every system (each with its physics), so no row is left half empty.
+  const cols = fullColumns(SYSTEM_IDS.length);
+  const group = (id) => GROUPS.find((g) => g.id === SYSTEMS[id].group);
+  return `<div class="system-grid" style="--cols:${cols}">${SYSTEM_IDS.map((id) => `<button type="button" class="start-tile template-tile system-tile" data-start="new-system" data-value="${e(id)}" title="${e(`${t(`group.${group(id).id}`)} · ${t(`sys.${id}`)} — ${t(`sysDesc.${id}`)}`)}">${icon(SYSTEMS[id].icon)}<b>${e(t(`sys.${id}`))}</b><small><span class="group-tag group-${e(group(id).id)}">${e(t(`group.${group(id).id}`))}</span>${e(t(`sysDesc.${id}`))}</small></button>`).join('')}</div>`;
 }
 
 function samplesBody(L) {
   return `<div class="sample-groups">${SAMPLE_GROUPS.map((g) => {
     const items = SAMPLES.filter((s) => s.group === g.id);
     return `<section class="sample-group"><h3>${icon(g.icon)}<span>${e(g[L])}</span><span class="sample-count">${items.length}</span></h3>
-      <div class="sample-tiles">${items.map((s) => `<button type="button" class="start-tile sample-tile" data-start="sample" data-value="${e(s.id)}" title="${e(`${s[L][0]} — ${s[L][1]}`)}">${icon(s.icon)}<b>${e(s[L][0])}</b><small>${e(s[L][1])}</small></button>`).join('')}</div></section>`;
+      <div class="sample-tiles" style="--cols:${fullColumns(items.length)}">${items.map((s) => `<button type="button" class="start-tile sample-tile" data-start="sample" data-value="${e(s.id)}" title="${e(`${s[L][0]} — ${s[L][1]}`)}">${icon(s.icon)}<b>${e(s[L][0])}</b><small>${e(s[L][1])}</small></button>`).join('')}</div></section>`;
   }).join('')}</div>`;
 }
 
 function backgroundBody(settings) {
+  // Speed and opacity: a slider and the number (typed or stepped, with %), 100 % being the reference.
+  const level = (key, glyph, label, value, max, step) => `<div class="bg-level" title="${e(label)}">${icon(glyph, 'icon tiny')}<span class="bg-level-label">${e(label)}</span>
+    <input type="range" min="0" max="${max}" step="${step}" value="${value}" data-bg-range="${key}" data-unit="%" aria-label="${e(label)}" list="bg-ref-${key}" />
+    <datalist id="bg-ref-${key}"><option value="100"></option></datalist></div>`;
+  const auto = settings.animationInterval > 0;
   return `<div class="anim-chips bg-grid">${ANIMATION_KINDS.map((k) => `<button class="anim-chip bg-tile ${settings.animation === k && settings.backgroundKind === 'animated' ? 'active on' : ''}" data-start="animation" data-value="${k}" title="${e(t(`animation.${k}`))}">${icon(animationIcon(k))}<span>${e(t(`animation.${k}`))}</span></button>`).join('')}</div>
-    <div class="start-controls"><button class="start-btn" data-start="shuffle">${icon('dice')}<span>${e(t('action.shuffleBackground'))}</span></button>
-    <span class="muted">${e(t('start.bgInterval'))}: ${e(intervalLabel(settings.animationInterval))}</span></div>`;
+    <div class="bg-row">
+      ${level('$bgSpeed', 'speed', t('settings.animationSpeed'), settings.animationSpeed, 200, 5)}
+      ${level('$bgOpacity', 'opacity', t('settings.startBgOpacity'), settings.startBgOpacity ?? 100, 100, 5)}
+    </div>
+    <div class="bg-row">
+      <label class="bg-check" title="${e(t('start.bgInterval'))}"><span class="switch-wrap"><input type="checkbox" data-toggle-field="$bgAuto" ${auto ? 'checked' : ''} aria-label="${e(t('start.bgInterval'))}" /><span class="switch" aria-hidden="true"></span></span>${icon('clock', 'icon tiny')}<span>${e(t('start.bgInterval'))}</span></label>
+      <label class="bg-check" title="${e(t('settings.bgIntervalShort'))}">${icon('repeat', 'icon tiny')}<span>${e(t('settings.bgIntervalShort'))}</span><select data-select="$bgInterval" ${auto ? '' : 'disabled'}>${ANIMATION_INTERVALS.filter((n) => n > 0).map((n) => `<option value="${n}" ${Number(settings.animationInterval || settings.lastInterval || 30) === n ? 'selected' : ''}>${e(intervalLabel(n))}</option>`).join('')}</select></label>
+      <label class="bg-check" title="${e(t('settings.bgRandom'))}"><span class="switch-wrap"><input type="checkbox" data-toggle-field="$bgRandom" ${settings.animationRandom ? 'checked' : ''} aria-label="${e(t('settings.bgRandom'))}" /><span class="switch" aria-hidden="true"></span></span>${icon('dice', 'icon tiny')}<span>${e(t('start.bgRandomShort'))}</span></label>
+      <button class="start-btn" data-start="shuffle">${icon('dice')}<span>${e(t('action.shuffleBackground'))}</span></button>
+    </div>`;
 }
 
 export function startPageHtml(app) {
   const L = getLanguage() === 'en' ? 'en' : 'ko';
   const settings = app.settings();
   const version = app.version();
-  void ANIMATION_INTERVALS;
   const cards = [
     card('actions', 'launcher', t('start.actions'), actionsBody(app)),
     settings.startShowRecent === false ? '' : card('recent', 'recent', t('start.recentCard'), recentBody(app, settings)),

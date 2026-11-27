@@ -1,5 +1,5 @@
 // Small SVG charts for the bottom panel and reports: lines (linear or log axes), bars, a heat map.
-import { factor, fmt, unitLabel } from '../sim/units.js';
+import { factor, fmt, offset, unitLabel } from '../sim/units.js';
 import { cssColor } from '../view/simview.js';
 
 const COLORS = ['#3e63dd', '#e5484d', '#30a46c', '#f08a24', '#8e4ec6', '#12a594', '#d6409f'];
@@ -24,7 +24,8 @@ function ticks(lo, hi, n = 5, log = false) {
 /** chart: { titleKey, x, y (unit kinds), series: [{ name, x, y }], logX, logY, bar }. */
 export function lineChart(chart, { t = (k) => k, units = 'mm', width = 640, height = 260 } = {}) {
   const fx = factor(chart.x, units); const fy = factor(chart.y, units);
-  const series = chart.series.map((s) => ({ name: s.name, x: Array.from(s.x, (v) => v * fx), y: Array.from(s.y, (v) => v * fy) }));
+  const ox = offset(chart.x, units); const oy = offset(chart.y, units);
+  const series = chart.series.map((s) => ({ name: s.name, x: Array.from(s.x, (v) => v * fx + ox), y: Array.from(s.y, (v) => v * fy + oy) }));
   const all = (k) => series.flatMap((s) => s[k]).filter((v) => Number.isFinite(v) && (!(k === 'x' ? chart.logX : chart.logY) || v > 0));
   const xs = all('x'); const ys = all('y');
   if (!xs.length || !ys.length) return `<svg class="chart" viewBox="0 0 ${width} ${height}"><text x="${width / 2}" y="${height / 2}" text-anchor="middle">—</text></svg>`;

@@ -145,8 +145,8 @@
 .status-progress i { display: block; height: 100%; background: var(--accent); }
 
 /* engineering data */
-.data-tab { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: 100%; }
-.data-list { border-right: 1px solid var(--border); overflow: auto; padding: 8px; }
+.data-tab { display: block; height: 100%; overflow: auto; }
+.data-list { padding: 6px 8px; }
 .data-list h3, .data-props h3 { display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 0.96em; }
 .data-mat { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .data-mat:hover { background: var(--hover); }
@@ -184,3 +184,83 @@
 #right-panel .sd-table-head span, #left-panel .tree-root .tree-label, #left-panel .active-system > .tree-label { font-weight: 600; }
 #right-panel .stepper-value, #right-panel .num-unit, #right-panel .sd-cell { font-size: inherit; font-weight: 400; }
 #left-panel .rail-title span, #right-panel .rail-title span { font-weight: 600; }
+
+/* Solver notes, tool bodies, the probe pick mode */
+.sd-note { color: var(--warning, #b7791f); font-size: 0.88em; display: flex; gap: 6px; margin: 4px 0; }
+.tool-body .tree-label { font-style: italic; opacity: 0.75; }
+.pick-probe #view-host canvas { cursor: crosshair; }
+
+/* Number inputs line up in every panel: [−][value (stretches)][unit (fixed width)][+], so values, units
+   and the + buttons sit in the same columns from row to row, whatever the unit. */
+:is(#right-panel, .data-tab, .study-tab, #left-panel) .stepper { display: flex; width: 100%; min-width: 0; }
+:is(#right-panel, .data-tab, .study-tab, #left-panel) .stepper .stepper-value { flex: 1 1 auto; width: auto !important; min-width: 0; text-align: right; }
+:is(#right-panel, .data-tab, .study-tab, #left-panel) .stepper .num-unit,
+:is(#right-panel, .data-tab, .study-tab, #left-panel) .stepper .num-unit:empty { flex: none; width: 64px; min-width: 64px; padding: 0 4px 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; text-align: left; }
+.sd-control > .switch-wrap { margin-right: auto; }
+.sd-control select, .sd-control .sd-text { height: 28px; }
+
+/* Rulers (top and left edges) and the 2D mouse position; the legend and labels clear the rulers. */
+.sv-rulers { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2; }
+.sv-coords { position: absolute; left: 30px; bottom: 8px; padding: 3px 8px; border-radius: 6px; background: color-mix(in srgb, var(--panel) 90%, transparent); border: 1px solid var(--border); font-size: 11.5px; font-variant-numeric: tabular-nums; pointer-events: none; z-index: 3; }
+#view-host.with-rulers .sv-legend { left: 34px; top: 34px; }
+
+/* Start page: the top row in one line (same height, centred); full rows in the system and example grids. */
+.start-tools { align-items: center; }
+.start-tools > .start-btn, .start-tools > .check-row { height: 32px; margin: 0; box-sizing: border-box; font-size: 0.92em; }
+.start-tools > .check-row input { margin: 0; }
+.system-grid, .start-page .sample-tiles, #start-page .sample-tiles { display: grid; grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); gap: 8px; }
+.system-tile small { display: flex; gap: 5px; align-items: center; min-width: 0; }
+.group-tag { flex: none; padding: 0 5px; border-radius: 4px; font-size: 0.9em; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.group-tag.group-dynamics { background: #8e4ec61f; color: #8e4ec6; }
+.group-tag.group-thermal { background: #f08a241f; color: #c4661a; }
+.group-tag.group-fluid { background: #2fb37a1f; color: #1f8a5b; }
+.group-tag.group-electromagnetic { background: #14a3a31f; color: #0f8080; }
+.group-tag.group-acoustic { background: #d0479b1f; color: #b03a83; }
+.group-tag.group-optimization { background: #e5484d1f; color: #c4363b; }
+
+/* Start page background controls: row 1 the two levels (slider + number with %), row 2 automatic
+   change, its interval, random order and shuffle — every control 32 px high, vertically centred. */
+.bg-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px 18px; align-items: center; margin-top: 10px; }
+.bg-row + .bg-row { grid-template-columns: repeat(auto-fit, minmax(190px, max-content)); }
+.bg-level { display: grid; grid-template-columns: 16px 100px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 32px; font-size: 0.92em; }
+.bg-level-label { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bg-level .slider-control { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; }
+.bg-level .slider-control input[type="range"] { flex: 1; min-width: 60px; accent-color: var(--accent); }
+.bg-level .slider-control .slider-value { width: 56px !important; text-align: center; font-variant-numeric: tabular-nums; }
+.bg-level .slider-control .slider-unit { min-width: 14px; }
+.bg-check { display: inline-flex; align-items: center; gap: 7px; height: 32px; font-size: 0.92em; white-space: nowrap; }
+.bg-check > span:not(.switch-wrap) { color: var(--muted); }
+.bg-check select { height: 30px; }
+.bg-row > .start-btn { height: 32px; justify-self: start; }
+
+/* Collapsed side panels: the expand button, the panel's icon and its title in one centred column
+   (the title written top to bottom on one line). */
+.panel-rail { width: 100%; box-sizing: border-box; }
+.rail-title { writing-mode: horizontal-tb; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+.rail-title .icon { flex: none; width: 18px; height: 18px; }
+.rail-title span { writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap; letter-spacing: 2px; line-height: 1; }
+.rail-button.expand { flex: none; }
+
+/* Tab rows that can grow: they scroll sideways, with ‹ › buttons only when the tabs do not fit. */
+.tab-strip { display: flex; align-items: stretch; min-width: 0; flex: 1 1 auto; }
+.tab-strip-items { display: flex; align-items: stretch; gap: 2px; min-width: 0; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; }
+.tab-strip-items::-webkit-scrollbar { display: none; }
+.tab-strip-items > * { flex: none; }
+.tab-scroll { display: none; flex: none; width: 22px; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0; }
+.tab-scroll .icon { width: 14px; height: 14px; }
+.tab-scroll:hover:not(:disabled) { color: var(--accent); background: var(--hover); }
+.tab-scroll:disabled { opacity: 0.35; cursor: default; }
+.tab-strip.overflowing > .tab-scroll { display: inline-flex; }
+.tab-strip:not(.overflowing) > .tab-scroll { display: none !important; }
+.ws-tabs > .tab-strip { flex: 1 1 auto; }
+.ws-tabs > .ws-active { flex: none; margin-left: 8px; }
+.cm-tab-row > .tab-strip .tab-strip-items { padding: 3px 8px 0; }
+.problems-header > .tab-strip { flex: 0 1 auto; }
+.problems-header > .tab-strip .segmented { flex-wrap: nowrap; }
+
+/* The collapsed output panel: one slim bar. */
+#app.no-bottom #bottom-panel .problems-header { min-height: 0; height: 26px; padding: 0 8px; gap: 4px; }
+#app.no-bottom #bottom-panel .problems-header .small-button { height: 20px; padding: 0 6px; font-size: 0.85em; }
+#app.no-bottom #bottom-panel .problems-header .icon-button { width: 22px; height: 22px; }
+#app.no-bottom #bottom-panel .problems-header .icon { width: 14px; height: 14px; }
+

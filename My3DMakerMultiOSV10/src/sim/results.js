@@ -123,7 +123,7 @@ export function displayOf(item, result, modelSize) {
 }
 
 /** Cell values of a fluid grid field on two mid-planes (through the bodies): like the solver's slices. */
-export function fluidSlices(fluid, field, axes = [2, 1]) {
+export function fluidSlices(fluid, field, axes = [2, 1], offset = null) {
   const [nx, ny, nz] = fluid.dims;
   const n = [nx, ny, nz];
   const h = fluid.cellSize;
@@ -138,7 +138,8 @@ export function fluidSlices(fluid, field, axes = [2, 1]) {
   const mid = count ? centre.map((v) => Math.round(v / count)) : [nx >> 1, ny >> 1, nz >> 1];
   return axes.map((axis) => {
     const [u, v] = axis === 0 ? [1, 2] : axis === 1 ? [0, 2] : [0, 1];
-    const at = Math.min(n[axis] - 1, Math.max(0, mid[axis]));
+    // A given offset (0-1 across the grid) or through the bodies.
+    const at = Math.min(n[axis] - 1, Math.max(0, offset === null ? mid[axis] : Math.floor(offset * n[axis])));
     const vals = new Float32Array(n[u] * n[v]);
     for (let b = 0; b < n[v]; b++) for (let a = 0; a < n[u]; a++) {
       const idx = [0, 0, 0]; idx[axis] = at; idx[u] = a; idx[v] = b;
@@ -172,6 +173,16 @@ export function chartsOf(sys, r) {
     charts.push({ id: 'frf', titleKey: 'chart.frf', x: 'frequency', y: 'displacement', logY: true, series: ['x', 'y', 'z'].map((c, i) => ({ name: `U${c}`, x: h.frequencies, y: h.amplitude[i] })) });
     charts.push({ id: 'phase', titleKey: 'chart.phase', x: 'frequency', y: 'angle', series: ['x', 'y', 'z'].map((c, i) => ({ name: `φ${c}`, x: h.frequencies, y: h.phase[i] })) });
   }
+  const names = (list) => list.map((q, i) => sys?.probes?.[i]?.name || `P${i + 1}`);
+  const mag3 = (h) => h[0].map((_, k) => Math.hypot(h[0][k], h[1][k], h[2][k]));
+  if (r.harmonic?.amplitude && r.harmonic.probes?.length > 1) {
+    const n = names(r.harmonic.probes);
+    charts.push({ id: 'frfProbes', titleKey: 'chart.frfProbes', x: 'frequency', y: 'displacement', logY: true, series: r.harmonic.probes.map((q, i) => ({ name: n[i], x: r.harmonic.frequencies, y: mag3(q.amplitude) })) });
+  }
+  if (r.harmonic?.spl && r.harmonic.probes?.length > 1) {
+    const n = names(r.harmonic.probes);
+    charts.push({ id: 'splProbes', titleKey: 'chart.splProbes', x: 'frequency', y: 'spl', logX: true, series: r.harmonic.probes.map((q, i) => ({ name: n[i], x: r.harmonic.frequencies, y: q.spl })) });
+  }
   if (r.harmonic?.spl) charts.push({ id: 'spl', titleKey: 'chart.spl', x: 'frequency', y: 'spl', logX: true, series: [{ name: 'SPL', x: r.harmonic.frequencies, y: r.harmonic.spl }] });
   if (r.transient?.history && Array.isArray(r.transient.history[0])) {
     const t = r.transient;
@@ -179,15 +190,41 @@ export function chartsOf(sys, r) {
   } else if (r.transient?.history) {
     charts.push({ id: 'thermalHistory', titleKey: 'chart.temperatureHistory', x: 'time', y: 'temperature', series: [{ name: 'probe', x: r.transient.times, y: r.transient.history }, { name: 'max', x: r.transient.times, y: r.transient.maxHistory }] });
   }
+  if (r.transient?.probes?.length > 1) {
+    const n = names(r.transient.probes);
+    const structural = Array.isArray(r.transient.probes[0].history[0]);
+    charts.push({ id: 'historyProbes', titleKey: 'chart.historyProbes', x: 'time', y: structural ? 'displacement' : 'temperature', series: r.transient.probes.map((q, i) => ({ name: n[i], x: r.transient.times, y: structural ? mag3(q.history) : q.history })) });
+  }
   if (r.nonlinear?.curve) {
     const c = r.nonlinear.curve;
-    charts.push({ id: 'curve', titleKey: 'chart.loadDisplacement', x: 'displacement', y: 'percent', series: [{ name: 'load', x: c.map((p) => p.displacement), y: c.map((p) => p.load) }] });
+    const loads = c.map((p) => p.load);
+    const series = r.nonlinear.probes?.length > 1 ? r.nonlinear.probes.map((q, i) => ({ name: names(r.nonlinear.probes)[i], x: q.displacement, y: loads })) : [{ name: 'load', x: c.map((p) => p.displacement), y: loads }];
+    charts.push({ id: 'curve', titleKey: 'chart.loadDisplacement', x: 'displacement', y: 'percent', series });
+  }
+  if (r.creep?.history?.length) {
+    const h = r.creep.history;
+    charts.push({ id: 'creep', titleKey: 'chart.creep', x: 'time', y: 'displacement', series: (r.creep.probes ?? [{}]).map((q, i) => ({ name: sys?.probes?.[i]?.name || `P${i + 1}`, x: h.map((p) => p.time), y: h.map((p) => p.displacement[i] ?? 0) })) });
+    charts.push({ id: 'creepStrain', titleKey: 'chart.creepStrain', x: 'time', y: 'strain', series: [{ name: 'εcr', x: h.map((p) => p.time), y: h.map((p) => p.creepStrain) }] });
+  }
+  if (r.fatigue?.cycles?.length > 1) {
+    const c = r.fatigue.cycles;
+    charts.push({ id: 'rainflow', titleKey: 'chart.rainflow', bar: true, x: 'ratio', y: 'count', series: [{ name: 'n', x: c.map((p) => p.range), y: c.map((p) => p.count) }] });
+  }
+  if (r.random?.responsePsd) {
+    const q = r.random.responsePsd;
+    charts.push({ id: 'responsePsd', titleKey: 'chart.responsePsd', x: 'frequency', y: 'psdResponse', logX: true, logY: true, series: [{ name: 'PSD', x: q.frequencies, y: q.values.map((v) => Math.max(v, 1e-30)) }] });
   }
   if (r.explicit?.energy) {
     const e = r.explicit.energy;
     charts.push({ id: 'energy', titleKey: 'chart.energy', x: 'time', y: 'energy', series: [{ name: 'kinetic', x: e.map((p) => p.time), y: e.map((p) => p.kinetic) }, { name: 'internal', x: e.map((p) => p.time), y: e.map((p) => p.internal) }] });
     const w = r.explicit.wallForce;
-    if (w?.length) charts.push({ id: 'wall', titleKey: 'chart.wallForce', x: 'time', y: 'force', series: [{ name: 'F', x: w.map((p) => p.time), y: w.map((p) => p.force) }] });
+    if (w?.length && w.some((p) => p.force > 0)) charts.push({ id: 'wall', titleKey: 'chart.wallForce', x: 'time', y: 'force', series: [{ name: 'F', x: w.map((p) => p.time), y: w.map((p) => p.force) }] });
+    const cf = r.explicit.contactForce;
+    if (r.explicit.bodyContact && cf?.length) charts.push({ id: 'contactForce', titleKey: 'chart.contactForce', x: 'time', y: 'force', series: [{ name: 'F', x: cf.map((p) => p.time), y: cf.map((p) => p.force) }] });
+    if (r.explicit.probes?.length) {
+      const n = names(r.explicit.probes);
+      charts.push({ id: 'explicitProbes', titleKey: 'chart.historyProbes', x: 'time', y: 'displacement', series: r.explicit.probes.map((q, i) => ({ name: n[i], x: r.explicit.probeTimes, y: mag3(q.history) })) });
+    }
   }
   if (r.topology?.history) {
     const h = r.topology.history;

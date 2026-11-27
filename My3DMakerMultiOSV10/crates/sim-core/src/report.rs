@@ -60,9 +60,13 @@ pub fn mesh_info(model: &Model, out: &mut Out) {
     let face_ref = out.u32s(&tri_face);
     let edge_ref = out.u32s(&edges);
     let wall_ref = out.u32s(&wall_tris);
+    // Corner connectivity and region of every element (section planes cut through them).
+    let tet_list: Vec<u32> = mesh.tets.iter().flat_map(|t| [t[0], t[1], t[2], t[3]]).collect();
+    let tet_ref = out.u32s(&tet_list);
+    let region_ref = out.u32s(&mesh.region);
     out.set("mesh", json!({
         "nodes": mesh.nnodes(), "corners": nc, "elements": mesh.tets.len(), "order": mesh.order(), "size": mesh.h,
-        "positions": positions, "tris": tri_ref, "triFace": face_ref, "edges": edge_ref, "walls": wall_ref,
+        "positions": positions, "tris": tri_ref, "triFace": face_ref, "edges": edge_ref, "walls": wall_ref, "tets": tet_ref, "tetRegion": region_ref,
         "faces": faces,
         "bodies": model.bodies.iter().enumerate().map(|(i, b)| json!({ "id": b.id, "elements": per_body.get(i).copied().unwrap_or(0) })).collect::<Vec<_>>(),
         "airElements": if model.air != NONE { per_body.get(model.air as usize).copied().unwrap_or(0) } else { 0 },

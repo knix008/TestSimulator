@@ -112,10 +112,62 @@ export const TEMPLATES = {
     icon: 'shapeCapacitor', group: 'electromagnetic', params: [P('width', 40), P('thickness', 2), P('gap', 6)],
     make: (p) => box(p.width, p.width, p.thickness),
   },
+  // Profiles drawn as a table of points (model units): extruded along Z, or revolved around Z (r, z).
+  profileExtrude: {
+    icon: 'pushPull', group: 'profile', params: [P('height', 30)], profile: 'xy',
+    make: (p, body) => ({ type: 'extrude', points: cleanProfile(body?.profile ?? DEFAULT_PROFILES.xy), height: p.height }),
+  },
+  profileRevolve: {
+    icon: 'profileRevolve', group: 'profile', params: [], profile: 'rz',
+    make: (p, body) => ({ type: 'revolve', points: cleanProfile(body?.profile ?? DEFAULT_PROFILES.rz).map(([r, z]) => [Math.max(0, r), z]) }),
+  },
   stl: { icon: 'stlFile', group: 'import', params: [P('scale', 1, 0.0001, 0.1)], make: (p, body) => ({ type: 'mesh', positions: (body?.stl ?? []).map((v) => v * (p.scale ?? 1)) }) },
 };
 
-export const TEMPLATE_GROUPS = ['primitive', 'part', 'fluid', 'electromagnetic', 'import'];
+export const TEMPLATE_GROUPS = ['primitive', 'profile', 'part', 'fluid', 'electromagnetic', 'import'];
+
+/** Default profiles: a house-shaped outline in XY, a stepped shaft section in (r, z). */
+export const DEFAULT_PROFILES = {
+  xy: [[-30, -20], [30, -20], [30, 15], [0, 35], [-30, 15]],
+  rz: [[0, -30], [25, -30], [25, -15], [15, -10], [15, 20], [8, 30], [0, 30]],
+};
+
+/** A usable polygon: finite points, no repeated neighbours, at least three. */
+export function cleanProfile(points) {
+  const out = [];
+  for (const q of points ?? []) {
+    const x = Number(q?.[0]); const y = Number(q?.[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const last = out.at(-1);
+    if (last && Math.abs(last[0] - x) < 1e-9 && Math.abs(last[1] - y) < 1e-9) continue;
+    out.push([x, y]);
+  }
+  if (out.length > 1 && Math.abs(out[0][0] - out.at(-1)[0]) < 1e-9 && Math.abs(out[0][1] - out.at(-1)[1]) < 1e-9) out.pop();
+  return out.length >= 3 ? out : DEFAULT_PROFILES.xy;
+}
+
+/** Signed area of a polygon (positive: counter-clockwise). */
+export function polygonArea(points) {
+  let a = 0;
+  for (let i = 0; i < points.length; i++) { const [x1, y1] = points[i]; const [x2, y2] = points[(i + 1) % points.length]; a += x1 * y2 - x2 * y1; }
+  return a / 2;
+}
+
+/** Whether a polygon's edges cross each other (other than at shared corners). */
+export function selfIntersects(points) {
+  const n = points.length;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  for (let i = 0; i < n; i++) {
+    const a = points[i]; const b = points[(i + 1) % n];
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue;
+      const c = points[j]; const d = points[(j + 1) % n];
+      const d1 = cross(c, d, a); const d2 = cross(c, d, b); const d3 = cross(a, b, c); const d4 = cross(a, b, d);
+      if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+    }
+  }
+  return false;
+}
 export const TEMPLATE_IDS = Object.keys(TEMPLATES);
 
 export function defaultParams(template) {
@@ -124,11 +176,21 @@ export function defaultParams(template) {
   return out;
 }
 
-/** The solver node of a body: its template made from its parameters, at its place. */
-export function bodyNode(body) {
+/**
+ * The solver node of a body: its template made from its parameters, at its place, then combined with
+ * its tool bodies (body.ops: [{ op: 'subtract' | 'union' | 'intersect', tool: bodyId }], in order).
+ */
+export function bodyNode(body, project = null, depth = 0) {
   const tpl = TEMPLATES[body.template] ?? TEMPLATES.box;
   const node = tpl.make({ ...defaultParams(body.template), ...(body.params ?? {}) }, body);
-  return { ...node, placement: { position: body.position ?? [0, 0, 0], rotation: body.rotation ?? [0, 0, 0] } };
+  let out = { ...node, placement: { position: body.position ?? [0, 0, 0], rotation: body.rotation ?? [0, 0, 0] } };
+  if (!project || depth > 16) return out;
+  for (const o of body.ops ?? []) {
+    const tool = project.bodies.find((b) => b.id === o.tool);
+    if (!tool || !['subtract', 'union', 'intersect'].includes(o.op)) continue;
+    out = { type: o.op, children: [out, bodyNode(tool, project, depth + 1)], placement: { position: [0, 0, 0], rotation: [0, 0, 0] } };
+  }
+  return out;
 }
 
 /** Bounding box of a body's template (model units), estimated from its node without the solver. */

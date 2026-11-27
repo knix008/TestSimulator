@@ -500,6 +500,17 @@ pub fn grid_planes(node: &Node, out: &mut [Vec<f64>; 3]) {
                         for k in 0..3 { out[k].push(w[k]); }
                     }
                     // A tube's bore, a cylinder's axis: no planes (curved), the caps come from the box.
+                    // An extruded polygon: its corners too (an L or T section's inside faces lie on them).
+                    if let Shape::Extrude { points, height } = &node.shape {
+                        if points.len() <= 24 {
+                            for pnt in points {
+                                for z in [-height / 2.0, height / 2.0] {
+                                    let w = add(rot_apply(&rr, [pnt[0], pnt[1], z]), tt);
+                                    for k in 0..3 { out[k].push(w[k]); }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

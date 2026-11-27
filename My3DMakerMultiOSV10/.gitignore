@@ -6,6 +6,8 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 crates/*/target/
+# Cross-target type checks of the solver core (npm test)
+target-check/
 # The solver compiled to WebAssembly (npm run build:wasm)
 src/sim/pkg/
 # Help pages built from doc/*.md (npm run build:docs)

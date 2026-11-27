@@ -54,6 +54,17 @@ pub struct Material {
     pub sound_speed: f64,
     pub expansion: f64,
     pub emissivity: f64,
+    /// Hyperelastic (Mooney–Rivlin; neo-Hookean when c01 = 0): W = c10 (Ī₁ − 3) + c01 (Ī₂ − 3) + (J − 1)² / d1 (Pa, 1/Pa).
+    pub c10: f64,
+    pub c01: f64,
+    pub d1: f64,
+    /// Norton creep, time hardening: ε̇_cr = A σᵛᵐⁿ tᵐ (σ in Pa, t in s).
+    pub creep_a: f64,
+    pub creep_n: f64,
+    pub creep_m: f64,
+    /// Strain-life (Coffin–Manson): ductility coefficient ε_f' and exponent c.
+    pub fatigue_ef: f64,
+    pub fatigue_c: f64,
 }
 
 impl Material {
@@ -61,6 +72,8 @@ impl Material {
         let (e, nu) = (self.young, self.poisson);
         (e * nu / ((1.0 + nu) * (1.0 - 2.0 * nu)), e / (2.0 * (1.0 + nu)))
     }
+    pub fn is_hyper(&self) -> bool { self.c10 > 0.0 || self.c01 > 0.0 }
+    pub fn creeps(&self) -> bool { self.creep_a > 0.0 && self.creep_n > 0.0 }
     pub fn check_structural(&self) -> Result<(), String> {
         if !(self.young > 0.0) || !(self.poisson > -1.0 && self.poisson < 0.5) { return Err(format!("material.badElastic:{}", self.name)); }
         Ok(())
@@ -301,6 +314,12 @@ impl Model {
     pub fn setting_u(&self, key: &str, default: usize) -> usize { self.job.settings.get(key).and_then(|v| v.as_u64()).map(|v| v as usize).unwrap_or(default) }
     pub fn setting_b(&self, key: &str, default: bool) -> bool { self.job.settings.get(key).and_then(|v| v.as_bool()).unwrap_or(default) }
     pub fn setting_s(&self, key: &str, default: &str) -> String { self.job.settings.get(key).and_then(|v| v.as_str()).unwrap_or(default).to_string() }
+
+    /// Nodes of the job's probe points (nearest corner node of each); `default` when none are given.
+    pub fn probe_nodes(&self, default: impl FnOnce() -> usize) -> Vec<usize> {
+        let list: Vec<usize> = self.job.probes.iter().filter_map(|p| self.nearest_node(*p)).collect();
+        if list.is_empty() { vec![default()] } else { list }
+    }
 
     /// The nearest node (of solid bodies) to a point in model units.
     pub fn nearest_node(&self, p: V3) -> Option<usize> {

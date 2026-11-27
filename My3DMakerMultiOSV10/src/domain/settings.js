@@ -72,6 +72,8 @@ export function defaultSettings(language = 'ko') {
     backgroundImage: null,
     backgroundName: '',
     backgroundOpacity: 18,
+    /** Opacity of the start page's moving background (%). */
+    startBgOpacity: 100,
     backgroundFit: 'cover',
     showStartPage: true,
     // Settings › Start page: which parts the start page shows.
@@ -193,6 +195,16 @@ export function defaultSettings(language = 'ko') {
     meshResolution: 'medium',
     maxNodes: 400000,
     sliceOpacity: 85,
+    /** A face click replaces the condition's faces (Ctrl / Shift add); off: every click adds or removes. */
+    pickReplace: false,
+    showAllBcs: true,
+    /** Vector results: arrows on the surface (or on the section plane) — how many at most. */
+    showArrows: true,
+    arrowCount: 300,
+    showProbes: true,
+    /** 3D view: the 5 × 5 ground grid; rulers along the top and left (2D views: with the mouse position). */
+    showGrid: true,
+    showRulers: true,
     leftTab: 'outline',
     workspaceTab: 'project',
   };
@@ -219,11 +231,12 @@ export function normalizeSettings(raw = {}, language) {
   s.backgroundKind = BACKGROUND_KINDS.includes(s.backgroundKind) ? s.backgroundKind : base.backgroundKind;
   if (s.animation === 'curtains') s.animation = 'rain';
   s.animation = ANIMATIONS.includes(s.animation) ? s.animation : base.animation;
-  s.animationSpeed = clamp(s.animationSpeed, 0, 300, 100);
+  s.animationSpeed = clamp(s.animationSpeed, 0, 200, 100);
   s.animationRandom = s.animationRandom !== false;
   // Seconds between automatic changes on the start page; 0 = never.
   s.animationInterval = ANIMATION_INTERVALS.includes(Number(s.animationInterval)) ? Number(s.animationInterval) : base.animationInterval;
   s.backgroundOpacity = clamp(s.backgroundOpacity, 0, 100, base.backgroundOpacity);
+  s.startBgOpacity = clamp(s.startBgOpacity, 0, 100, base.startBgOpacity);
   s.backgroundFit = BACKGROUND_FITS.includes(s.backgroundFit) ? s.backgroundFit : base.backgroundFit;
   s.backgroundImage = typeof s.backgroundImage === 'string' && s.backgroundImage ? s.backgroundImage : null;
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;

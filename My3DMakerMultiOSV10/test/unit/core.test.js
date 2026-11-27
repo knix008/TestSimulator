@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { decodeResult } from '../../src/sim/decode.js';
-import { factor, fmt, toDisplay, toSI, unitLabel, KINDS } from '../../src/sim/units.js';
+import { factor, fmt, toDisplay, toSI, unitLabel, KINDS, SYSTEMS as UNIT_SYSTEMS } from '../../src/sim/units.js';
 import { addBc, addBody, addSystem, buildJob, createProject, packProject, pathGet, pathSet, unpackProject, outputsOf } from '../../src/sim/project.js';
 import { BCS, RESULTS, SYSTEMS, SYSTEM_IDS, FOLLOW_UPS, defaultSettings } from '../../src/sim/catalog.js';
 import { TEMPLATES, bodyNode, nodeBox, parseStl, writeStl } from '../../src/sim/shapes.js';
@@ -37,6 +37,20 @@ test('units convert both ways and label in both systems', () => {
   assert.equal(fmt(1234.5678), '1235');
   assert.equal(fmt(123456.7), '123,500');
   assert.match(fmt(1.5e-7), /e-7$/);
+});
+
+test('every unit system converts every kind both ways (temperatures with their offset)', () => {
+  for (const sys of UNIT_SYSTEMS) {
+    for (const k of Object.keys(KINDS)) {
+      assert.ok(factor(k, sys) > 0, `${sys} ${k}`);
+      assert.ok(Math.abs(toSI(k, toDisplay(k, 123.4, sys), sys) - 123.4) < 1e-9 * 123.4, `${sys} ${k} round trip`);
+    }
+  }
+  assert.ok(Math.abs(toDisplay('temperature', 100, 'us') - 212) < 1e-9);
+  assert.ok(Math.abs(toDisplay('temperature', 0, 'siK') - 273.15) < 1e-9);
+  assert.ok(Math.abs(toDisplay('stress', 6.894757e6, 'us') - 1000) < 0.01);
+  assert.equal(unitLabel('length', 'cgs'), 'cm');
+  assert.ok(Math.abs(toDisplay('length', 0.0254, 'us') - 1) < 1e-5);
 });
 
 test('every system, condition and result is complete and translated', () => {

@@ -275,7 +275,10 @@ pub fn generate(bodies: &[BodyMesh], opt: &MeshOptions, ctx: &mut crate::Ctx) ->
                     let p: Vec<V3> = ids.iter().map(|&id| gpos(id as usize)).collect();
                     let cen = [(p[0][0] + p[1][0] + p[2][0] + p[3][0]) / 4.0, (p[0][1] + p[1][1] + p[2][1] + p[3][1]) / 4.0, (p[0][2] + p[1][2] + p[2][2] + p[3][2]) / 4.0];
                     let mut r = air;
-                    for &bi in &candidates { if bodies[bi].solid.inside(cen) { r = bi as u32; break; } }
+                    // A tetrahedron belongs to a body when its centre lies inside it or just outside (within
+                    // 0.15 of a cell): near curved surfaces most of such an element is inside, and leaving it
+                    // out would leave a notch the snapping cannot close. Spikes this adds are snapped or removed.
+                    for &bi in &candidates { if bodies[bi].solid.sdf(cen) < 0.15 * csize { r = bi as u32; break; } }
                     if r == NONE { continue; }
                     let v = volume(p[0], p[1], p[2], p[3]);
                     if v.abs() < 1e-12 * csize * csize * csize { continue; }
@@ -315,10 +318,13 @@ pub fn generate(bodies: &[BodyMesh], opt: &MeshOptions, ctx: &mut crate::Ctx) ->
     if opt.snap {
         // Stage 2: the remaining boundary nodes onto the surfaces (each move keeps its elements valid);
         // elements flattened against a surface are dropped and the boundary found again.
-        for round in 0..3 {
+        for round in 0..5 {
             let incident = node_tets(&mesh);
             snap(&mut mesh, bodies, &hloc, &incident, air);
-            let dropped = drop_slivers(&mut mesh);
+            // Spikes: elements near a surface with a corner still well outside their body (a node the
+            // snapping could not move) go, so the surface is found again without them.
+            let spikes = drop_spikes(&mut mesh, bodies, &hloc, air);
+            let dropped = drop_slivers(&mut mesh, air) || spikes;
             if dropped {
                 let (tris, tri_region, tri_other) = boundary(&mesh.tets, &mesh.region);
                 mesh.tris = tris;
@@ -328,6 +334,9 @@ pub fn generate(bodies: &[BodyMesh], opt: &MeshOptions, ctx: &mut crate::Ctx) ->
                 break;
             }
         }
+        // The faces that the last round's removals brought to the surface snap too.
+        let incident = node_tets(&mesh);
+        snap(&mut mesh, bodies, &hloc, &incident, air);
         compact_nodes(&mut mesh, &mut hloc);
     }
     if !opt.split.is_empty() { split_interfaces(&mut mesh, &opt.split, &mut hloc); }
@@ -406,7 +415,7 @@ fn pair_contact_nodes(mesh: &mut Mesh, pairs: &[(u32, u32)]) {
 
 /// Removes elements whose four corners all lie on the boundary and that have become flat
 /// (quality below 2 %). Returns whether any went.
-fn drop_slivers(mesh: &mut Mesh) -> bool {
+fn drop_slivers(mesh: &mut Mesh, air: u32) -> bool {
     let mut on_boundary = vec![false; mesh.nodes.len()];
     for t in &mesh.tris { for &n in t { on_boundary[n as usize] = true; } }
     let keep: Vec<bool> = (0..mesh.tets.len()).map(|e| {
@@ -414,6 +423,37 @@ fn drop_slivers(mesh: &mut Mesh) -> bool {
         !(t.iter().all(|&n| on_boundary[n as usize]) && mesh.quality(e) < 0.02)
     }).collect();
     if keep.iter().all(|k| *k) { return false; }
+    // Flat elements go (even inside an enclosure: their volume is negligible, and a flat element cannot
+    // be integrated).
+    let _ = air;
+    let mut tets = Vec::with_capacity(mesh.tets.len());
+    let mut region = Vec::with_capacity(mesh.tets.len());
+    for e in 0..mesh.tets.len() { if keep[e] { tets.push(mesh.tets[e]); region.push(mesh.region[e]); } }
+    mesh.tets = tets;
+    mesh.region = region;
+    true
+}
+
+/// Removes body elements that stick out of their body: every element of a body that has a corner more
+/// than a third of the local size outside it (a node the snapping could not move onto the surface).
+/// The faces behind come to the surface and snap in the next round. Returns whether any went.
+fn drop_spikes(mesh: &mut Mesh, bodies: &[BodyMesh], hloc: &[f64], air: u32) -> bool {
+    let keep: Vec<bool> = (0..mesh.tets.len()).map(|e| {
+        let r = mesh.region[e];
+        if r == air || r as usize >= bodies.len() { return true; }
+        let solid = bodies[r as usize].solid;
+        mesh.tets[e].iter().all(|&n| solid.sdf(mesh.nodes[n as usize]) <= 0.33 * hloc[n as usize])
+    }).collect();
+    // Never empty a body: a body thinner than a cell keeps its elements.
+    let mut left = vec![0usize; bodies.len()];
+    for e in 0..mesh.tets.len() { let r = mesh.region[e] as usize; if r < bodies.len() && keep[e] { left[r] += 1; } }
+    let keep: Vec<bool> = (0..mesh.tets.len()).map(|e| { let r = mesh.region[e] as usize; keep[e] || (r < bodies.len() && left[r] == 0) }).collect();
+    if keep.iter().all(|k| *k) { return false; }
+    // Inside an enclosure the element joins the surrounding air (the air volume stays whole).
+    if air != NONE {
+        for e in 0..mesh.tets.len() { if !keep[e] { mesh.region[e] = air; } }
+        return true;
+    }
     let mut tets = Vec::with_capacity(mesh.tets.len());
     let mut region = Vec::with_capacity(mesh.tets.len());
     for e in 0..mesh.tets.len() { if keep[e] { tets.push(mesh.tets[e]); region.push(mesh.region[e]); } }
@@ -517,7 +557,7 @@ fn snap(mesh: &mut Mesh, bodies: &[BodyMesh], hloc: &[f64], incident: &[Vec<u32>
     for (ti, t) in mesh.tris.iter().enumerate() {
         if mesh.tri_other[ti] == NONE && mesh.tri_region[ti] == air { for &n in t { target[n as usize] = NONE; } }
     }
-    for pass in 0..2 {
+    for pass in 0..3 {
         for n in 0..mesh.nodes.len() {
             let b = target[n];
             if b == NONE { continue; }
@@ -525,11 +565,14 @@ fn snap(mesh: &mut Mesh, bodies: &[BodyMesh], hloc: &[f64], incident: &[Vec<u32>
             let p = mesh.nodes[n];
             let d = solid.sdf(p);
             let hl = hloc[n];
-            if d.abs() < 1e-9 * hl || d.abs() > 0.8 * hl { continue; }
+            // How far a node may travel: a little more than a cell (never less than half the mesh size:
+            // next to a body's own grid planes the local spacing can be tiny).
+            let reach = 1.2 * hl.max(0.5 * mesh.h);
+            if d.abs() < 1e-9 * hl || d.abs() > reach { continue; }
             let q = solid.project(p, hl * 1e-3);
-            if norm(sub(q, p)) > 0.8 * hl { continue; }
-            let ratio = if pass == 0 { 0.15 } else { 0.05 };
-            for f in [1.0, 0.75, 0.5] {
+            if norm(sub(q, p)) > reach { continue; }
+            let ratio = [0.15, 0.05, 0.01][pass];
+            for f in [1.0, 0.75, 0.5, 0.25] {
                 let c = [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f, p[2] + (q[2] - p[2]) * f];
                 if valid_after(mesh, &incident[n], n, c, ratio, &orig, &on_boundary) { mesh.nodes[n] = c; break; }
             }
@@ -807,6 +850,37 @@ mod tests {
     }
 
     #[test]
+    fn curved_surfaces_have_no_spikes() {
+        // Every surface node of a sphere and a torus lies on the surface (within a third of a cell):
+        // no element corner is left sticking out.
+        for (shape, size) in [(r#"{"type":"sphere","radius":25}"#, 2.2), (r#"{"type":"sphere","radius":25}"#, 3.7), (r#"{"type":"torus","major":40,"minor":10}"#, 2.5)] {
+            let s = solid(shape);
+            let b = BodyMesh { solid: &s, planes: [vec![], vec![], vec![]], size: None };
+            let m = generate(&[b], &opts(size), &mut crate::Ctx::silent()).unwrap();
+            let worst = m.tris.iter().flat_map(|t| t.iter()).map(|&n| s.sdf(m.nodes[n as usize]).abs()).fold(0.0, f64::max);
+            assert!(worst < size / 3.0, "{shape} h {size}: a surface node {worst} off the surface");
+            assert!(m.tets.iter().enumerate().all(|(e, _)| m.tet_volume(e) > 0.0));
+        }
+    }
+
+    #[test]
+    fn stepped_shaft_surface_is_whole() {
+        // A shaft of three turned cylinders (along X): its own grid planes sit close to the grid lines,
+        // which once left a row of nodes unsnapped (a groove along the largest step).
+        let job = r#"{ "analysis": "mesh", "unit": 0.001, "mesh": { "size": 5.71, "order": 1 },
+          "bodies": [{ "id": "s", "material": "steel", "shape": { "type": "union", "children": [
+            { "type": "cylinder", "radius": 20, "height": 80, "placement": { "position": [-90, 0, 0], "rotation": [0, 90, 0] } },
+            { "type": "cylinder", "radius": 15, "height": 120, "placement": { "position": [10, 0, 0], "rotation": [0, 90, 0] } },
+            { "type": "cylinder", "radius": 12.5, "height": 60, "placement": { "position": [100, 0, 0], "rotation": [0, 90, 0] } } ] } }] }"#;
+        let job: crate::model::Job = serde_json::from_str(job).unwrap();
+        let solid = crate::geom::Solid::new(&job.bodies[0].shape).unwrap();
+        let model = crate::model::Model::build(job, &mut crate::Ctx::silent()).unwrap();
+        let m = &model.mesh;
+        let worst = m.tris.iter().flat_map(|t| t.iter()).map(|&n| solid.sdf(m.nodes[n as usize]).abs()).fold(0.0, f64::max);
+        assert!(worst < 5.71 / 3.0, "a surface node {worst} mm off the surface");
+    }
+
+    #[test]
     fn enclosure_adds_air_region() {
         let s = solid(r#"{"type":"sphere","radius":2}"#);
         let b = BodyMesh { solid: &s, planes: [vec![], vec![], vec![]], size: None };
@@ -816,7 +890,8 @@ mod tests {
         let m = generate(&[b], &o, &mut ctx).unwrap();
         assert_eq!(m.nregions, 2);
         let v: f64 = (0..m.tets.len()).map(|e| m.tet_volume(e)).sum();
-        assert!((v - 1000.0).abs() < 1e-6);
+        // The enclosure stays whole (flat slivers removed at the surface are negligible).
+        assert!((v - 1000.0).abs() < 1.0, "volume {v}");
         assert!(m.faces.iter().any(|f| f.region == 1 && f.other == NONE));
         assert!(m.faces.iter().any(|f| f.region == 0 && f.other == 1));
     }

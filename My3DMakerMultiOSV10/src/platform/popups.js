@@ -15,14 +15,14 @@ import { emitTo, invoke, isDesktop, listen } from './native.js';
 /** Logical size of each popup, measured to fit its content (Korean and English, full lists) without scrolling
  * or empty space. Fixed; confirm, about, welcome and prompt then follow their content height (fitHeight). */
 export const POPUPS = {
-  settings: { width: 1100, height: 700 },
+  settings: { width: 820, height: 540 },
   about: { width: 740, height: 600 },
   confirm: { width: 540, height: 270 },
   error: { width: 720, height: 500 },
   progress: { width: 520, height: 220 },
   recent: { width: 800, height: 510 },
   menu: { width: 300, height: 200 },
-  theme: { width: 620, height: 680 },
+  theme: { width: 470, height: 600 },
   welcome: { width: 640, height: 470 },
   color: { width: 300, height: 300 },
   prompt: { width: 520, height: 230 },

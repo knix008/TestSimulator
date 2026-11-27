@@ -18,6 +18,12 @@ impl Out {
 
     pub fn set(&mut self, key: &str, v: Value) { self.json.insert(key.to_string(), v); }
 
+    /// A note for the user (a message key, optionally "key:argument"); shown as a warning with the result.
+    pub fn note(&mut self, key: &str) {
+        let list = self.json.entry("notes".to_string()).or_insert_with(|| Value::Array(Vec::new()));
+        if let Value::Array(a) = list { if !a.iter().any(|v| v.as_str() == Some(key)) { a.push(Value::String(key.to_string())); } }
+    }
+
     pub fn f32s(&mut self, data: &[f64]) -> Value {
         let offset = self.blobs.len();
         self.blobs.reserve(data.len() * 4);

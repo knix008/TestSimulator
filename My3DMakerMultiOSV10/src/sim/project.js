@@ -4,7 +4,7 @@
 // (model units, mm) and picked faces (model units).
 import { BCS, SYSTEMS, defaultSettings, defaultBc } from './catalog.js';
 import { MATERIALS, solverMaterial } from './materials.js';
-import { bodyNode, defaultParams } from './shapes.js';
+import { bodyNode, defaultParams, DEFAULT_PROFILES, TEMPLATES } from './shapes.js';
 
 export const FORMAT = 'my3dmaker';
 export const FORMAT_VERSION = 1;
@@ -16,7 +16,7 @@ export const newId = (prefix = 'id') => `${prefix}${Date.now().toString(36).slic
 export function createProject(name = '') {
   return {
     format: FORMAT, version: FORMAT_VERSION, name, units: 'mm',
-    bodies: [], materials: [], systems: [], links: [],
+    bodies: [], materials: [], systems: [], links: [], lights: [],
     parameters: [], outputs: [], study: { method: 'ccd', samples: 12, points: [], rows: [], fit: null },
     active: null, created: new Date().toISOString(),
   };
@@ -34,6 +34,8 @@ export function addBody(project, template, { name = '', params = {}, material = 
   ensureMaterial(project, material);
   const body = { id: newId('b'), name: name || `${template} ${project.bodies.length + 1}`, template, params: { ...defaultParams(template), ...params }, material, position, rotation, suppressed: false, meshSize: 0 };
   if (stl) body.stl = stl;
+  const prof = TEMPLATES[template]?.profile;
+  if (prof) body.profile = structuredClone(DEFAULT_PROFILES[prof]);
   project.bodies.push(body);
   return body;
 }
@@ -67,6 +69,14 @@ export function addBc(sys, type, extra = {}) {
   return bc;
 }
 
+/** A light of the 3D view (display only): directional, point or spot, placed in model units (mm). */
+export function addLight(project, { type = 'directional', position = [100, -100, 150], target = [0, 0, 0], color = '#fff4d6', intensity = 1.5, name = '' } = {}) {
+  project.lights ??= [];
+  const light = { id: newId('l'), name: name || `Light ${project.lights.length + 1}`, type, position, target, color, intensity, angle: 30, enabled: true };
+  project.lights.push(light);
+  return light;
+}
+
 /** The solver's job for a system (or just the mesh with analysis 'mesh'). */
 export function buildJob(project, sys, { analysis = null, preview = false } = {}) {
   const def = SYSTEMS[sys.type];
@@ -76,7 +86,9 @@ export function buildJob(project, sys, { analysis = null, preview = false } = {}
     if (f.kind === 'length' && typeof settings[f.key] === 'number') settings[f.key] /= UNIT;
     if (f.kind === 'area' && typeof settings[f.key] === 'number') settings[f.key] /= UNIT * UNIT;
   }
-  if (sys.type === 'fluid') {
+  if (sys.type === 'fluid' && settings.flowType !== 'internal') {
+    // External flow: the sides of the flow box. Internal flow: the fluid body's own faces are walls
+    // (except the picked inlets and outlets), so no side conditions go to the solver.
     settings.boundaries = Object.fromEntries(['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'].map((side, i) => {
       const kind = settings[side] ?? (i === 0 ? 'inlet' : i === 1 ? 'outlet' : 'slip');
       const v = settings.inletVelocity ?? [5, 0, 0];
@@ -87,7 +99,8 @@ export function buildJob(project, sys, { analysis = null, preview = false } = {}
   }
   if (sys.type === 'topology' && !settings.body) delete settings.body;
   if (sys.type === 'explicit' && !(settings.targetTimeStep > 0)) delete settings.targetTimeStep;
-  const bodies = project.bodies.filter((b) => !b.suppressed);
+  // Tool bodies are used up by the booleans of the body that names them.
+  const bodies = project.bodies.filter((b) => !b.suppressed && !b.tool);
   const used = new Set(bodies.map((b) => b.material));
   if (sys.type === 'fluid') used.add(settings.fluid ?? 'air');
   const materials = {};
@@ -95,6 +108,13 @@ export function buildJob(project, sys, { analysis = null, preview = false } = {}
   const bcs = (sys.bcs ?? []).filter((b) => !b.suppressed && BCS[b.type]).map((b) => {
     const out = { ...structuredClone(b), type: BCS[b.type].solverType ?? b.type };
     if (b.type === 'wall' && Array.isArray(out.point)) out.point = out.point.map((v) => v / UNIT);
+    if (b.type === 'remoteForce' || b.type === 'remoteDisplacement') {
+      // The remote point in model units; at the faces' centroid when asked (the solver's default).
+      if (out.atCentroid || !Array.isArray(out.point)) delete out.point; else out.point = out.point.map((v) => v / UNIT);
+      delete out.atCentroid;
+      if (b.type === 'remoteDisplacement') for (const k of ['x', 'y', 'z', 'rx', 'ry', 'rz']) if (out[k] === null || out[k] === undefined || out[k] === '') delete out[k];
+    }
+    if (b.type === 'inlet') { if (!out.useVector) delete out.vector; delete out.useVector; }
     if (b.type === 'displacement') for (const k of ['x', 'y', 'z']) if (out[k] === null || out[k] === undefined || out[k] === '') delete out[k];
     return out;
   });
@@ -103,7 +123,7 @@ export function buildJob(project, sys, { analysis = null, preview = false } = {}
   return {
     analysis: analysis ?? def.analysis,
     unit: UNIT,
-    bodies: bodies.map((b) => ({ id: b.id, name: b.name, material: b.material, shape: bodyNode(b), meshSize: b.meshSize > 0 ? b.meshSize / UNIT : null })),
+    bodies: bodies.map((b) => ({ id: b.id, name: b.name, material: b.material, shape: bodyNode(b, project), meshSize: b.meshSize > 0 ? b.meshSize / UNIT : null })),
     materials,
     mesh: { size: preview ? previewSize(project) : size, order: preview ? 1 : sys.mesh?.order ?? 2, maxNodes: sys.mesh?.maxNodes ?? 600000 },
     enclosure: { enabled: Boolean(sys.enclosure?.enabled) && !preview, padding: pad ? [pad, pad, pad, pad, pad, pad] : [0, 0, 0, 0, 0, 0] },
@@ -119,12 +139,20 @@ export function previewSize(project) {
   let lo = [Infinity, Infinity, Infinity];
   let hi = [-Infinity, -Infinity, -Infinity];
   for (const b of project.bodies) {
-    if (b.suppressed) continue;
-    const box = boxOfBody(b);
+    if (b.suppressed || b.tool) continue;
+    const box = nodeBox(bodyNode(b, project));
     for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], box[0][k]); hi[k] = Math.max(hi[k], box[1][k]); }
   }
   const diag = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
-  return Number.isFinite(diag) && diag > 0 ? diag / 40 : 5;
+  if (!(Number.isFinite(diag) && diag > 0)) return 5;
+  // Fine enough for the thinnest body (seven elements across its smallest extent), coarse enough to stay quick.
+  let thin = Infinity;
+  for (const b of project.bodies) {
+    if (b.suppressed || b.tool) continue;
+    const box = nodeBox(bodyNode(b, project));
+    thin = Math.min(thin, ...[0, 1, 2].map((k) => box[1][k] - box[0][k]).filter((v) => v > 0));
+  }
+  return Math.max(diag / 120, Math.min(diag / 45, thin / 7));
 }
 
 import { nodeBox } from './shapes.js';
@@ -142,6 +170,7 @@ export function unpackProject(text) {
   const base = createProject(p.name ?? '');
   const out = { ...base, ...p };
   for (const s of out.systems) { s.settings = { ...defaultSettings(s.type), ...(s.settings ?? {}) }; s.status = s.status === 'solved' ? 'outdated' : s.status ?? 'setup'; s.bcs ??= []; s.contacts ??= []; s.mesh ??= { size: 0, order: 2 }; s.enclosure ??= { enabled: false, padding: 0 }; s.probes ??= []; }
+  out.lights ??= [];
   for (const id of new Set(out.bodies.map((b) => b.material))) ensureMaterial(out, id);
   return out;
 }
@@ -179,6 +208,8 @@ export function outputsOf(sys, result) {
   put('maxVonMises', r.max?.vonMises);
   put('minSafety', r.max?.safety);
   put('maxPlasticStrain', r.max?.plasticStrain);
+  put('maxCreepStrain', r.max?.creepStrain);
+  if (result.bolts?.length) put('boltForce', result.bolts[0].force);
   put('mass', result.mass);
   put('maxTemperature', r.max?.temperature ?? result.thermal?.max?.temperature);
   put('minTemperature', r.min?.temperature);
@@ -204,7 +235,7 @@ export function outputsOf(sys, result) {
 
 /** Output quantity → unit kind (for display). */
 export const OUTPUT_KINDS = {
-  maxDisplacement: 'displacement', maxVonMises: 'stress', minSafety: 'ratio', maxPlasticStrain: 'strain', mass: 'mass', maxTemperature: 'temperature', minTemperature: 'temperature',
+  boltForce: 'force', maxCreepStrain: 'strain', maxDisplacement: 'displacement', maxVonMises: 'stress', minSafety: 'ratio', maxPlasticStrain: 'strain', mass: 'mass', maxTemperature: 'temperature', minTemperature: 'temperature',
   frequency1: 'frequency', frequency2: 'frequency', loadFactor1: 'ratio', minLife: 'life', peakFrequency: 'frequency', compliance: 'energy', keptFraction: 'ratio',
   drag: 'force', lift: 'force', cd: 'ratio', maxSpeed: 'velocity', maxFluidTemperature: 'temperature', pressureDrop: 'pressure',
   capacitance: 'capacitance', energy: 'energy', resistance: 'resistance', power: 'power', maxField: 'efield', maxCurrentDensity: 'currentDensity',

@@ -1,4 +1,5 @@
-// Units: the solver works in SI; the user sees either the millimetre system (mm, N, MPa, …) or SI.
+// Units: the solver works in SI; the user sees one of several unit systems (mm·N·MPa, SI, SI with kelvin,
+// cm·g·s, µm for MEMS, US customary inch and foot).
 // Each quantity kind has a factor (display = SI × factor) and a label per system.
 
 const K = (mm, si = mm) => ({ mm, si });
@@ -52,18 +53,69 @@ export const KINDS = {
   flowRate: K([1, 'kg/s']),
   impedance: K([1, 'Pa·s/m']),
   psd: K([1, 'g²/Hz']),
+  psdResponse: K([1e6, 'mm²/Hz'], [1, 'm²/Hz']),
   angle: K([1, '°']),
+  compliance: K([1e6, '1/MPa'], [1, '1/Pa']),
   heat: K([1, 'W']),
   jouleDensity: K([1, 'W/m³']),
 };
 
-export const SYSTEMS = ['mm', 'si'];
+// Further unit systems: SI with kelvin, centimetre–gram–second, micrometre (MEMS), and the US
+// customary inch and foot systems. Each lists what differs from SI ([factor, label] or [factor, label,
+// offset] for temperatures: display = SI × factor + offset). Kinds not listed show as in SI.
+const T_F = [1.8, '°F', 32];
+const US_COMMON = {
+  force: [0.224809, 'lbf'], mass: [2.20462, 'lbm'], temperature: T_F, cte: [1e6 / 1.8, '×10⁻⁶/°F'],
+  heatFlux: [0.316998, 'BTU/h·ft²'], htc: [0.176110, 'BTU/h·ft²·°F'], conductivity: [0.577789, 'BTU/h·ft·°F'],
+  specificHeat: [2.38846e-4, 'BTU/lbm·°F'], heatGen: [0.0966211, 'BTU/h·ft³'], power: [3.41214, 'BTU/h'], heat: [3.41214, 'BTU/h'],
+  flowRate: [2.20462, 'lbm/s'], energy: [0.737562, 'ft·lbf'],
+};
+const EXTRA = {
+  siK: { temperature: [1, 'K', 273.15], strain: [1, 'm/m'] },
+  cgs: {
+    length: [100, 'cm'], displacement: [100, 'cm'], area: [1e4, 'cm²'], volume: [1e6, 'cm³'], force: [1e5, 'dyn'], moment: [1e7, 'dyn·cm'],
+    stress: [10, 'dyn/cm²'], pressure: [10, 'dyn/cm²'], modulus: [10, 'dyn/cm²'], density: [1e-3, 'g/cm³'], mass: [1e3, 'g'], strain: [1, 'cm/cm'],
+    velocity: [100, 'cm/s'], acceleration: [100, 'cm/s²'], energy: [1e7, 'erg'], power: [1e7, 'erg/s'], heat: [1e7, 'erg/s'], heatFlux: [1e3, 'erg/s·cm²'],
+    htc: [1e3, 'erg/s·cm²·K'], conductivity: [1e5, 'erg/s·cm·K'], specificHeat: [1e4, 'erg/g·K'], heatGen: [10, 'erg/s·cm³'], jouleDensity: [10, 'erg/s·cm³'],
+    viscosity: [10, 'P'], efield: [0.01, 'V/cm'], currentDensity: [1e-4, 'A/cm²'], resistivity: [100, 'Ω·cm'], stiffness: [1e-1, 'dyn/cm³'],
+    flowRate: [1e3, 'g/s'], acousticPressure: [10, 'dyn/cm²'], psdResponse: [1e4, 'cm²/Hz'], charge: [1e-6, 'C/cm³'], surfaceCharge: [1e-4, 'C/cm²'],
+  },
+  um: {
+    length: [1e6, 'µm'], displacement: [1e6, 'µm'], area: [1e12, 'µm²'], volume: [1e18, 'µm³'], force: [1e6, 'µN'], moment: [1e12, 'µN·µm'],
+    stress: [1e-6, 'MPa'], pressure: [1e-6, 'MPa'], modulus: [1e-9, 'GPa'], density: [1e-18, 'kg/µm³'], strain: [1, 'µm/µm'],
+    velocity: [1e6, 'µm/s'], acceleration: [1e6, 'µm/s²'], energy: [1e12, 'pJ'], power: [1e12, 'pW'], heat: [1e12, 'pW'], heatFlux: [1, 'pW/µm²'],
+    htc: [1, 'pW/µm²·K'], conductivity: [1e6, 'pW/µm·K'], specificHeat: [1e12, 'pJ/kg·K'], heatGen: [1e-6, 'pW/µm³'], jouleDensity: [1e-6, 'pW/µm³'],
+    efield: [1e-6, 'V/µm'], currentDensity: [1e-12 * 1e12, 'pA/µm²'], current: [1e12, 'pA'], resistivity: [1e6, 'Ω·µm'], stiffness: [1e-12, 'µN/µm³'],
+    capacitance: [1e12, 'pF'], psdResponse: [1e12, 'µm²/Hz'], viscosity: [1e-6, 'µN·s/µm²'],
+  },
+  us: {
+    ...US_COMMON, length: [39.3701, 'in'], displacement: [39.3701, 'in'], area: [1550.0031, 'in²'], volume: [61023.744, 'in³'], moment: [8.85075, 'lbf·in'],
+    stress: [1.45038e-4, 'psi'], pressure: [1.45038e-4, 'psi'], modulus: [1.45038e-10, 'Msi'], density: [3.61273e-5, 'lbm/in³'], strain: [1, 'in/in'],
+    velocity: [39.3701, 'in/s'], acceleration: [39.3701, 'in/s²'], efield: [0.0254, 'V/in'], currentDensity: [6.4516e-4, 'A/in²'], resistivity: [39.3701, 'Ω·in'],
+    stiffness: [3.68396e-6, 'lbf/in³'], viscosity: [1.45038e-4, 'lbf·s/in²'], psdResponse: [1550.0031, 'in²/Hz'], acousticPressure: [1.45038e-4, 'psi'],
+  },
+  ft: {
+    ...US_COMMON, length: [3.28084, 'ft'], displacement: [3.28084, 'ft'], area: [10.7639, 'ft²'], volume: [35.3147, 'ft³'], moment: [0.737562, 'lbf·ft'],
+    stress: [0.0208854, 'psf'], pressure: [0.0208854, 'psf'], modulus: [1.45038e-7, 'ksi'], density: [0.0624280, 'lbm/ft³'], strain: [1, 'ft/ft'],
+    velocity: [3.28084, 'ft/s'], acceleration: [3.28084, 'ft/s²'], efield: [0.3048, 'V/ft'], currentDensity: [0.0929030, 'A/ft²'], resistivity: [3.28084, 'Ω·ft'],
+    stiffness: [6.36588e-3, 'lbf/ft³'], viscosity: [0.0208854, 'lbf·s/ft²'], psdResponse: [10.7639, 'ft²/Hz'], acousticPressure: [0.0208854, 'psf'],
+  },
+};
 
-const entry = (kind, system) => KINDS[kind]?.[system === 'si' ? 'si' : 'mm'] ?? [1, ''];
+/** The unit systems (Settings and the toolbar's drop-down), with their short names. */
+export const SYSTEMS = ['mm', 'si', 'siK', 'cgs', 'um', 'us', 'ft'];
+export const SYSTEM_SHORT = { mm: 'mm·N·MPa', si: 'm·N·Pa', siK: 'm·kg·s·K', cgs: 'cm·g·s', um: 'µm·µN·MPa', us: 'in·lbf·psi', ft: 'ft·lbf·psf' };
+
+const entry = (kind, system) => {
+  if (system === 'mm' || system === 'si') return KINDS[kind]?.[system] ?? [1, ''];
+  return EXTRA[system]?.[kind] ?? KINDS[kind]?.si ?? KINDS[kind]?.mm ?? [1, ''];
+};
 export const factor = (kind, system) => entry(kind, system)[0];
 export const unitLabel = (kind, system) => entry(kind, system)[1];
-export const toDisplay = (kind, si, system) => (Number.isFinite(si) ? si * factor(kind, system) : si);
-export const toSI = (kind, shown, system) => (Number.isFinite(shown) ? shown / factor(kind, system) : shown);
+/** Temperatures: an offset as well (°F, K); other kinds are a pure factor. */
+export const offset = (kind, system) => entry(kind, system)[2] ?? 0;
+export const toDisplay = (kind, si, system) => (Number.isFinite(si) ? si * factor(kind, system) + offset(kind, system) : si);
+export const toSI = (kind, shown, system) => (Number.isFinite(shown) ? (shown - offset(kind, system)) / factor(kind, system) : shown);
 
 /** A number for people: up to `digits` significant digits, exponent form when very large or small. */
 export function fmt(value, digits = 4) {

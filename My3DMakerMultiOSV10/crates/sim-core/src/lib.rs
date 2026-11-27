@@ -100,6 +100,9 @@ pub fn run_job_json(json: &str, progress: &mut dyn FnMut(f64, &str) -> bool) -> 
         "acousticHarmonic" => ctx.sub(0.15, 1.0, |c| fields::run_acoustic_harmonic(&model, &mut out, c))?,
         other => return Err(format!("job.unknownAnalysis:{other}")),
     }
+    if matches!(analysis.as_str(), "modal" | "buckling" | "harmonic" | "transient" | "spectrum" | "random" | "thermalStress" | "topology") {
+        structural::contact_notes(&model, &mut out);
+    }
     ctx.step(1.0, "progress.done")?;
     out.set("elapsedMs", serde_json::json!(now_ms() - started));
     out.set("solverVersion", serde_json::json!(VERSION));

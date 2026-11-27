@@ -20,21 +20,25 @@ const bool = (key, def) => ({ key, type: 'bool', def });
 const vec = (key, def, kind) => ({ key, type: 'vector', def, kind });
 const table = (key, def, cols) => ({ key, type: 'table', def, cols });
 
-const STRUCT_BCS = ['fixed', 'displacement', 'frictionless', 'elastic', 'force', 'pressure', 'moment', 'bearing', 'gravity', 'acceleration', 'rotation', 'thermal'];
-const SUPPORTS = ['fixed', 'displacement', 'frictionless', 'elastic'];
+const STRUCT_BCS = ['fixed', 'displacement', 'frictionless', 'elastic', 'remoteDisplacement', 'force', 'pressure', 'moment', 'bearing', 'remoteForce', 'gravity', 'acceleration', 'rotation', 'thermal'];
+const SUPPORTS = ['fixed', 'displacement', 'frictionless', 'elastic', 'remoteDisplacement'];
+// Static analyses also take bolt pretension.
+const STATIC_BCS = [...STRUCT_BCS, 'boltPretension'];
 const THERMAL_BCS = ['temperature', 'convection', 'heatFlux', 'heatFlow', 'radiation', 'heatGeneration', 'heatPower', 'bodyTemperature'];
 
 export const SYSTEMS = {
   static: {
-    group: 'structural', icon: 'simStatic', analysis: 'static', bcs: STRUCT_BCS, contacts: true,
+    group: 'structural', icon: 'simStatic', analysis: 'static', bcs: STATIC_BCS, contacts: true,
     settings: [num('referenceTemperature', 22, 'temperature', -273, 5000, 1)],
     results: ['displacement', 'ux', 'uy', 'uz', 'vonMises', 'principal1', 'principal2', 'principal3', 'maxShear', 'intensity', 'sx', 'sy', 'sz', 'sxy', 'syz', 'szx', 'strain', 'safety'],
     outputs: ['maxDisplacement', 'maxVonMises', 'minSafety', 'mass'],
   },
   fatigue: {
-    group: 'structural', icon: 'simFatigue', analysis: 'static', fixed: { fatigue: true }, bcs: STRUCT_BCS, contacts: true,
+    group: 'structural', icon: 'simFatigue', analysis: 'static', fixed: { fatigue: true }, bcs: STATIC_BCS, contacts: true,
     settings: [
-      sel('loading', 'fullyReversed', ['fullyReversed', 'zeroBased', 'ratio']), num('ratio', -1, 'ratio', -1, 1, 0.1),
+      sel('method', 'stressLife', ['stressLife', 'strainLife']),
+      sel('loading', 'fullyReversed', ['fullyReversed', 'zeroBased', 'ratio', 'history']), num('ratio', -1, 'ratio', -1, 1, 0.1),
+      { ...table('loadHistory', [[0, 0], [1, 1], [2, -0.6], [3, 0.8], [4, -1], [5, 0.3], [6, 0]], [['time', 'time'], ['factor', 'ratio']]), if: 'loading=history' },
       sel('meanTheory', 'goodman', ['goodman', 'soderberg', 'gerber', 'none']), sel('stressMeasure', 'vonMises', ['vonMises', 'maxPrincipal']),
       num('loadScale', 1, 'ratio', 0, 1000, 0.1), num('designLife', 1e6, 'life', 1, 1e12, 1e5),
     ],
@@ -42,10 +46,11 @@ export const SYSTEMS = {
     outputs: ['minLife', 'maxVonMises', 'maxDisplacement'],
   },
   nonlinear: {
-    group: 'structural', icon: 'simNonlinear', analysis: 'nonlinear', bcs: STRUCT_BCS, contacts: true,
-    settings: [int('steps', 10, 1, 200), bool('plasticity', true), bool('largeDeflection', false), int('maxIterations', 25, 3, 100), num('tolerance', 0.005, 'ratio', 1e-5, 0.1, 0.001)],
-    results: ['displacement', 'ux', 'uy', 'uz', 'vonMises', 'plasticStrain', 'principal1', 'principal3', 'strain', 'safety'],
-    outputs: ['maxDisplacement', 'maxVonMises', 'maxPlasticStrain'],
+    group: 'structural', icon: 'simNonlinear', analysis: 'nonlinear', bcs: STATIC_BCS, contacts: true,
+    settings: [int('steps', 10, 1, 200), bool('plasticity', true), bool('largeDeflection', false), int('maxIterations', 25, 3, 100), num('tolerance', 0.005, 'ratio', 1e-5, 0.1, 0.001),
+      bool('creep', false), { ...num('creepTime', 3.6e6, 'time', 1, 1e10, 3600), if: 'creep' }, { ...int('creepSteps', 20, 1, 1000), if: 'creep' }],
+    results: ['displacement', 'ux', 'uy', 'uz', 'vonMises', 'plasticStrain', 'creepStrain', 'principal1', 'principal3', 'strain', 'safety'],
+    outputs: ['maxDisplacement', 'maxVonMises', 'maxPlasticStrain', 'maxCreepStrain'],
   },
   topology: {
     group: 'optimization', icon: 'simTopology', analysis: 'topology', bcs: ['fixed', 'force', 'pressure'],
@@ -79,19 +84,19 @@ export const SYSTEMS = {
   },
   spectrum: {
     group: 'dynamics', icon: 'simSpectrum', analysis: 'spectrum', bcs: SUPPORTS, contacts: true,
-    settings: [int('modes', 12, 1, 60), vec('direction', [0, 0, 1], 'ratio'), table('spectrum', [[1, 2], [10, 20], [30, 20], [100, 5]], [['frequency', 'frequency'], ['acceleration', 'acceleration']])],
+    settings: [int('modes', 12, 1, 60), vec('direction', [0, 0, 1], 'ratio'), sel('combination', 'srss', ['srss', 'cqc']), { ...num('damping', 0.05, 'ratio', 0, 0.5, 0.005), if: 'combination=cqc' }, table('spectrum', [[1, 2], [10, 20], [30, 20], [100, 5]], [['frequency', 'frequency'], ['acceleration', 'acceleration']])],
     results: ['displacement', 'vonMises'],
     outputs: ['maxDisplacement', 'maxVonMises'],
   },
   random: {
     group: 'dynamics', icon: 'simRandom', analysis: 'random', bcs: SUPPORTS, contacts: true,
-    settings: [int('modes', 12, 1, 60), num('damping', 0.02, 'ratio', 0, 0.5, 0.005), vec('direction', [0, 0, 1], 'ratio'), table('psd', [[20, 0.01], [80, 0.04], [350, 0.04], [2000, 0.007]], [['frequency', 'frequency'], ['psd', 'psd']])],
+    settings: [int('modes', 12, 1, 60), num('damping', 0.02, 'ratio', 0, 0.5, 0.005), vec('direction', [0, 0, 1], 'ratio'), bool('crossTerms', true), table('psd', [[20, 0.01], [80, 0.04], [350, 0.04], [2000, 0.007]], [['frequency', 'frequency'], ['psd', 'psd']])],
     results: ['displacement', 'vonMises'],
     outputs: ['maxDisplacement', 'maxVonMises'],
   },
   explicit: {
-    group: 'dynamics', icon: 'simExplicit', analysis: 'explicit', bcs: ['fixed', 'velocity', 'wall', 'gravity'], contacts: false, linearOnly: true,
-    settings: [num('endTime', 0.002, 'time', 1e-7, 1, 0.0005), bool('plasticity', true), num('erosionStrain', 0, 'ratio', 0, 10, 0.05), int('frames', 40, 2, 200), num('timeStepFactor', 0.6, 'ratio', 0.05, 0.9, 0.05), num('targetTimeStep', 0, 'time', 0, 1, 1e-7)],
+    group: 'dynamics', icon: 'simExplicit', analysis: 'explicit', bcs: ['fixed', 'velocity', 'wall', 'gravity'], contacts: true, linearOnly: true,
+    settings: [num('endTime', 0.002, 'time', 1e-7, 1, 0.0005), bool('plasticity', true), bool('bodyContact', true), { ...num('contactFriction', 0, 'ratio', 0, 2, 0.05), if: 'bodyContact' }, num('erosionStrain', 0, 'ratio', 0, 10, 0.05), int('frames', 40, 2, 200), num('timeStepFactor', 0.6, 'ratio', 0.05, 0.9, 0.05), num('targetTimeStep', 0, 'time', 0, 1, 1e-7)],
     results: ['displacement', 'vonMises', 'explicitAnimation'],
     outputs: ['maxDisplacement', 'maxVonMises'],
   },
@@ -169,6 +174,9 @@ export const BCS = {
   frictionless: { icon: 'bcFrictionless', target: 'faces', cat: 'support', fields: [] },
   elastic: { icon: 'bcElastic', target: 'faces', cat: 'support', fields: [num('stiffness', 1e9, 'stiffness', 0, 1e20, 1e8)] },
   force: { icon: 'bcForce', target: 'faces', cat: 'load', fields: [vec('vector', [0, 0, -1000], 'force')] },
+  remoteForce: { icon: 'bcRemoteForce', target: 'faces', cat: 'load', fields: [sel('behavior', 'deformable', ['deformable', 'rigid']), bool('atCentroid', false), { ...vec('point', [0, 0, 0], 'length'), if: '!atCentroid' }, vec('vector', [0, 0, -1000], 'force'), vec('moment', [0, 0, 0], 'moment')] },
+  remoteDisplacement: { icon: 'bcRemoteDisplacement', target: 'faces', cat: 'support', fields: [bool('atCentroid', true), { ...vec('point', [0, 0, 0], 'length'), if: '!atCentroid' }, { key: 'x', type: 'optional', def: 0, kind: 'displacement' }, { key: 'y', type: 'optional', def: 0, kind: 'displacement' }, { key: 'z', type: 'optional', def: 0, kind: 'displacement' }, { key: 'rx', type: 'optional', def: 0, kind: 'angle' }, { key: 'ry', type: 'optional', def: 0, kind: 'angle' }, { key: 'rz', type: 'optional', def: 0, kind: 'angle' }] },
+  boltPretension: { icon: 'bcBolt', target: 'bodies', cat: 'load', fields: [sel('mode', 'force', ['force', 'adjustment']), { ...num('force', 10000, 'force', 0, 1e9, 500), if: 'mode=force' }, { ...num('adjustment', 1e-4, 'displacement', -1, 1, 1e-5), if: 'mode=adjustment' }, vec('axis', [0, 0, 1], 'ratio')] },
   pressure: { icon: 'bcPressure', target: 'faces', cat: 'load', fields: [num('value', 1e6, 'pressure', -1e12, 1e12, 1e5)] },
   moment: { icon: 'bcMoment', target: 'faces', cat: 'load', fields: [vec('vector', [0, 0, 10], 'moment')] },
   bearing: { icon: 'bcBearing', target: 'faces', cat: 'load', fields: [vec('vector', [0, 0, -1000], 'force')] },
@@ -195,7 +203,7 @@ export const BCS = {
   acVelocity: { icon: 'bcAcVelocity', target: 'faces', cat: 'acoustic', solverType: 'velocity', fields: [num('value', 1e-3, 'velocity', -1e3, 1e3, 1e-4)] },
   acPressure: { icon: 'bcAcPressure', target: 'faces', cat: 'acoustic', solverType: 'pressure', fields: [num('value', 0, 'acousticPressure', -1e9, 1e9, 1)] },
   absorbing: { icon: 'bcAbsorbing', target: 'faces', cat: 'acoustic', fields: [num('impedance', 420, 'impedance', 1, 1e9, 10)] },
-  inlet: { icon: 'bcInlet', target: 'faces', cat: 'fluid', fields: [num('speed', 1, 'velocity', -1e3, 1e3, 0.1), num('temperature', 22, 'temperature', -273, 2000, 1)] },
+  inlet: { icon: 'bcInlet', target: 'faces', cat: 'fluid', fields: [bool('useVector', false), { ...num('speed', 1, 'velocity', -1e3, 1e3, 0.1), if: '!useVector' }, { ...vec('vector', [1, 0, 0], 'velocity'), if: 'useVector' }, num('temperature', 22, 'temperature', -273, 2000, 1)] },
   outlet: { icon: 'bcOutlet', target: 'faces', cat: 'fluid', fields: [] },
 };
 
@@ -224,6 +232,7 @@ export const RESULTS = {
   strain: q('result', 'strain', 'strain', { deform: true }),
   safety: q('result', 'safety', 'ratio', { deform: true, reverse: true }),
   plasticStrain: q('result', 'plasticStrain', 'strain', { deform: true }),
+  creepStrain: q('result', 'creepStrain', 'strain', { deform: true }),
   maxVonMises: q('transientMax', 'maxVonMises', 'stress', { deform: false }),
   life: q('fatigue', 'life', 'life', { log: true, reverse: true }),
   damage: q('fatigue', 'damage', 'ratio', { log: true }),
@@ -260,6 +269,17 @@ export const RESULTS = {
   spl: q('result', 'spl', 'spl'),
   acousticPressure: q('result', 'pressure', 'acousticPressure'),
 };
+
+/** Whether a field shows for an object: `if` is "key" (truthy), "!key" (falsy) or "key=value". */
+export function fieldShown(f, obj) {
+  if (!f.if) return true;
+  const neg = f.if.startsWith('!');
+  const cond = neg ? f.if.slice(1) : f.if;
+  const [key, want] = cond.split('=');
+  const v = obj?.[key];
+  const on = want === undefined ? Boolean(v) : String(v) === want;
+  return neg ? !on : on;
+}
 
 /** Default settings of a system type. */
 export function defaultSettings(type) {

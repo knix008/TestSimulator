@@ -151,4 +151,12 @@ export const ICONS_SIMX = {
   outputPanel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18"/><path d="M7 17h6"/><path d="M7 8l3 2-3 2"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   frequency2: '<path d="M3 12h18"/>',
+  bcRemoteForce: '<circle cx="18" cy="6" r="2.5"/><path d="M16 8l-6 6"/><path d="M4 14h8v6H4z" stroke-dasharray="2 1.5"/><path d="M18 9v6M16 13l2 2 2-2"/>',
+  bcRemoteDisplacement: '<circle cx="18" cy="6" r="2.5"/><path d="M16 8l-6 6"/><path d="M4 14h8v6H4z"/><path d="M3 12l3-3M7 12l3-3M11 12l3-3"/>',
+  bcBolt: '<path d="M8 3h8v4H8z"/><path d="M10 7v14h4V7"/><path d="M10 10l4 1M10 13l4 1M10 16l4 1"/><path d="M5 12h3M16 12h3M4 11l1 1-1 1M20 11l-1 1 1 1"/>',
+  lightSpot: '<path d="M8 3h8l-2 5h-4z"/><path d="M10 8l-5 12h14L14 8"/><path d="M9 20l1-3M15 20l-1-3"/>',
+  probe: '<circle cx="12" cy="10" r="3"/><path d="M12 13v8"/><path d="M5 10h2M17 10h2M12 3v2"/><circle cx="12" cy="10" r="7" stroke-dasharray="2 2"/>',
+  arrowField: '<path d="M4 18l5-5M9 13v3M9 13H6"/><path d="M11 13l6-6M17 7v3.5M17 7h-3.5"/><path d="M13 20l7-4M20 16l-3.4-.8M20 16l-1.8 3"/>',
+  profileRevolve: '<path d="M12 3v18" stroke-dasharray="2 2"/><path d="M12 5h5v4l-2 2v6h-3"/><path d="M6 8c-2 1.5-2 6.5 0 8"/><path d="M5 15l1 1 1.2-1.1"/>',
+  cadFile: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 16l3-2 3 2v-4l-3-2-3 2z"/>',
 };
