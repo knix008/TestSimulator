@@ -15,6 +15,20 @@ pub fn is_desktop_target(under: &str, foreground: &str) -> bool {
     DESKTOP_CLASS.contains(&foreground)
 }
 
+// 바탕화면의 맨 바깥 창. 아이콘 목록(SysListView32)은 이 둘 가운데 하나의 안에 있다.
+const DESKTOP_ROOT: [&str; 2] = ["Progman", "WorkerW"];
+
+// 바탕화면을 누른 것인가 (끌어 박스 그리기, 두 번 눌러 감추기).
+//  under — 커서 밑의 가장 안쪽 창(WindowFromPoint), root — 그 창의 맨 바깥 창,
+//  top   — 그 자리에서 맨 위에 보이는 맨 바깥 창(앞뒤 순서로 찾은 것, 못 찾았으면 빈 글).
+// 이름만으로는 모른다. 탐색기 창, 파일 열기 창, 7-Zip, regedit 처럼 SysListView32·SHELLDLL_DefView 를
+// 안에 둔 프로그램이 많다. 그래서 그 창의 맨 바깥이 바탕화면이어야 한다.
+// 마우스를 통과시키는(HTTRANSPARENT) 창이나 꺼 둔 창이 위에 있으면 WindowFromPoint 가 그 밑의 바탕화면을
+// 돌려준다. 그래서 맨 위에 보이는 창도 바탕화면이어야 한다.
+pub fn is_desktop_press(under: &str, root: &str, top: &str) -> bool {
+    DESKTOP_CLASS.contains(&under) && DESKTOP_ROOT.contains(&root) && (top.is_empty() || DESKTOP_ROOT.contains(&top))
+}
+
 pub struct SurfaceFlags {
     pub ours: bool,
     pub visible: bool,
@@ -133,6 +147,27 @@ mod tests {
         assert!(!is_foreign_target("", false));
         assert!(is_surface_window(&SurfaceFlags { ours: false, visible: true, cloaked: false, transparent: false }));
         assert!(!is_surface_window(&SurfaceFlags { ours: false, visible: true, cloaked: true, transparent: false }));
+    }
+
+    #[test]
+    fn only_the_real_desktop_counts_as_a_desktop_press() {
+        // 바탕화면 아이콘 목록. 24H2 는 Progman 안에, 그 앞 판은 WorkerW 안에 있다.
+        assert!(is_desktop_press("SysListView32", "Progman", "Progman"));
+        assert!(is_desktop_press("SysListView32", "WorkerW", "WorkerW"));
+        assert!(is_desktop_press("SHELLDLL_DefView", "Progman", ""));
+        // 다른 프로그램 안의 같은 이름의 창: 탐색기, 파일 열기 창, 7-Zip, regedit.
+        assert!(!is_desktop_press("SysListView32", "CabinetWClass", "CabinetWClass"));
+        assert!(!is_desktop_press("SHELLDLL_DefView", "#32770", "#32770"));
+        assert!(!is_desktop_press("SysListView32", "FM", "FM"));
+        assert!(!is_desktop_press("SysListView32", "RegEdit_RegEdit", ""));
+        // 마우스를 통과시키는 창이나 꺼 둔 창이 바탕화면 위에 있다.
+        assert!(!is_desktop_press("SysListView32", "Progman", "Chrome_WidgetWin_1"));
+        assert!(!is_desktop_press("SysListView32", "Progman", "Notepad"));
+        // 다른 프로그램, 우리 박스, 읽지 못한 창.
+        assert!(!is_desktop_press("Chrome_WidgetWin_1", "Chrome_WidgetWin_1", "Progman"));
+        assert!(!is_desktop_press("DirectUIHWND", "CabinetWClass", "CabinetWClass"));
+        assert!(!is_desktop_press("", "", "Progman"));
+        assert!(!is_desktop_press("SysListView32", "", ""));
     }
 
     #[test]

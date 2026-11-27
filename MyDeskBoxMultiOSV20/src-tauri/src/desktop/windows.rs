@@ -866,9 +866,39 @@ fn surface_at(point: Point, own: &[u64]) -> Option<Surface> {
     Some(Surface { class_name: class_name(top), ours: ours || (pid != 0 && pid == unsafe { GetCurrentProcessId() }) })
 }
 
+const WS_EX_LAYERED: u32 = 0x0008_0000;
+
+// 그 자리에서 맨 위에 보이는 맨 바깥 창 (앞뒤 순서). 우리 창도 센다 — 박스를 누른 것은 바탕화면이 아니다.
+// 반투명(레이어드) 창은 그림이 없는 곳으로 마우스가 지나가므로 건너뛰고 WindowFromPoint 에 맡긴다.
+// 이 PC 들에는 바탕화면 앞에 맨 바깥 창이 500 개 넘게 있다(대개 숨은 창). 넉넉히 센다.
+fn top_surface_at(p: POINT) -> Option<HWND> {
+    let mut cur = unsafe { GetWindow(GetDesktopWindow(), GW_CHILD).ok() };
+    for _ in 0..20_000 {
+        let h = cur?;
+        if unsafe { IsWindowVisible(h).as_bool() } && rect_has(h, p) {
+            let ex = win_ex_style(h);
+            if ex & (WS_EX_TRANSPARENT | WS_EX_LAYERED) == 0 && !is_cloaked(h) {
+                return Some(h);
+            }
+        }
+        cur = unsafe { GetWindow(h, GW_HWNDNEXT).ok() };
+    }
+    None
+}
+
+// 바탕화면 그 자체를 눌렀는가. 바탕화면과 같은 이름의 창을 안에 둔 다른 프로그램은 아니다.
 fn desktop_at(p: POINT) -> bool {
     let under = unsafe { WindowFromPoint(p) };
-    deskpick::is_desktop_target(&class_name(under), &class_name(unsafe { GetForegroundWindow() }))
+    if under.0.is_null() {
+        return false;
+    }
+    let root = unsafe { GetAncestor(under, GA_ROOT) };
+    let top = top_surface_at(p).map(class_name).unwrap_or_default();
+    let ok = deskpick::is_desktop_press(&class_name(under), &class_name(root), &top);
+    if tracing() {
+        trace(&format!("바탕화면인가 {},{} 밑={} 바깥={} 맨위={top} -> {ok}", p.x, p.y, class_name(under), class_name(root)));
+    }
+    ok
 }
 
 pub fn mouse_down() -> bool {
@@ -1932,7 +1962,8 @@ pub fn watch_drag(desk: std::sync::Arc<WinDesktop>, hooks: DragHooks) -> std::sy
                             height: (pos.y - from.y).abs() as f64,
                         };
                         // 그 안에 아이콘이 있으면 여러 개를 고른 것이지, 박스를 그리는 것이 아니다.
-                        if deskpick::should_offer_fence(&rect, &desk.listed()) {
+                        // 다른 창 위에서 손을 뗐으면 그 창에서 고른 것이다.
+                        if desktop_at(pos) && deskpick::should_offer_fence(&rect, &desk.listed()) {
                             (hooks.on_rect)(to_dip_rect(&rect));
                         } else {
                             settle_at = Some(Instant::now());
@@ -2049,6 +2080,25 @@ mod tests {
         assert_eq!(resolve_shortcut(&to_doc), None, "a deleted file was resolved");
     }
 
+    // 프로그램을 지우면 설치 폴더가 통째로 없어진다. 바로가기는 프로그램을 가리키던 파일로 읽히고, 고칠 수 없다.
+    #[test]
+    fn a_shortcut_to_an_uninstalled_program_cannot_be_fixed() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_string_lossy().to_string();
+        let install = join(&root, "Programs/Editor");
+        std::fs::create_dir_all(&install).unwrap();
+        let exe = join(&install, "editor.exe");
+        std::fs::write(&exe, "x").unwrap();
+        let link = join(&root, "Editor.lnk");
+        make_shortcut(&link, &exe);
+        std::fs::remove_dir_all(&install).unwrap();
+        let read = read_shortcut(&link).expect("a broken shortcut could not be read");
+        assert!(crate::pathx::same(&read.target, &exe), "{read:?}");
+        assert!(!read.folder, "program shortcut read as a folder: {read:?}");
+        assert!(!std::path::Path::new(&crate::pathx::dirname(&read.target)).exists());
+        assert_eq!(resolve_shortcut(&link), None, "a deleted program was resolved");
+    }
+
     #[test]
     fn a_shortcut_follows_a_renamed_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -2062,6 +2112,46 @@ mod tests {
         let found = resolve_shortcut(&link).expect("link tracking did not find the renamed file");
         assert!(crate::pathx::same(&found, &renamed), "{found}");
         assert!(crate::pathx::same(&read_shortcut(&link).unwrap().target, &renamed), "shortcut was not updated");
+    }
+
+    // 다른 프로그램의 창을 바탕화면 위에 띄운다. STATIC 은 마우스를 통과시키는 창(HTTRANSPARENT)이라
+    // WindowFromPoint 가 그 밑의 바탕화면 아이콘 목록을 돌려준다. 그래도 바탕화면을 누른 것이 아니다.
+    #[test]
+    fn a_window_over_the_desktop_is_not_the_desktop() {
+        use windows::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
+        use windows::Win32::UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP, WS_VISIBLE};
+        let cls = wide("STATIC");
+        let (x, y, w, h) = (200, 200, 320, 220);
+        let win = unsafe {
+            CreateWindowExW(
+                WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+                PCWSTR(cls.as_ptr()),
+                PCWSTR::null(),
+                WS_POPUP | WS_VISIBLE,
+                x,
+                y,
+                w,
+                h,
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap()
+        };
+        let p = POINT { x: x + w / 2, y: y + h / 2 };
+        let top = top_surface_at(p).map(class_name).unwrap_or_default();
+        let on_desk = desktop_at(p);
+        unsafe {
+            let _ = EnableWindow(win, false);
+        }
+        let disabled_on_desk = desktop_at(p);
+        unsafe {
+            let _ = DestroyWindow(win);
+        }
+        assert_eq!(top, "Static", "the window on top was not found in z-order");
+        assert!(!on_desk, "a press on another window counted as a desktop press");
+        assert!(!disabled_on_desk, "a press on a disabled window counted as a desktop press");
     }
 
     #[test]

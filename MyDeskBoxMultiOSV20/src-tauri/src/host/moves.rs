@@ -24,6 +24,9 @@ pub struct NewRect {
 
 const NUDGE_GAP: f64 = 40.0;
 pub(crate) const ORPHAN_GRACE_MS: f64 = 60_000.0;
+// 가리키던 파일이 든 폴더까지 없어졌으면 프로그램을 지운 것이다(제거 프로그램은 설치 폴더를 통째로 지운다).
+// 업데이트는 폴더를 두고 파일만 바꾸므로 그때는 ORPHAN_GRACE_MS 를 기다린다.
+pub(crate) const UNINSTALLED_GRACE_MS: f64 = 5_000.0;
 
 // 빠진 USB 나 끊긴 네트워크의 것은 지운 것이 아니다. 드라이브가 보일 때만 따진다.
 fn on_reachable_drive(target: &str) -> bool {
@@ -1037,6 +1040,7 @@ impl Host {
     // 박스에 담은 바로가기는 박스 폴더에 있어서, 프로그램을 지울 때 제거 프로그램이 찾지 못하고
     // 파일을 지워도 아무도 치우지 않는다. 가리키던 파일이나 프로그램이 ORPHAN_GRACE_MS 동안 계속 없으면
     // 우리가 휴지통으로 보낸다. 업데이트하거나 저장하며 잠깐 없어지는 것은 그 사이에 돌아온다.
+    // 그 파일이 든 폴더까지 없어졌으면 프로그램을 지운 것이라 UNINSTALLED_GRACE_MS 만 기다린다.
     // 폴더를 가리키는 바로가기는 그대로 둔다. 박스에 담느라 옮긴 파일, 링크 추적이 새 자리를 찾은 파일은
     // 지운 것이 아니다.
     pub(crate) fn drop_orphan_links(&mut self) -> bool {
@@ -1069,7 +1073,9 @@ impl Host {
                 continue;
             }
             let since = *self.link_gone.entry(path.clone()).or_insert(now);
-            if now - since < ORPHAN_GRACE_MS {
+            let folder_gone = !Path::new(&dirname(&link.target)).exists();
+            let grace = if folder_gone { UNINSTALLED_GRACE_MS } else { ORPHAN_GRACE_MS };
+            if now - since < grace {
                 continue;
             }
             if self.desk.resolve_shortcut(&path).is_some() {

@@ -913,6 +913,51 @@ fn a_shortcut_to_an_uninstalled_program_goes_to_the_recycle_bin() {
     assert!(k.state().fences[0].items.is_empty(), "removal was not saved");
 }
 
+// 제거 프로그램은 설치 폴더를 통째로 지운다. 그때는 1분을 기다리지 않고 몇 초 안에 치운다.
+#[test]
+fn uninstalling_a_program_removes_its_shortcut_within_seconds() {
+    let (k, link, exe) = box_with_app_link();
+    k.refresh();
+    fs::remove_dir_all(dirname(&exe)).unwrap();
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "removed at the very first look");
+    k.h().link_gone.insert(link.clone(), now_ms() - moves::UNINSTALLED_GRACE_MS - 1.0);
+    k.refresh();
+    assert!(k.fence(0).items.is_empty(), "shortcut of an uninstalled program is still in the box");
+    assert_eq!(k.ui.st().trashed, vec![link.clone()]);
+    assert!(!Path::new(&link).exists());
+    assert!(k.state().fences[0].items.is_empty(), "removal was not saved");
+}
+
+// 업데이트는 폴더를 두고 파일만 바꾼다. 몇 초 없는 것으로는 지우지 않고 1분을 다 기다린다.
+#[test]
+fn a_program_missing_from_a_folder_that_is_still_there_waits_the_full_grace() {
+    let (k, link, exe) = box_with_app_link();
+    k.refresh();
+    fs::remove_file(&exe).unwrap();
+    k.refresh();
+    k.h().link_gone.insert(link.clone(), now_ms() - moves::UNINSTALLED_GRACE_MS - 1.0);
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "removed during an update");
+    assert!(k.ui.st().trashed.is_empty());
+    age_missing(&k, &link);
+    k.refresh();
+    assert!(k.fence(0).items.is_empty(), "kept after the full grace");
+}
+
+// 꺼져 있는 동안 지운 프로그램도 켠 뒤 몇 초 안에 치운다.
+#[test]
+fn a_program_uninstalled_while_closed_is_cleaned_up_soon_after_start() {
+    let (k, link, exe) = box_with_app_link();
+    fs::remove_dir_all(dirname(&exe)).unwrap();
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "removed at the very first look");
+    k.h().link_gone.insert(link.clone(), now_ms() - moves::UNINSTALLED_GRACE_MS - 1.0);
+    k.refresh();
+    assert!(k.fence(0).items.is_empty(), "shortcut of a program removed while closed is still in the box");
+    assert_eq!(k.ui.st().trashed, vec![link]);
+}
+
 #[test]
 fn a_program_that_comes_back_during_an_update_keeps_its_shortcut() {
     let (k, link, exe) = box_with_app_link();
