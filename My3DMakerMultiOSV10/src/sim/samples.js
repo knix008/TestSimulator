@@ -532,6 +532,60 @@ export const SAMPLES = [
     s.settings.modes = 10;
     s.mesh.size = 0.02;
   }),
+  // ── rigid body dynamics
+  sample('pendulum', 'dynamics', 'simRigid', ['진자(강체 동역학)', '위 끝이 경첩에 걸린 막대가 30°에서 흔들리는 운동'], ['Pendulum (rigid body)', 'A bar hinged at its top end, swinging from 30°'], (p) => {
+    const bar = addBody(p, 'box', { name: 'Bar', params: { width: 10, depth: 10, height: 200 }, position: [50, 0, -86.6], rotation: [0, -30, 0] });
+    const s = addSystem(p, 'rigid');
+    Object.assign(s.settings, { endTime: 2, frames: 80 });
+    addBc(s, 'joint', { joint: 'revolute', point: [0, 0, 0], axis: [0, 1, 0], bodies: [bar.id] });
+    addBc(s, 'gravity', { vector: [0, 0, -9.80665] });
+    s.mesh.size = 0.006; s.mesh.order = 1;
+  }),
+  sample('doublePendulum', 'dynamics', 'simRigid', ['이중 진자', '경첩 두 개로 이어진 막대 두 개의 혼돈 운동'], ['Double pendulum', 'Two bars joined by two hinges: chaotic motion'], (p) => {
+    const a = addBody(p, 'box', { name: 'Upper bar', params: { width: 150, depth: 10, height: 10 }, position: [75, 0, 0] });
+    const b = addBody(p, 'box', { name: 'Lower bar', params: { width: 150, depth: 10, height: 10 }, material: 'aluminum', position: [225, 0, 0] });
+    const s = addSystem(p, 'rigid');
+    Object.assign(s.settings, { endTime: 3, frames: 120 });
+    addBc(s, 'joint', { joint: 'revolute', point: [0, 0, 0], axis: [0, 1, 0], bodies: [a.id] });
+    addBc(s, 'joint', { joint: 'revolute', point: [0.15, 0, 0], axis: [0, 1, 0], bodies: [b.id, a.id] });
+    addBc(s, 'gravity', { vector: [0, 0, -9.80665] });
+    s.probes = [{ id: 'p1', name: 'Tip', point: [300, 0, 0] }];
+    s.mesh.size = 0.008; s.mesh.order = 1;
+  }),
+  // ── materials and fatigue
+  sample('rubberSeal', 'structural', 'simNonlinear', ['고무 패킹 압축(초탄성)', '무니-리블린 고무 블록을 30 % 눌렀을 때의 대변형'], ['Rubber seal (hyperelastic)', 'A Mooney–Rivlin rubber block squeezed by 30 %: large deformation'], (p) => {
+    const b = addBody(p, 'box', { name: 'Seal', params: { width: 20, depth: 20, height: 10 }, material: 'rubber', position: [0, 0, 5] });
+    const s = addSystem(p, 'nonlinear');
+    Object.assign(s.settings, { steps: 6, plasticity: false, largeDeflection: true });
+    addBc(s, 'fixed', { faces: [face(b, [0, 0, 0], [0, 0, -1], 400)] });
+    addBc(s, 'displacement', { x: null, y: null, z: -0.003, faces: [face(b, [0, 0, 10], [0, 0, 1], 400)] });
+    s.mesh.size = 0.0025; s.mesh.order = 1;
+  }),
+  sample('creepBar', 'structural', 'simTransient', ['고온 크리프', '550 °C에서 100 MPa를 받는 막대가 시간에 따라 늘어나는 크리프'], ['High-temperature creep', 'A bar at 550 °C under 100 MPa stretching over time'], (p) => {
+    const b = addBody(p, 'box', { name: 'Bar', params: { width: 60, depth: 10, height: 10 }, material: 'creepSteel', position: [30, 0, 0] });
+    const s = addSystem(p, 'nonlinear');
+    Object.assign(s.settings, { steps: 2, plasticity: false, creep: true, creepTime: 3.6e6, creepSteps: 12 });
+    addBc(s, 'fixed', { faces: [face(b, [0, 0, 0], [-1, 0, 0], 100)] });
+    addBc(s, 'force', { vector: [10000, 0, 0], faces: [face(b, [60, 0, 0], [1, 0, 0], 100)] });
+    s.probes = [{ id: 'p1', name: 'End', point: [60, 0, 0] }];
+    s.mesh.size = 0.005; s.mesh.order = 1;
+  }),
+  sample('fatigueHistory', 'structural', 'simFatigue', ['하중 이력 피로(ε-N)', '불규칙 하중 이력을 레인플로로 세어 변형률-수명으로 구한 수명'], ['Load-history fatigue (ε-N)', 'An irregular load history rainflow-counted, life from strain-life'], (p) => {
+    const b = addBody(p, 'plateHole', { name: 'Plate', params: { width: 200, depth: 60, thickness: 8, holeDiameter: 20 } });
+    const s = addSystem(p, 'fatigue');
+    Object.assign(s.settings, { method: 'strainLife', loading: 'history', loadHistory: [[0, 0], [1, 1], [2, -0.4], [3, 0.7], [4, -0.9], [5, 0.5], [6, -0.2], [7, 0.9], [8, 0]], designLife: 1e5 });
+    addBc(s, 'fixed', { faces: [face(b, [-100, 0, 0], [-1, 0, 0], 480)] });
+    addBc(s, 'force', { vector: [40000, 0, 0], faces: [face(b, [100, 0, 0], [1, 0, 0], 480)] });
+    s.mesh.size = 0.006; s.mesh.order = 1;
+  }),
+  // ── fluid–structure
+  sample('fsiFlap', 'fluid', 'simFsi', ['바람에 휘는 판(유체-구조 연성)', '바람의 압력으로 밑이 고정된 판이 휘는 단방향 연성'], ['Flap in the wind (FSI)', 'A flap fixed at its base bent by the wind pressure: one-way coupling'], (p) => {
+    const b = addBody(p, 'box', { name: 'Flap', params: { width: 4, depth: 40, height: 60 }, material: 'aluminum', position: [0, 0, 30] });
+    const s = addSystem(p, 'fsi');
+    Object.assign(s.settings, { inletVelocity: [20, 0, 0], maxSteps: 300, zmin: 'wall' });
+    addBc(s, 'fixed', { faces: [face(b, [0, 0, 0], [0, 0, -1], 160)] });
+    s.mesh.size = 0.003; s.mesh.order = 1;
+  }),
 ];
 
 export function buildSample(id, lang = 'ko') {

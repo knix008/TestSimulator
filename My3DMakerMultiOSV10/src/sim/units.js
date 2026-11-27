@@ -56,6 +56,8 @@ export const KINDS = {
   psdResponse: K([1e6, 'mm²/Hz'], [1, 'm²/Hz']),
   angle: K([1, '°']),
   compliance: K([1e6, '1/MPa'], [1, '1/Pa']),
+  springRate: K([1e-3, 'N/mm'], [1, 'N/m']),
+  dampingCoef: K([1e-3, 'N·s/mm'], [1, 'N·s/m']),
   heat: K([1, 'W']),
   jouleDensity: K([1, 'W/m³']),
 };

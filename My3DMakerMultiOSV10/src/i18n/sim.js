@@ -403,6 +403,7 @@ const T = [
   ['mat.fatigueEf', '피로 연성 계수 εf\'', 'Fatigue ductility coefficient εf\''], ['mat.fatigueC', '피로 연성 지수 c', 'Fatigue ductility exponent c'], ['mat.c10', '초탄성 C10', 'Hyperelastic C10'], ['mat.c01', '초탄성 C01', 'Hyperelastic C01'], ['mat.d1', '체적 압축성 D1', 'Compressibility D1'],
   ['mat.creepA', '크리프 계수 A', 'Creep coefficient A'], ['mat.creepN', '크리프 응력 지수 n', 'Creep stress exponent n'], ['mat.creepM', '크리프 시간 지수 m', 'Creep time exponent m'],
   ['chart.creep', '크리프 변위', 'Creep displacement'], ['chart.creepStrain', '최대 크리프 변형률', 'Max creep strain'], ['chart.rainflow', '레인플로 사이클', 'Rainflow cycles'],
+  ['op.moveBody', '바디 이동', 'Move body'], ['notice.moved', '{name}을(를) 옮겼습니다 (ΔX {x}, ΔY {y}, ΔZ {z} mm)', 'Moved {name} (ΔX {x}, ΔY {y}, ΔZ {z} mm)'],
 ];
 
 export const ko = Object.fromEntries(T.map(([k, a]) => [k, a]));

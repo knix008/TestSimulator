@@ -20,6 +20,7 @@ pub mod sparse;
 pub mod structural;
 pub mod topo;
 pub mod report;
+pub mod rigid;
 
 use model::{Job, Model};
 use out::Out;
@@ -82,8 +83,10 @@ pub fn run_job_json(json: &str, progress: &mut dyn FnMut(f64, &str) -> bool) -> 
         "random" => ctx.sub(0.15, 1.0, |c| structural::run_random(&model, &mut out, c))?,
         "nonlinear" => ctx.sub(0.15, 1.0, |c| nonlinear::run_nonlinear(&model, &mut out, c))?,
         "explicit" => ctx.sub(0.15, 1.0, |c| explicit::run_explicit(&model, &mut out, c))?,
+        "rigid" => ctx.sub(0.15, 1.0, |c| rigid::run_rigid(&model, &mut out, c))?,
         "topology" => ctx.sub(0.15, 1.0, |c| topo::run_topology(&model, &mut out, c))?,
         "fluid" => ctx.sub(0.15, 1.0, |c| cfd::run_fluid(&model, &mut out, c))?,
+        "fsi" => ctx.sub(0.15, 1.0, |c| structural::run_fsi(&model, &mut out, c))?,
         "thermal" => { ctx.sub(0.15, 1.0, |c| fields::run_thermal(&model, &mut out, c))?; }
         "thermalTransient" => ctx.sub(0.15, 1.0, |c| fields::run_thermal_transient(&model, &mut out, c))?,
         "thermalStress" => {
