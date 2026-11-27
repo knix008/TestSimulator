@@ -281,7 +281,7 @@ export function createToolHost(app) {
             break;
           }
           case 'showHex': need(1); out = ins[0]; break;
-          case 'newTab': need(1); out = ins[0]; await app.editor.openBytesAs(out, p.name || 'processed.bin'); break;
+          case 'newTab': need(1); out = ins[0]; await app.editor.openBytesAs(out, p.name || 'processed-data.bin'); break;
           case 'writeCaret': {
             need(1);
             out = ins[0];

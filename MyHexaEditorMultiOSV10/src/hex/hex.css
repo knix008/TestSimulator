@@ -108,4 +108,10 @@
 .bm-row .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
 .bm-row .of { font-family: var(--hx-font, ui-monospace, monospace); color: var(--muted); }
 .bm-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hash-row td:last-child { user-select: text; -webkit-user-select: text; }
+.hash-row td { user-select: text; -webkit-user-select: text; }
+.hash-row td.hash-act { width: 26px; padding: 0; text-align: center; }
+.hash-row.hash-known th { color: var(--success, #2e9e5b); }
+.hash-row.hash-notable th { color: var(--danger, #d64545); }
+.hash-chip { margin-left: 6px; font-size: 11px; }
+.hash-chip.notable, .hash-hit.notable { color: var(--danger, #d64545); }
+.hash-chip.known, .hash-hit.known { color: var(--success, #2e9e5b); }

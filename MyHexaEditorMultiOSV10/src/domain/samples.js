@@ -147,6 +147,92 @@ function pe() {
   return o.pad(0x400).done();
 }
 
+/**
+ * A FAT12 / FAT16 volume (512-byte sectors, one sector per cluster) holding `tree`:
+ * [{ name, data } | { name, dir: [...] } | { name, data, deleted: true }]. Long names get LFN entries;
+ * a deleted file keeps its data and directory entry (first byte E5h) but its clusters are free in the FAT.
+ */
+function fatVolume({ sectors, bits, label, hidden, serial, tree }) {
+  const bps = 512, reserved = 1, nfats = 2, rootEntries = 512, rootSecs = (rootEntries * 32) / bps;
+  let fatSecs = 1;
+  for (;;) { const clusters = sectors - reserved - rootSecs - nfats * fatSecs; const need = Math.ceil((((clusters + 2) * bits) / 8) / bps); if (need <= fatSecs) break; fatSecs = need; }
+  const v = new Uint8Array(sectors * bps);
+  const dv = new DataView(v.buffer);
+  const ascii = (at, text, len) => { for (let i = 0; i < len; i++) v[at + i] = i < text.length ? text.charCodeAt(i) : 0x20; };
+  v.set([0xEB, 0x3C, 0x90]); ascii(3, 'MSDOS5.0', 8);
+  dv.setUint16(11, bps, true); v[13] = 1; dv.setUint16(14, reserved, true); v[16] = nfats; dv.setUint16(17, rootEntries, true);
+  dv.setUint16(19, sectors < 65536 ? sectors : 0, true); v[21] = 0xF8; dv.setUint16(22, fatSecs, true); dv.setUint16(24, 63, true); dv.setUint16(26, 255, true);
+  dv.setUint32(28, hidden, true); dv.setUint32(32, sectors < 65536 ? 0 : sectors, true); v[36] = 0x80; v[38] = 0x29; dv.setUint32(39, serial, true);
+  ascii(43, label, 11); ascii(54, bits === 12 ? 'FAT12' : 'FAT16', 8); v[510] = 0x55; v[511] = 0xAA;
+  const fatAt = reserved * bps, rootAt = (reserved + nfats * fatSecs) * bps, dataAt = rootAt + rootSecs * bps;
+  const eoc = bits === 12 ? 0xFFF : 0xFFFF;
+  const setFat = (i, val) => {
+    for (let f = 0; f < nfats; f++) {
+      const base = fatAt + f * fatSecs * bps;
+      if (bits === 16) { dv.setUint16(base + i * 2, val, true); continue; }
+      const o = base + Math.floor(i * 1.5);
+      if (i % 2 === 0) { v[o] = val & 255; v[o + 1] = (v[o + 1] & 0xF0) | ((val >> 8) & 0x0F); } else { v[o] = (v[o] & 0x0F) | ((val & 0x0F) << 4); v[o + 1] = (val >> 4) & 255; }
+    }
+  };
+  setFat(0, bits === 12 ? 0xFF8 : 0xFFF8); setFat(1, eoc);
+  let next = 2;
+  const clusterAt = (c) => dataAt + (c - 2) * bps;
+  /** Contiguous clusters for n bytes; the chain is left out of the FAT when `free` (a deleted file). */
+  const alloc = (n, free = false) => { const count = Math.max(1, Math.ceil(n / bps)); const first = next; next += count; if (!free) for (let i = 0; i < count; i++) setFat(first + i, i === count - 1 ? eoc : first + i + 1); return first; };
+  const stamp = { date: ((2026 - 1980) << 9) | (11 << 5) | 27, time: (10 << 11) | (30 << 5) };
+  const shortName = (name, taken) => {
+    const dot = name.lastIndexOf('.');
+    const clean = (x) => x.toUpperCase().replace(/[^A-Z0-9_~!#$%&'()-]/g, '');
+    let base = clean(dot > 0 ? name.slice(0, dot) : name), ext = clean(dot > 0 ? name.slice(dot + 1) : '').slice(0, 3);
+    const exact = `${base}.${ext}` === name.toUpperCase() || (!ext && base === name.toUpperCase());
+    if (base.length > 8 || !exact || name !== name.toUpperCase()) { let k = 1; while (taken.has(`${base.slice(0, 6)}~${k}${ext}`)) k += 1; base = `${base.slice(0, 6)}~${k}`; }
+    taken.add(`${base}${ext}`);
+    return { text: base.padEnd(8).slice(0, 8) + ext.padEnd(3), long: !exact || name !== name.toUpperCase() || base.includes('~') };
+  };
+  const checksum = (short) => { let sum = 0; for (let i = 0; i < 11; i++) sum = ((((sum & 1) << 7) | (sum >> 1)) + short.charCodeAt(i)) & 255; return sum; };
+  const entry = (at, short, attr, cluster, size) => {
+    ascii(at, short, 11); v[at + 11] = attr; dv.setUint16(at + 14, stamp.time, true); dv.setUint16(at + 16, stamp.date, true); dv.setUint16(at + 18, stamp.date, true);
+    dv.setUint16(at + 22, stamp.time, true); dv.setUint16(at + 24, stamp.date, true); dv.setUint16(at + 26, cluster, true); dv.setUint32(at + 28, size, true);
+  };
+  const lfn = (at, name, short) => {
+    const units = [...name].map((ch) => ch.charCodeAt(0));
+    const parts = Math.ceil((units.length + 1) / 13);
+    const padded = [...units, 0, ...Array(parts * 13).fill(0xFFFF)].slice(0, parts * 13);
+    const sum = checksum(short);
+    for (let k = parts; k >= 1; k--) {
+      const chars = padded.slice((k - 1) * 13, k * 13);
+      v[at] = k | (k === parts ? 0x40 : 0); v[at + 11] = 0x0F; v[at + 13] = sum;
+      [1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30].forEach((off, i) => dv.setUint16(at + off, chars[i], true));
+      at += 32;
+    }
+    return at;
+  };
+  /** Writes the entries of one directory at byte `at`; sub-directories get a cluster each. */
+  const writeDir = (at, items, self = 0, parent = 0, isRoot = true) => {
+    const taken = new Set();
+    if (isRoot) { entry(at, label.padEnd(11), 0x08, 0, 0); at += 32; }
+    else { entry(at, '.          ', 0x10, self, 0); entry(at + 32, '..         ', 0x10, parent, 0); at += 64; }
+    for (const item of items) {
+      const sn = shortName(item.name, taken);
+      const first = at;
+      if (sn.long) at = lfn(at, item.name, sn.text);
+      if (item.dir) {
+        const c = alloc(bps);
+        entry(at, sn.text, 0x10, c, 0);
+        writeDir(clusterAt(c), item.dir, c, self, false);
+      } else {
+        const c = alloc(item.data.length, item.deleted);
+        v.set(item.data, clusterAt(c));
+        entry(at, sn.text, 0x20, c, item.data.length);
+        if (item.deleted) for (let x = first; x <= at; x += 32) v[x] = 0xE5;
+      }
+      at += 32;
+    }
+  };
+  writeDir(rootAt, tree);
+  return v;
+}
+
 function disk() {
   const sector = 512;
   const o = new Out();
@@ -154,14 +240,27 @@ function disk() {
   o.bytes([0xEB, 0x3C, 0x90]).ascii('MYHEXA  ').zeros(51).bytes([0xFA, 0x31, 0xC0, 0x8E, 0xD8, 0xBE, 0x7C, 0x7C, 0xB4, 0x0E, 0xAC, 0x08, 0xC0, 0x74, 0x04, 0xCD, 0x10, 0xEB, 0xF7, 0xF4]).ascii('Sample disk image — MyHexaMaster\0');
   o.pad(446);
   const part = (boot, type, lba, count) => o.u8(boot).bytes([0xFE, 0xFF, 0xFF]).u8(type).bytes([0xFE, 0xFF, 0xFF]).u32(lba).u32(count);
-  part(0x80, 0x0C, 2048, 4096);
-  part(0x00, 0x83, 6144, 2048);
+  part(0x80, 0x06, 2048, 8192);
+  part(0x00, 0x01, 10240, 2048);
   o.zeros(32).bytes([0x55, 0xAA]);
   o.pad(2048 * sector);
-  // partition 1: a FAT32-like boot sector, then a PNG and some text left as "deleted" data
-  o.bytes([0xEB, 0x58, 0x90]).ascii('MSDOS5.0').u16(512).u8(8).u16(32).u8(2).zeros(19).ascii('NO NAME    FAT32   ').pad(2048 * sector + 510).bytes([0x55, 0xAA]);
-  o.pad(2048 * sector + 64 * sector).bytes(png(24, 16)).pad(2048 * sector + 80 * sector).ascii('deleted.txt — 이 글은 지워진 파일의 내용입니다. Recovery (carving) finds the picture above.\n');
-  return o.pad(8192 * sector).done();
+  // partition 1: FAT16 with files, a folder, a long name and a deleted file (WinHex-style recovery shows it)
+  o.bytes(fatVolume({ sectors: 8192, bits: 16, label: 'MYHEXA', hidden: 2048, serial: 0x1234ABCD, tree: [
+    { name: 'README.TXT', data: enc('MyHexaMaster sample disk.\r\nOpen Tools > File systems to browse it.\r\n') },
+    { name: 'PICTURE.PNG', data: png(24, 16) },
+    { name: 'Long file name example.txt', data: enc('FAT keeps long names in extra (LFN) directory entries.\r\n') },
+    { name: 'DOCS', dir: [
+      { name: 'NOTE.TXT', data: enc('A file inside a folder.\r\n') },
+      { name: 'DATA.BIN', data: Uint8Array.from({ length: 256 }, (_, i) => i) },
+    ] },
+    { name: 'DELETED.TXT', deleted: true, data: enc('deleted.txt — 이 글은 지워진 파일의 내용입니다. Recovery (carving) finds the picture above.\n') },
+  ] }));
+  // partition 2: a small FAT12 volume
+  o.bytes(fatVolume({ sectors: 2048, bits: 12, label: 'DATA', hidden: 10240, serial: 0x0BADF00D, tree: [
+    { name: 'HELLO.TXT', data: enc('Hello from the second partition (FAT12).\r\n') },
+    { name: 'SAMPLE.ELF', data: elf() },
+  ] }));
+  return o.pad(12288 * sector).done();
 }
 
 function mixed() {

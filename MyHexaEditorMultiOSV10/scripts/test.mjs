@@ -439,7 +439,7 @@ for (const { category, results, ms } of summary) {
 
 line();
 const B = (text) => c.bold(c.blue(text));
-const passBar = (ok, all) => { const n = all ? Math.round((ok / all) * 20) : 0; return c.green('█'.repeat(n)) + c.red('█'.repeat(all && ok < all ? Math.max(1, 20 - n) : 0)) + ' '.repeat(Math.max(0, 20 - n - (all && ok < all ? Math.max(1, 20 - n) : 0))); };
+const passBar = (ok, all) => { const n = all ? Math.min(ok < all ? 19 : 20, Math.round((ok / all) * 20)) : 0; const red = all && ok < all ? 20 - n : 0; return c.green('█'.repeat(n)) + c.red('█'.repeat(red)) + ' '.repeat(20 - n - red); };
 line(B('┌──────────────────────────────┬────────┬────────┬────────┬────────┬─────────┬──────────────────────┬────────────┐'));
 line(B('│') + c.bold(' Category                     ') + B('│') + c.bold('  Pass  ') + B('│') + c.bold('  Fail  ') + B('│') + c.bold('  Skip  ') + B('│') + c.bold('  Total ') + B('│') + c.bold('  Rate   ') + B('│') + c.bold(' Pass bar             ') + B('│') + c.bold('    Time    ') + B('│'));
 line(B('├──────────────────────────────┼────────┼────────┼────────┼────────┼─────────┼──────────────────────┼────────────┤'));

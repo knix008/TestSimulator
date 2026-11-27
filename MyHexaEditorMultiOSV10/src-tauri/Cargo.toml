@@ -44,3 +44,6 @@ tempfile = "3"
 lto = true
 codegen-units = 1
 strip = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+mach2 = "0.4"

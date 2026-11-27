@@ -153,3 +153,61 @@ test('calculator', () => {
   assert.equal(r.value, '380');
   assert.match(r.hex, /17C$/i);
 });
+
+test('new ciphers round trip (Blowfish, Twofish, CAST5, Camellia, TEA, XTEA, ChaCha20, Salsa20)', () => {
+  const { id } = core.open(new TextEncoder().encode('The quick brown fox jumps over the lazy dog'));
+  const k16 = '000102030405060708090a0b0c0d0e0f';
+  const k32 = k16 + k16;
+  const cases = [
+    ...['blowfish', 'twofish', 'cast5', 'camellia'].flatMap((c) => ['ecb', 'cbc', 'ctr'].map((mode) => [`${c}Encrypt`, `${c}Decrypt`, { key: k16, iv: c === 'twofish' || c === 'camellia' ? k16 : '0001020304050607', mode }])),
+    ...['tea', 'xtea'].flatMap((c) => ['ecb', 'cbc'].map((mode) => [`${c}Encrypt`, `${c}Decrypt`, { key: k16, iv: '0001020304050607', mode }])),
+    ['chacha20', 'chacha20', { key: k32, iv: '000000000000004a00000000' }],
+    ['salsa20', 'salsa20', { key: k32, iv: '0001020304050607' }],
+  ];
+  for (const [e, d, extra] of cases) {
+    const a = core('transform', { id, kind: e, target: 'new', ...extra });
+    assert.notEqual(new TextDecoder().decode(core.bytes(a.id, 0, Math.min(a.len, 9))), 'The quick', `${e} ${extra.mode ?? ''} changes the data`);
+    const b = core('transform', { id: a.id, kind: d, target: 'new', ...extra });
+    assert.equal(new TextDecoder().decode(core.bytes(b.id, 0, b.len)), 'The quick brown fox jumps over the lazy dog', `${e} ${extra.mode ?? ''}`);
+  }
+});
+
+test('the disk sample: MBR partitions, FAT16 and FAT12 files, a folder, a long name and a deleted file', async () => {
+  const { id } = core.open(await sampleBytes('disk'), 'disk.img');
+  const parts = core('fsPartitions', { id });
+  assert.equal(parts.scheme, 'mbr');
+  assert.deepEqual(parts.partitions.map((p) => [p.offset, p.fs]), [[2048 * 512, 'fat16'], [10240 * 512, 'fat12']]);
+  const root = core('fsList', { id, offset: parts.partitions[0].offset, dir: null, deleted: true });
+  const names = root.entries.map((e) => e.name);
+  for (const n of ['README.TXT', 'PICTURE.PNG', 'Long file name example.txt', 'DOCS']) assert.ok(names.includes(n), `${n} in ${names}`);
+  const deleted = root.entries.find((e) => e.deleted);
+  assert.ok(deleted && /ELETED\.TXT$/.test(deleted.name), `deleted entry: ${deleted?.name}`);
+  const text = new TextDecoder().decode(unb64(core('fsRead', { id, offset: parts.partitions[0].offset, file: deleted.id }).data));
+  assert.match(text, /지워진 파일/);
+  const docs = core('fsList', { id, offset: parts.partitions[0].offset, dir: root.entries.find((e) => e.name === 'DOCS').id, deleted: true });
+  const bin = docs.entries.find((e) => e.name === 'DATA.BIN');
+  assert.equal(bin.size, 256);
+  assert.deepEqual([...unb64(core('fsRead', { id, offset: parts.partitions[0].offset, file: bin.id }).data)], Array.from({ length: 256 }, (_, i) => i));
+  const png = root.entries.find((e) => e.name === 'PICTURE.PNG');
+  assert.deepEqual([...read(id, png.extents[0][0], 4)], [0x89, 0x50, 0x4E, 0x47]);
+  const info = core('fsInfo', { id, offset: parts.partitions[1].offset });
+  assert.equal(info.label.trim(), 'DATA');
+  const second = core('fsList', { id, offset: parts.partitions[1].offset, dir: null, deleted: false });
+  assert.deepEqual(second.entries.map((e) => e.name).sort(), ['HELLO.TXT', 'SAMPLE.ELF']);
+});
+
+test('YARA rules: strings, hex jumps, conditions and errors', async () => {
+  const { id } = core.open(await sampleBytes('pe'), 'sample.exe');
+  const rules = `rule MZ_PE : exe { strings: $mz = { 4D 5A } $pe = "PE\0\0" condition: $mz at 0 and $pe }
+rule NoSuch { strings: $a = "THIS TEXT IS NOT THERE" condition: $a }
+rule Size { condition: filesize > 100 and uint16(0) == 0x5A4D }
+rule Broken { strings: $a = { 4D 5 } condition: $a }`;
+  const r = core('yara', { id, rules, limit: 100 });
+  const matched = r.matches.map((m) => m.rule).sort();
+  assert.deepEqual(matched, ['MZ_PE', 'Size']);
+  const mz = r.matches.find((m) => m.rule === 'MZ_PE');
+  assert.deepEqual(mz.tags, ['exe']);
+  assert.equal(mz.strings.find((s) => s.id === '$mz').offset, 0);
+  assert.equal(r.errors.length, 1);
+  assert.ok(r.errors[0].line >= 4, JSON.stringify(r.errors));
+});

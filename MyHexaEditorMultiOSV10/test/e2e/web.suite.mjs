@@ -150,6 +150,24 @@ export const cases = [
   },
   {
     group: 'Properties',
+    name: 'Hash database: a hash added as notable is flagged, then removed',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'text' }); A.props.hashDb.entries.clear(); await A.props.runHashes(); await T.until(() => document.querySelector('[data-hash-add]'), 5000, 'hashes');
+        const value = document.querySelector('[data-hash-add]').dataset.hashAdd; document.querySelector('[data-hash-add]').click();
+        await T.popupReady('form'); T.fill('form', '[data-tw-field="name"]', 'suspicious.txt');
+        T.popupDoc('form').querySelector('[data-tw-seg="category"][data-value="notable"]').click(); await T.sleep(100); T.click('form', '[data-tw-act="form-ok"]');
+        await T.until(() => document.querySelector('.hash-row.hash-notable'), 5000, 'flagged');
+        const flagged = { note: document.querySelector('.hash-hit')?.textContent, stored: JSON.parse(localStorage.getItem('myhexa.hashdb.v1')).entries.length };
+        document.querySelector('[data-hash-remove]').click(); await T.until(() => !document.querySelector('.hash-row.hash-notable'), 5000, 'removed');
+        return { value, flagged, left: A.props.hashDb.entries.size };`);
+      assert.match(r.value, /^[0-9a-f]{8}$/);
+      assert.match(r.flagged.note, /suspicious\.txt/);
+      assert.equal(r.flagged.stored, 1);
+      assert.equal(r.left, 0);
+    },
+  },
+  {
+    group: 'Properties',
     name: 'Bookmarks: add, next, remove',
     async run(app) {
       const r = await app.run(`await T.reset({ sample: 'png' }); T.view().select(8, 16); await A.run('bookmarkToggle'); T.view().select(33, 40); await A.run('bookmarkToggle'); T.view().setCaret(0);
@@ -203,6 +221,53 @@ export const cases = [
       assert.deepEqual(r.asm, ['mov', 'mov']);
       for (const ext of ['PNG', 'GIF', 'ZIP']) assert.ok(r.carved.includes(ext), ext);
       assert.match(r.calc, /30$/);
+    },
+  },
+  {
+    group: 'Tools',
+    name: 'File systems: partitions, a folder, a deleted file, a file opened in a tab',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'disk' });
+        A.run('filesystem'); await T.popupReady('filesystem'); const d = () => T.popupDoc('filesystem');
+        await T.until(() => d().querySelectorAll('[data-fs-part]').length === 2, 8000, 'partitions');
+        const parts = [...d().querySelectorAll('[data-fs-part] .chip')].map((x) => x.textContent);
+        T.click('filesystem', '[data-fs-part="0"]'); await T.until(() => d().querySelector('[data-fs-entry]'), 8000, 'root');
+        const root = [...d().querySelectorAll('[data-fs-entry] .tw-text')].map((x) => x.textContent);
+        [...d().querySelectorAll('[data-fs-entry]')].find((x) => x.textContent.includes('DOCS')).click();
+        await T.until(() => d().querySelector('.tw-line code')?.textContent.includes('DOCS'), 8000, 'docs');
+        const docs = [...d().querySelectorAll('[data-fs-entry] .tw-text')].map((x) => x.textContent);
+        const tabs = A.editor.tabs.length;
+        [...d().querySelectorAll('[data-fs-entry]')].find((x) => x.textContent.includes('DATA.BIN')).querySelector('[data-fs-tab]').click();
+        await T.until(() => A.editor.tabs.length === tabs + 1, 8000, 'new tab');
+        const opened = { len: T.doc().len, head: await T.bytes(0, 4) };
+        await A.popups.closeAll();
+        return { parts, root, docs, opened };`);
+      assert.deepEqual(r.parts, ['fat16', 'fat12']);
+      for (const n of ['README.TXT', 'PICTURE.PNG', 'Long file name example.txt']) assert.ok(r.root.includes(n), n);
+      assert.ok(r.root.some((x) => /ELETED\.TXT/.test(x)), 'deleted file listed');
+      assert.ok(r.docs.includes('DATA.BIN') && r.docs.includes('NOTE.TXT'), r.docs.join(','));
+      assert.deepEqual(r.opened, { len: 256, head: [0, 1, 2, 3] });
+    },
+  },
+  {
+    group: 'Tools',
+    name: 'YARA: rules scan the document, results select the match, errors are shown',
+    async run(app) {
+      const r = await app.run(`await T.reset({ sample: 'pe' });
+        A.run('yara'); await T.popupReady('yara'); const d = () => T.popupDoc('yara');
+        T.click('yara', '[data-tw-act="yara-example"]'); await T.frames(2);
+        T.click('yara', '[data-tw-act="yara-run"]'); await T.until(() => d().querySelector('[data-tw-goto]'), 8000, 'matches');
+        const rules = [...d().querySelectorAll('.tw-list .chip')].map((x) => x.textContent);
+        d().querySelector('[data-tw-goto]').click(); await T.until(() => T.view().selection().length > 0, 5000, 'selected');
+        const sel = T.view().selection();
+        T.fill('yara', '[data-tw="yara-rules"]', 'rule Bad { strings: $a = { 4D 5 } condition: $a }');
+        T.click('yara', '[data-tw-act="yara-run"]'); await T.until(() => d().querySelector('.tw-error'), 8000, 'error');
+        const error = d().querySelector('.tw-error').textContent;
+        await A.popups.closeAll();
+        return { rules, sel: [sel.start, sel.length], error };`);
+      assert.ok(r.rules.includes('Executable_MZ_PE'), r.rules.join(','));
+      assert.deepEqual(r.sel, [0, 2]);
+      assert.ok(r.error.length > 3);
     },
   },
   {
@@ -296,8 +361,23 @@ export const cases = [
   },
 ];
 
+/** What a command needs before it is enabled (run in the page after the sample is open and 100h–110h selected). */
+const PREP = {
+  undo: `await A.editor.edit(T.doc(), 'write', { offset: 0x100, data: new Uint8Array([0x41]), kind: 'test' });`,
+  redo: `await A.editor.edit(T.doc(), 'write', { offset: 0x100, data: new Uint8Array([0x41]), kind: 'test' }); await A.run('undo');`,
+  findNext: `await A.toolHost.ops.findNext({ pattern: { kind: 'hex', value: '00' }, wrap: true, scope: 'all' });`,
+  findPrev: `await A.toolHost.ops.findNext({ pattern: { kind: 'hex', value: '00' }, wrap: true, scope: 'all' });`,
+  bookmarkNext: `T.view().select(0x20, 0x20); await A.run('bookmarkToggle'); T.view().select(0x200, 0x200); await A.run('bookmarkToggle');`,
+  bookmarkPrev: `T.view().select(0x20, 0x20); await A.run('bookmarkToggle'); T.view().select(0x200, 0x200); await A.run('bookmarkToggle');`,
+  diffNext: `const a = T.doc().id; await A.app.openSample('png'); await T.until(() => T.doc().id !== a); await A.app.openCompare(a, T.doc().id); await T.until(() => A.app.activeTab()?.kind === 'compare', 8000, 'compare tab');`,
+  diffPrev: `const a = T.doc().id; await A.app.openSample('png'); await T.until(() => T.doc().id !== a); await A.app.openCompare(a, T.doc().id); await T.until(() => A.app.activeTab()?.kind === 'compare', 8000, 'compare tab');`,
+  columnMode: `await A.run('textMode'); await T.until(() => document.querySelector('.text-mode .cm-editor'), 8000, 'text editor');`,
+  textWrap: `await A.run('textMode'); await T.until(() => document.querySelector('.text-mode .cm-editor'), 8000, 'text editor');`,
+};
+
 export async function commandCases(app) {
-  const ids = await app.run(`return Object.keys(A.commands);`);
+  // Commands hidden in the browser (desktop only: reload, disk images …) are not in its menus; the desktop suite runs them.
+  const ids = await app.run(`return Object.keys(A.commands).filter((id) => !A.commands[id].hidden);`);
   const SKIP = new Set(['exit', 'tutorial', 'userGuide', 'tutorialDoc', 'startPage', 'open', 'openReadonly', 'backgroundImage', 'print', 'fullscreen', 'revealSystem', 'welcome', 'about', 'settings', 'shortcuts',
     'save', 'saveAs', 'saveAll', 'saveSelection', 'import', 'commandPalette', 'paste', 'paste:hex', 'paste:text', 'cut', 'compare', 'filetools', 'devices', 'openDisk', 'openProcess']);
   return ids.filter((id) => !SKIP.has(id)).map((id) => ({
@@ -305,12 +385,13 @@ export async function commandCases(app) {
     name: id,
     async run(a) {
       const r = await a.run(`await T.reset({ sample: 'mixed' }); const settings = JSON.parse(JSON.stringify(A.state.settings)); T.view().select(0x100, 0x110);
-        if (!A.menus.enabled(${JSON.stringify(id)})) { await T.reset(); return { skipped: 'disabled here' }; }
+        ${PREP[id] ?? ''}
+        if (!A.menus.enabled(${JSON.stringify(id)})) { await T.reset(); A.app.updateSettings(settings); return { disabled: true }; }
         const p = A.run(${JSON.stringify(id)}); await Promise.race([p, T.sleep(1200)]);
         const kinds = [...document.querySelectorAll('.web-popup')].map((f) => f.dataset.kind);
         await T.reset(); A.app.updateSettings(settings);
         return { error: kinds.includes('error') };`);
-      if (r?.skipped) return { skipped: r.skipped };
+      assert.ok(!r.disabled, 'the command is enabled once its state is set up');
       assert.ok(!r.error, 'no error popup');
       return undefined;
     },

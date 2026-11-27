@@ -14,7 +14,7 @@ const EXAMPLE = `rule Executable_MZ_PE : exe
         description = "A Windows executable"
     strings:
         $mz = { 4D 5A }
-        $pe = "PE\\0\\0"
+        $pe = "PE\\x00\\x00"
     condition:
         $mz at 0 and $pe
 }

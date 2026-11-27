@@ -23,7 +23,7 @@ export const NODE_KINDS = {
   xorWith: { group: 'process', inputs: 2, glyph: 'operation', params: [] },
   hash: { group: 'process', inputs: 1, glyph: 'hash', params: [['algorithm', 'select', 'sha256', null], ['as', 'select', 'bytes', ['bytes', 'text']]] },
   showHex: { group: 'output', inputs: 1, glyph: 'eye', params: [] },
-  newTab: { group: 'output', inputs: 1, glyph: 'newTab', params: [['name', 'text', 'processed.bin']] },
+  newTab: { group: 'output', inputs: 1, glyph: 'newTab', params: [['name', 'text', 'processed-data.bin']] },
   writeCaret: { group: 'output', inputs: 1, glyph: 'edit', params: [] },
 };
 

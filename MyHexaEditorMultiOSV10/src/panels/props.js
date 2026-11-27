@@ -7,6 +7,7 @@ import { t } from '../i18n.js';
 import { escapeHtml as h } from '../ui/dom.js';
 import { formatOffset } from '../hex/hexview.js';
 import { BOOKMARK_COLORS } from '../hex/editor.js';
+import { addHash, exportHashList, importHashList, loadHashDb, lookupHash, removeHash, saveHashDb } from '../domain/hashdb.js';
 
 export const RIGHT_ICONS = { inspector: 'inspector', structure: 'structureTree', info: 'docProperties', hashes: 'hash', stats: 'chartBar', bookmarks: 'bookmark' };
 
@@ -23,6 +24,7 @@ export const fmtSize = (n) => {
  *        openTool(kind, params), withProgress }
  */
 export function createProps(app) {
+  const hashDb = loadHashDb();
   const state = { inspect: null, inspectKey: '', hashes: null, stats: null, detect: new Map(), collapsed: new Set(), activeNode: null, timer: 0 };
   const off = (n) => {
     const s = app.settings();
@@ -169,8 +171,54 @@ export function createProps(app) {
       <button class="button small primary" data-prop-action="hash-run" title="${h(t('hash.run'))}">${icon('play')}<span>${h(t('hash.run'))}</span></button></div>`;
     if (!r) return tools + empty('hash.hint');
     return `${tools}<div class="prop-note">${icon('info')}<span>${h(t('hash.of', { range: r.selection ? `${off(r.offset)} + ${r.length.toLocaleString()} B` : t('scope.all') }))}</span></div>
-      <table class="prop-table">${r.results.map((x) => `<tr class="hash-row" data-copy="${h(x.value)}" title="${h(t('hash.copy'))}"><th>${h(x.name)}</th><td>${h(x.value)}</td></tr>`).join('')}</table>`;
+      ${hits(r)}<table class="prop-table">${r.results.map((x) => { const k = lookupHash(hashDb, x.value); return `<tr class="hash-row ${k ? `hash-${k.category}` : ''}" data-copy="${h(x.value)}" title="${h(t('hash.copy'))}"><th>${h(x.name)}</th><td>${h(x.value)}${k ? `<span class="chip hash-chip ${k.category}">${icon(k.category === 'notable' ? 'warning' : 'check')}${h(`${t(`hashdb.${k.category}`)}${k.name ? `: ${k.name}` : ''}`)}</span>` : ''}</td><td class="hash-act">${k ? `<button class="icon-button" data-hash-remove="${h(x.value)}" title="${h(t('hashdb.remove'))}">${icon('trash')}</button>` : `<button class="icon-button" data-hash-add="${h(x.value)}" title="${h(t('hashdb.add'))}">${icon('plus')}</button>`}</td></tr>`; }).join('')}</table>
+      ${hashDbHtml()}`;
   }
+
+  /** The known / notable summary of a result. */
+  function hits(r) {
+    const found = r.results.map((x) => lookupHash(hashDb, x.value)).filter(Boolean);
+    if (!found.length) return hashDb.entries.size ? `<div class="prop-note">${icon('hash')}<span>${h(t('hashdb.noMatch'))}</span></div>` : '';
+    const notable = found.find((x) => x.category === 'notable');
+    const k = notable ?? found[0];
+    return `<div class="prop-note hash-hit ${k.category}">${icon(notable ? 'warning' : 'check')}<span>${h(t(`hashdb.hit.${k.category}`, { name: k.name || '—' }))}</span></div>`;
+  }
+
+  function hashDbHtml() {
+    const counts = { known: 0, notable: 0 };
+    for (const e of hashDb.entries.values()) counts[e.category] += 1;
+    return `<h3 class="section-title">${icon('database')}<span>${h(t('hashdb.title'))}</span></h3>
+      <div class="prop-note">${icon('info')}<span>${h(t('hashdb.count', { known: counts.known.toLocaleString(), notable: counts.notable.toLocaleString() }))}</span></div>
+      <div class="prop-tools"><button class="button small" data-prop-action="hashdb-import" title="${h(t('hashdb.import'))}">${icon('importFile')}<span>${h(t('hashdb.import'))}</span></button>
+      <button class="button small" data-prop-action="hashdb-export" ${hashDb.entries.size ? '' : 'disabled'} title="${h(t('hashdb.export'))}">${icon('exportFile')}<span>${h(t('hashdb.export'))}</span></button>
+      <button class="button small" data-prop-action="hashdb-clear" ${hashDb.entries.size ? '' : 'disabled'} title="${h(t('hashdb.clear'))}">${icon('trash')}<span>${h(t('hashdb.clear'))}</span></button></div>`;
+  }
+
+  const persist = () => { try { saveHashDb(hashDb); } catch (error) { app.showError('error.hashdb', error); } app.rerender(); };
+
+  async function addToDb(value) {
+    const tb = tab();
+    const r = await app.popups.open('form', { title: t('hashdb.add'), icon: 'hash', message: value, fields: [
+      { key: 'name', type: 'text', label: t('hashdb.name'), value: tb?.doc.name ?? '', icon: 'file' },
+      { key: 'category', type: 'segmented', label: t('hashdb.category'), value: 'known', options: [['known', t('hashdb.known')], ['notable', t('hashdb.notable')]] },
+    ], okLabel: t('hashdb.addOk') });
+    if (!r?.values) return;
+    addHash(hashDb, value, r.values.name, r.values.category);
+    persist();
+  }
+
+  async function importDb() {
+    const r = await app.popups.open('form', { title: t('hashdb.import'), icon: 'importFile', message: t('hashdb.importHint'), fields: [
+      { key: 'category', type: 'segmented', label: t('hashdb.category'), value: 'known', options: [['known', t('hashdb.known')], ['notable', t('hashdb.notable')]] },
+    ], okLabel: t('hashdb.chooseFile') });
+    if (!r?.values) return;
+    const file = await app.loadText(['txt', 'csv', 'md5', 'sha1', 'sha256', 'hash']);
+    if (!file) return;
+    const res = importHashList(hashDb, file.source, r.values.category, '');
+    persist();
+    app.notify(res.added ? 'success' : 'warning', t('hashdb.imported', { n: res.added.toLocaleString(), skipped: res.skipped.toLocaleString() }));
+  }
+
 
   async function runHashes() {
     const tb = tab();
@@ -284,6 +332,10 @@ export function createProps(app) {
   /** A click in the right panel; true when handled. */
   function click(target, event) {
     const tb = tab();
+    const hAdd = target.closest('[data-hash-add]');
+    if (hAdd) { addToDb(hAdd.dataset.hashAdd).catch((e) => app.showError('error.hashdb', e)); return true; }
+    const hRemove = target.closest('[data-hash-remove]');
+    if (hRemove) { removeHash(hashDb, hRemove.dataset.hashRemove); persist(); return true; }
     const endian = target.closest('[data-prop-endian]');
     if (endian) { app.updateSettings({ endian: endian.dataset.propEndian }); state.inspectKey = ''; refreshInspector(); return true; }
     const edit = target.closest('[data-inspect-edit]');
@@ -325,6 +377,9 @@ export function createProps(app) {
       case 'template-collapse': { const all = flatten(tb?.doc.template?.nodes ?? [], 0, '', []); for (const x of all) if (x.n.children?.length) state.collapsed.add(x.p); app.rerender(); break; }
       case 'hash-run': runHashes().catch((e) => app.showError('error.hash', e)); break;
       case 'hash-choose': chooseHashes(); break;
+      case 'hashdb-import': importDb().catch((e) => app.showError('error.hashdb', e)); break;
+      case 'hashdb-export': app.saveText(exportHashList(hashDb), 'hashes.txt').catch((e) => app.showError('error.hashdb', e)); break;
+      case 'hashdb-clear': app.ask({ kind: 'hashdbClear', icon: 'warning', title: t('hashdb.clear'), message: t('hashdb.clearAsk', { n: hashDb.entries.size.toLocaleString() }), buttons: [{ id: 'cancel', label: t('common.cancel'), primary: true }, { id: 'clear', label: t('hashdb.clear'), icon: 'trash', danger: true }] }).then((c) => { if (c === 'clear') { hashDb.entries.clear(); persist(); } }); break;
       case 'stats-run': runStats().catch((e) => app.showError('error.stats', e)); break;
       case 'bookmark-clear': if (tb) { tb.doc.bookmarks.length = 0; app.editor.saveBookmarks(tb.doc); tb.view?.schedule(); app.rerender(); } break;
       default: return false;
@@ -332,5 +387,5 @@ export function createProps(app) {
     return true;
   }
 
-  return { html, click, afterRender, caretMoved, refreshInspector, runHashes, runStats, chooseHashes, state, resetCollapse: () => state.collapsed.clear() };
+  return { html, click, afterRender, caretMoved, refreshInspector, runHashes, runStats, chooseHashes, state, hashDb, resetCollapse: () => state.collapsed.clear() };
 }

@@ -2,7 +2,8 @@
 //!   Windows: volumes (\\.\C:) and physical drives (\\.\PhysicalDriveN), DeviceIoControl for their size; processes by
 //!            Toolhelp, their memory by VirtualQueryEx / ReadProcessMemory / WriteProcessMemory.
 //!   Linux:   /sys/block for disks; /proc for processes, /proc/<pid>/maps and /proc/<pid>/mem for their memory.
-//!   macOS:   /dev/disk*; processes are listed (ps) but their memory cannot be opened (task_for_pid needs an entitlement).
+//!   macOS:   /dev/disk*; processes are listed (ps) and their memory opened through Mach (task_for_pid: root or the debugger entitlement).
+use crate::tr;
 use crate::sources::Region;
 use serde::Serialize;
 use std::fs::File;
@@ -225,9 +226,24 @@ mod os {
     use std::io::{Seek, SeekFrom};
     use std::os::unix::fs::FileExt;
 
+    #[cfg(not(target_os = "macos"))]
     pub struct ProcessHandle {
         pid: u32,
         mem: File,
+    }
+
+    /// macOS: the Mach task port of the process (task_for_pid needs root or the debugger entitlement).
+    #[cfg(target_os = "macos")]
+    pub struct ProcessHandle {
+        task: mach2::port::mach_port_t,
+    }
+    #[cfg(target_os = "macos")]
+    impl Drop for ProcessHandle {
+        fn drop(&mut self) {
+            unsafe {
+                mach2::mach_port::mach_port_deallocate(mach2::traps::mach_task_self(), self.task);
+            }
+        }
     }
 
     pub fn prepare_disk_write(_file: &File, _path: &str) -> Result<(), String> {
@@ -325,22 +341,16 @@ mod os {
         Ok(out)
     }
 
+    #[cfg(not(target_os = "macos"))]
     pub fn open_process(pid: u32) -> Result<ProcessHandle, String> {
-        #[cfg(target_os = "macos")]
-        {
-            let _ = pid;
-            Err(tr!("macOS에서는 다른 프로세스의 메모리를 열 수 없습니다(권한 정책).", "On macOS another process's memory cannot be opened (system policy)."))
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            let path = format!("/proc/{pid}/mem");
-            let mem = File::options().read(true).write(true).open(&path).or_else(|_| File::open(&path)).map_err(|e| {
-                tr!("프로세스 {pid}의 메모리를 열 수 없습니다(ptrace 권한, sudo 필요할 수 있음): {e}", "Could not open the memory of process {pid} (ptrace permission; sudo may be needed): {e}")
-            })?;
-            Ok(ProcessHandle { pid, mem })
-        }
+        let path = format!("/proc/{pid}/mem");
+        let mem = File::options().read(true).write(true).open(&path).or_else(|_| File::open(&path)).map_err(|e| {
+            tr!("프로세스 {pid}의 메모리를 열 수 없습니다(ptrace 권한, sudo 필요할 수 있음): {e}", "Could not open the memory of process {pid} (ptrace permission; sudo may be needed): {e}")
+        })?;
+        Ok(ProcessHandle { pid, mem })
     }
 
+    #[cfg(not(target_os = "macos"))]
     pub fn process_regions(handle: &ProcessHandle) -> Result<Vec<Region>, String> {
         let maps = std::fs::read_to_string(format!("/proc/{}/maps", handle.pid)).map_err(|e| e.to_string())?;
         let mut out = Vec::new();
@@ -358,12 +368,87 @@ mod os {
         Ok(out)
     }
 
+    #[cfg(not(target_os = "macos"))]
     pub fn read_process(handle: &ProcessHandle, address: u64, buf: &mut [u8]) -> Result<(), String> {
         handle.mem.read_exact_at(buf, address).map_err(|e| e.to_string())
     }
 
+    #[cfg(not(target_os = "macos"))]
     pub fn write_process(handle: &ProcessHandle, address: u64, data: &[u8]) -> Result<(), String> {
         handle.mem.write_all_at(data, address).map_err(|e| tr!("프로세스 메모리에 쓸 수 없습니다 ({address:#x}): {e}", "Could not write process memory at {address:#x}: {e}"))
+    }
+
+    // ───── macOS: Mach VM calls on the task port
+
+    #[cfg(target_os = "macos")]
+    pub fn open_process(pid: u32) -> Result<ProcessHandle, String> {
+        use mach2::kern_return::KERN_SUCCESS;
+        let mut task: mach2::port::mach_port_t = 0;
+        let kr = unsafe { mach2::traps::task_for_pid(mach2::traps::mach_task_self(), pid as i32, &mut task) };
+        if kr != KERN_SUCCESS {
+            return Err(tr!(
+                "프로세스 {pid}의 메모리를 열 수 없습니다(task_for_pid 오류 {kr}). sudo로 실행하거나, 대상이 보호된(SIP·하드닝된) 프로그램이 아닌지 확인하세요.",
+                "Could not open the memory of process {pid} (task_for_pid error {kr}). Run with sudo, and note that protected (SIP / hardened) programs cannot be opened."
+            ));
+        }
+        Ok(ProcessHandle { task })
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn process_regions(handle: &ProcessHandle) -> Result<Vec<Region>, String> {
+        use mach2::kern_return::KERN_SUCCESS;
+        use mach2::vm_prot::{VM_PROT_READ, VM_PROT_WRITE};
+        use mach2::vm_region::{vm_region_basic_info_data_64_t, vm_region_info_t, VM_REGION_BASIC_INFO_64};
+        let mut out = Vec::new();
+        let mut address: u64 = 0;
+        loop {
+            let mut size: u64 = 0;
+            let mut info: vm_region_basic_info_data_64_t = unsafe { std::mem::zeroed() };
+            let mut count = (std::mem::size_of::<vm_region_basic_info_data_64_t>() / std::mem::size_of::<i32>()) as mach2::message::mach_msg_type_number_t;
+            let mut object: mach2::port::mach_port_t = 0;
+            let kr = unsafe {
+                mach2::vm::mach_vm_region(handle.task, &mut address, &mut size, VM_REGION_BASIC_INFO_64, &mut info as *mut _ as vm_region_info_t, &mut count, &mut object)
+            };
+            if kr != KERN_SUCCESS {
+                break; // KERN_INVALID_ADDRESS: past the last region
+            }
+            out.push(Region { start: address, end: address + size, readable: info.protection & VM_PROT_READ != 0, writable: info.protection & VM_PROT_WRITE != 0 });
+            address += size;
+            if out.len() > 1_000_000 {
+                break;
+            }
+        }
+        Ok(out)
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn read_process(handle: &ProcessHandle, address: u64, buf: &mut [u8]) -> Result<(), String> {
+        use mach2::kern_return::KERN_SUCCESS;
+        let mut got: u64 = 0;
+        let kr = unsafe { mach2::vm::mach_vm_read_overwrite(handle.task, address, buf.len() as u64, buf.as_mut_ptr() as u64, &mut got) };
+        if kr != KERN_SUCCESS || got != buf.len() as u64 {
+            return Err(format!("mach_vm_read_overwrite at {address:#x}: error {kr}"));
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn write_process(handle: &ProcessHandle, address: u64, data: &[u8]) -> Result<(), String> {
+        use mach2::kern_return::KERN_SUCCESS;
+        use mach2::vm_prot::{VM_PROT_COPY, VM_PROT_READ, VM_PROT_WRITE};
+        let write = |h: &ProcessHandle| unsafe { mach2::vm::mach_vm_write(h.task, address, data.as_ptr() as usize, data.len() as u32) };
+        let mut kr = write(handle);
+        if kr != KERN_SUCCESS {
+            // A read-only page (code): make a private writable copy, then write.
+            let p = unsafe { mach2::vm::mach_vm_protect(handle.task, address, data.len() as u64, 0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY) };
+            if p == KERN_SUCCESS {
+                kr = write(handle);
+            }
+        }
+        if kr != KERN_SUCCESS {
+            return Err(tr!("프로세스 메모리에 쓸 수 없습니다 ({address:#x}): 오류 {kr}", "Could not write process memory at {address:#x}: error {kr}"));
+        }
+        Ok(())
     }
 }
 

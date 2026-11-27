@@ -131,6 +131,7 @@ const props = createProps({
   runTemplate: (tab, opts) => runTemplate(tab, opts), openTool: (kind, params) => openTool(kind, params),
   templates: () => state.builtins, userTemplates: () => userTemplates(),
   panelTemplate: () => root.querySelector('[data-template-select]')?.value ?? 'auto',
+  ask: (p) => ask(p), loadText: (types) => toolHost.ops.loadTextFile({ types }), saveText: (source, name) => toolHost.ops.saveTextFile({ source, name }),
 });
 
 const toolHostApp = {
@@ -581,7 +582,7 @@ const commands = {
   import: { icon: 'importHex', label: 'action.import', run: () => importAs() },
   print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => printDump() },
   revealSystem: { icon: 'folderOpen', label: 'file.revealSystem', hidden: !desktop, enabled: () => Boolean(activeDoc()?.path), run: () => native.openExternal(activeDoc().path.replace(/[\\/][^\\/]*$/, '')) },
-  copyPath: { icon: 'copy', label: 'file.copyPath', enabled: () => Boolean(activeDoc()?.path), run: () => copyText(activeDoc().path) },
+  copyPath: { icon: 'copy', label: 'file.copyPath', hidden: !desktop, enabled: () => Boolean(activeDoc()?.path), run: () => copyText(activeDoc().path) },
   startPage: { icon: 'home', label: 'action.startPage', key: 'Ctrl+Shift+H', checked: onStart, run: () => toggleStart() },
   exit: { icon: 'exit', label: 'action.exit', key: isMac ? 'Ctrl+Q' : 'Alt+F4', hidden: !desktop, run: () => requestExit() },
   // edit

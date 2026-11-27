@@ -168,7 +168,8 @@ fn lex(text: &str) -> (Vec<Token>, Vec<YaraError>) {
                                 Err(_) => errors.push(YaraError { line, col, message: "bad \\x escape".into() }),
                             }
                         }
-                        other => s.push(other),
+                        '"' | '\\' => s.push(chars[i]),
+                        other => errors.push(YaraError { line, col, message: format!("illegal escape sequence \\{other} (use \\n \\t \\r \\\\ \\\" or \\xHH)") }),
                     }
                     adv!();
                     continue;
