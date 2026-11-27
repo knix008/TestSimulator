@@ -115,7 +115,7 @@ pub async fn hex_open_disk(state: tauri::State<'_, Arc<CoreState>>, path: String
     blocking(move || {
         let source = DiskSource::open(&path)?;
         let mut engine = state.lock();
-        // Disks are read-only: writing raw sectors is not offered.
+        // Disks open read-only; once unlocked (setReadonly) a save writes the changed sectors back (DiskSource::write_back).
         let id = engine.open_source(Arc::new(source), &path, true);
         engine.info(id)
     })

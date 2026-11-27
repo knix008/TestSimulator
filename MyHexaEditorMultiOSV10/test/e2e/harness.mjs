@@ -14,7 +14,7 @@
 // The app runs with its own WebView2 profile, config and data folders (the user's settings, recent
 // files and any installed MyHexaMaster are untouched), with MYHEXA_MULTI=1 (no instance count),
 // and only the process started here is closed at the end.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -45,9 +45,14 @@ export class DesktopApp {
     this.kind = 'desktop';
   }
 
-  /** Resolves { skipped: reason } when it cannot run without another program's server; throws on a real failure. */
+  /** Starts the debug exe (building it first when missing) with its own Vite and WebView2 profile; throws on a failure. */
   async start() {
-    if (!fs.existsSync(exe)) return { skipped: `${path.relative(root, exe)} is missing (build it once with npm start; this check does not build)` };
+    if (!fs.existsSync(exe)) {
+      // No debug exe yet: build it (the same `cargo build` npm start runs), so the desktop cases always run.
+      this.notes.push(`${path.relative(root, exe)} was missing: built with cargo build`);
+      const built = spawnSync('cargo', ['build'], { cwd: path.join(root, 'src-tauri'), stdio: 'inherit', shell: process.platform === 'win32' });
+      if (built.status !== 0 || !fs.existsSync(exe)) throw new Error(`cargo build of the debug exe failed (exit ${built.status})`);
+    }
     const devUrl = compiledDevUrl();
     if (!devUrl) throw new Error('the dev URL compiled into the exe was not found');
     const port = Number(new URL(devUrl).port);

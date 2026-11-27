@@ -117,6 +117,80 @@ export const desktopCases = [
     },
   },
   {
+    group: 'Devices',
+    name: 'A disk image opened as a disk: read-only until unlocked, written back sector by sector, saved as an image',
+    async run(app) {
+      const img = file('disk-image.img', Array.from({ length: 64 * 512 }, (_, i) => (i * 7) & 255));
+      const copy = file('disk-copy.img');
+      const r = await app.run(`await T.reset(); const inv = window.__TAURI_INTERNALS__.invoke;
+        const info = await inv('hex_open_disk', { path: ${js(img)} });
+        let refused = false; try { await A.core('write', { id: info.id, offset: 1000, data: btoa('\\x11\\x22') }); } catch { refused = true; }
+        await A.core('setReadonly', { id: info.id, readonly: false });
+        await A.core('write', { id: info.id, offset: 1000, data: btoa('\\x11\\x22') });
+        await A.core('write', { id: info.id, offset: 5000, data: btoa('\\xAA') });
+        const saved = await inv('hex_save', { id: info.id, path: null, op: '' });
+        await inv('hex_save_range', { id: info.id, offset: 0, length: info.len, path: ${js(copy)}, op: '' });
+        await A.core('close', { id: info.id });
+        return { kind: info.kind, readonly: info.readonly, refused, len: info.len, modified: saved.modified };`);
+      assert.equal(r.kind, 'disk');
+      assert.equal(r.readonly, true);
+      assert.ok(r.refused, 'a read-only disk refuses writes');
+      assert.equal(r.len, 64 * 512);
+      assert.equal(r.modified, false);
+      const bytes = fs.readFileSync(img);
+      assert.deepEqual([bytes[1000], bytes[1001], bytes[5000], bytes[999], bytes[1002]], [0x11, 0x22, 0xAA, (999 * 7) & 255, (1002 * 7) & 255]);
+      assert.ok(fs.readFileSync(copy).equals(bytes), 'the saved image matches');
+    },
+  },
+  {
+    group: 'Files',
+    name: 'Reload picks up a change made by another program',
+    async run(app) {
+      const p = file('reload.bin', [1, 2, 3, 4]);
+      const r = await app.run(`await T.reset(); await A.app.openFile(${js(p)}); await T.until(() => T.doc()?.len === 4, 8000, 'open');
+        const before = await T.bytes(0, 4); return before;`);
+      assert.deepEqual(r, [1, 2, 3, 4]);
+      fs.writeFileSync(p, Buffer.from([9, 8, 7, 6, 5]));
+      const after = await app.run(`await A.run('reload'); await T.until(() => T.doc()?.len === 5, 8000, 'reloaded'); return await T.bytes(0, 5);`);
+      assert.deepEqual(after, [9, 8, 7, 6, 5]);
+    },
+  },
+  {
+    group: 'Tools',
+    name: 'Find in files searches a folder (recursive) in the backend',
+    async run(app) {
+      const sub = path.join(dir, 'fif', 'deep');
+      fs.mkdirSync(sub, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'fif', 'a.bin'), Buffer.from('xxNEEDLExxNEEDLE'));
+      fs.writeFileSync(path.join(sub, 'b.txt'), Buffer.from('no match here'));
+      fs.writeFileSync(path.join(sub, 'c.dat'), Buffer.from('...NEEDLE'));
+      const r = await app.run(`await T.reset(); const out = await A.toolHost.ops.findInFiles({ pattern: { kind: 'text', value: 'NEEDLE', encoding: 'utf8' }, files: [{ path: ${js(path.join(dir, 'fif'))} }], recursive: true });
+        return out;`);
+      const count = {};
+      for (const m of r.matches) count[path.basename(m.path)] = (count[path.basename(m.path)] ?? 0) + 1;
+      assert.deepEqual(count, { 'a.bin': 2, 'c.dat': 1 });
+      assert.equal(r.files, 3);
+    },
+  },
+  {
+    group: 'Tools',
+    name: 'File systems of a disk image file on disk: list, read a file and a deleted one',
+    async run(app) {
+      const { sampleBytes } = await import('../../src/domain/samples.js');
+      const p = file('sample-disk.img', await sampleBytes('disk'));
+      const r = await app.run(`await T.reset(); await A.app.openFile(${js(p)}); await T.until(() => T.doc()?.len > 0, 8000, 'open');
+        const id = T.doc().id; const parts = await A.core('fsPartitions', { id }); const off = parts.partitions[0].offset;
+        const root = await A.core('fsList', { id, offset: off, dir: null, deleted: true });
+        const readme = root.entries.find((e) => e.name === 'README.TXT'); const del = root.entries.find((e) => e.deleted);
+        const text = atob((await A.core('fsRead', { id, offset: off, file: readme.id })).data);
+        const gone = new TextDecoder().decode(Uint8Array.from(atob((await A.core('fsRead', { id, offset: off, file: del.id })).data), (c) => c.charCodeAt(0)));
+        return { fs: parts.partitions.map((x) => x.fs), text, gone };`);
+      assert.deepEqual(r.fs, ['fat16', 'fat12']);
+      assert.match(r.text, /MyHexaMaster sample disk/);
+      assert.match(r.gone, /지워진 파일/);
+    },
+  },
+  {
     group: 'Popups',
     name: 'A tool window opens as an OS window (find) and answers through the main window',
     async run(app) {

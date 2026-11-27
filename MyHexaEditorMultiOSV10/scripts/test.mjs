@@ -145,7 +145,7 @@ function runJs(folder, names = null) {
   return async (report) => {
     const dir = path.join(root, 'test', folder);
     const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((name) => /\.test\.(js|mjs)$/.test(name) && (!names || names.includes(name))).map((name) => path.join(dir, name)) : [];
-    if (!files.length) { report({ name: `no tests in test/${folder}`, ok: true, skipped: 'no tests', ms: 0 }); return; }
+    if (!files.length) { report({ name: `no tests in test/${folder}`, ok: false, error: `test/${folder} holds no *.test.js files`, ms: 0 }); return; }
     const stream = run({ files, concurrency: 1 });
     for await (const event of stream) {
       if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
@@ -360,8 +360,8 @@ async function runTutorial(report) {
 
 async function runDesktop(report) {
   if (process.platform !== 'win32') {
-    report({ name: 'desktop E2E runs on Windows (WebView2 CDP)', ok: true, skipped: 'Windows only', ms: 0 });
-    return;
+    // WebView2's DevTools port is Windows only; elsewhere the same cases run in the web category.
+    throw new Error('the desktop E2E category needs Windows (WebView2 DevTools); run it there, or leave out --desktop');
   }
   const { DesktopApp } = await importLocal('test', 'e2e', 'harness.mjs');
   const { desktopCases } = await importLocal('test', 'e2e', 'desktop.suite.mjs');
@@ -370,7 +370,6 @@ async function runDesktop(report) {
   spin('starting the debug app…');
   try {
     const why = await app.start();
-    if (why?.skipped) { report({ name: 'start the debug app', group: 'Launch', ok: true, skipped: why.skipped, ms: performance.now() - launched }); return; }
     report({ name: 'debug exe started (own Vite, own WebView2 profile), DevTools attached', group: 'Launch', ok: true, ms: performance.now() - launched, notes: app.notes });
   } catch (error) {
     report({ name: 'debug exe started, DevTools attached', group: 'Launch', ok: false, ms: performance.now() - launched, error: error.message, notes: app.notes });
