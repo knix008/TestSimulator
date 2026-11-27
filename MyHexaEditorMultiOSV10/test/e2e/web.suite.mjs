@@ -511,6 +511,24 @@ export const cases = [
     },
   },
   {
+    group: 'Language',
+    name: 'The user\'s guide and tutorial windows: Korean and English buttons with their flags',
+    async run(app) {
+      const r = await app.run(`await T.reset(); const out = {};
+        for (const kind of ['guide', 'tutorialDoc', 'tutorial']) {
+          A.popups.inline = true; const frame = await A.app.openDocWindow(kind); A.popups.inline = false;
+          if (!frame) continue;
+          const doc = () => frame.querySelector('iframe').contentDocument;
+          await T.until(() => doc()?.querySelectorAll('[data-viewer="lang"]').length === 2, 15000, kind);
+          out[kind] = [...doc().querySelectorAll('[data-viewer="lang"]')].map((b) => { const f = b.querySelector('svg.flag'); const box = f?.getBoundingClientRect(); return [b.dataset.value, f?.dataset.icon ?? null, Boolean(box && box.width > 8 && box.height > 5)]; });
+          frame.remove(); A.popups.frames.delete(frame.dataset.kind);
+        }
+        return out;`);
+      assert.ok(Object.keys(r).length >= 2, `windows checked: ${Object.keys(r).join(', ')}`);
+      for (const [kind, buttons] of Object.entries(r)) assert.deepEqual(buttons, [['ko', 'flagKr', true], ['en', 'flagUk', true]], kind);
+    },
+  },
+  {
     group: 'Properties',
     name: 'Hash database: a hash added as notable is flagged, then removed',
     async run(app) {
