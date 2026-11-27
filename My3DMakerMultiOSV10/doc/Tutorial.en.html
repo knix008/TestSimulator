@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My3DMaker Tutorial — Stress and vibration of a bracket</title>
+<style>
+:root { --bg: #f5f7fa; --surface: #ffffff; --text: #1f2328; --muted: #5b6472; --border: #d9dde3; --accent: #2563eb; --accent-soft: #e6eefc; --code-bg: #f0f2f5; --row-alt: #f7f8fa; --shadow: 0 1px 3px rgba(0,0,0,.12); }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif; }
+.topbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.topbar a { color: var(--accent); text-decoration: none; margin-left: auto; }
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; font-size: 0.9em; }
+nav.toc a { display: block; padding: 3px 6px; border-radius: 6px; color: var(--text); text-decoration: none; }
+nav.toc a.l3 { padding-left: 18px; color: var(--muted); }
+nav.toc a:hover { background: var(--accent-soft); color: var(--accent); }
+main { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px 36px 36px; box-shadow: var(--shadow); min-width: 0; }
+h1 { font-size: 1.9em; margin: 22px 0 8px; }
+h2 { margin-top: 34px; padding-bottom: 6px; border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+h3 { margin-top: 22px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.94em; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; }
+li { margin: 3px 0; }
+figure { margin: 14px 0 20px; text-align: center; }
+li > figure { margin: 8px 0 16px; }
+figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); background: #fff; }
+figcaption { margin-top: 6px; color: var(--muted); font-size: 0.88em; }
+blockquote { margin: 14px 0; padding: 8px 14px; border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; background: var(--accent-soft); }
+blockquote p { margin: 0; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } nav.toc { position: static; max-height: none; } main { padding: 8px 18px 24px; } }
+@media print { .topbar, nav.toc { display: none; } .layout { display: block; padding: 0; } main { border: 0; box-shadow: none; } figure { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<header class="topbar"><b>My3DMaker</b><span>My3DMaker Tutorial — Stress and vibration of a bracket</span><a href="Tutorial.html">한국어</a></header>
+<div class="layout">
+<nav class="toc"><a class="l2" href="#1-project-and-analysis-system">1. Project and analysis system</a><a class="l2" href="#2-geometry">2. Geometry</a><a class="l2" href="#3-support-and-load">3. Support and load</a><a class="l2" href="#4-mesh-and-solve">4. Mesh and solve</a><a class="l2" href="#5-results">5. Results</a><a class="l2" href="#6-vibration-with-the-same-model">6. Vibration with the same model</a><a class="l2" href="#7-design-exploration">7. Design exploration</a><a class="l2" href="#8-report">8. Report</a><a class="l2" href="#next">Next</a></nav>
+<main>
+<h1>My3DMaker Tutorial — Stress and vibration of a bracket</h1>
+<p>Starting from an empty project, this tutorial finds the static stress of an L bracket, then its natural frequencies with the same model, then compares designs by varying its thickness. It takes about fifteen minutes.</p>
+<h2 id="1-project-and-analysis-system">1. Project and analysis system</h2>
+<ol><li>On the start page click <b>New analysis system › Static Structural</b>. A new project with a static structural system opens on the <b>Project</b> tab.</li><li>Follow the block's cells from top to bottom: Engineering Data → Geometry → Model → Setup → Solution → Results.</li></ol>
+<figure><img src="images/en/schematic.png" alt="Project schematic" loading="lazy" decoding="async" /><figcaption>Project schematic</figcaption></figure>
+<h2 id="2-geometry">2. Geometry</h2>
+<ol><li>Click the <b>Geometry</b> cell: the <b>Model</b> tab opens.</li><li>Click <b>Geometry › L bracket</b> in the ribbon.</li><li>In the Properties panel on the right, under <b>Dimensions</b>, set width 80, height 80, thickness 8, depth 40, hole diameter 12 (with − / + or by typing).</li><li>Set <b>Material</b> to <b>Aluminium alloy</b>.</li></ol>
+<h2 id="3-support-and-load">3. Support and load</h2>
+<ol><li>Click <b>Setup › Fixed support</b> in the ribbon.</li><li>In the 3D view click the back face of the upright leg (the large face towards −X). It turns deep blue and the outline shows <b>Fixed support (1)</b>. Click a wrong face again to take it out.</li><li>Add a <b>Force</b> and click the end face of the horizontal leg (the small face towards +X).</li><li>Set <b>Components Z</b> to −800 N.</li></ol>
+<figure><img src="images/en/setup.png" alt="Setting up the load" loading="lazy" decoding="async" /><figcaption>Setting up the load</figcaption></figure>
+<h2 id="4-mesh-and-solve">4. Mesh and solve</h2>
+<ol><li>Choose <b>Mesh</b> in the outline: element size 4 mm, order <b>Quadratic (TET10)</b>.</li><li><b>Generate mesh</b> shows it; the statistics give the node and element counts and the quality histogram.</li><li>Click <b>Solve</b> (F5). After a few seconds the results appear under <b>Solution</b>.</li></ol>
+<h2 id="5-results">5. Results</h2>
+<ol><li>Choose <b>Equivalent stress (von Mises)</b>. The peak is in the inside corner where the legs meet.</li><li>With <b>Deformation scale</b> on automatic the deformed shape is exaggerated, drawn with the undeformed outline.</li><li><b>Safety factor</b> shows the margin to yield; below 1 the material yields.</li><li>In the bottom panel's <b>Table</b>, check that the fixed support's reaction is 800 N.</li></ol>
+<figure><img src="images/en/stress.png" alt="Equivalent stress" loading="lazy" decoding="async" /><figcaption>Equivalent stress</figcaption></figure>
+<h2 id="6-vibration-with-the-same-model">6. Vibration with the same model</h2>
+<ol><li>Back on the <b>Project</b> tab, choose ▾ › <b>Add linked Modal</b> on the static block. A modal system with the same supports appears to its right.</li><li>Click its <b>Solution</b> cell to solve it.</li><li>Choose <b>Mode 1</b> and click <b>Animate</b>. The <b>Table</b> lists each mode's frequency and effective mass.</li></ol>
+<figure><img src="images/en/modal.png" alt="Modal result" loading="lazy" decoding="async" /><figcaption>Modal result</figcaption></figure>
+<h2 id="7-design-exploration">7. Design exploration</h2>
+<ol><li>Make the static system active and open the <b>Design Exploration</b> tab.</li><li><b>Add a parameter…</b>: the bracket's <b>thickness</b> and <b>depth</b>; the range is ±20 % of the current value.</li><li>Objective <b>Max equivalent stress</b>, goal <b>Minimise</b>.</li><li><b>Run the study</b>: nine design points are solved, then the response surfaces, sensitivities and the optimum candidate show.</li></ol>
+<figure><img src="images/en/study.png" alt="Design exploration" loading="lazy" decoding="async" /><figcaption>Design exploration</figcaption></figure>
+<h2 id="8-report">8. Report</h2>
+<p><b>File › Print report</b> (Ctrl+P) previews an A4 report with the current result picture and colour scale, the result summary, the model, the conditions and a chart, to print or save as PDF. <b>Export › Report (HTML)</b> saves the same as a web page.</p>
+<h2 id="next">Next</h2>
+<ul><li>Open examples of the other physics: heat sink, flow around a wing, solenoid coil, duct acoustics, topology optimisation.</li><li>The user's guide (F1) lists every condition and result.</li></ul>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+crates/*/target/
+# The solver compiled to WebAssembly (npm run build:wasm)
+src/sim/pkg/
+# Help pages built from doc/*.md (npm run build:docs)
+public/doc/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/My3DMaker-*.exe
+/My3DMaker-*.msi
+/My3DMaker-*.dmg
+/My3DMaker-*.deb
+/My3DMaker-*.rpm
+/My3DMaker-*.AppImage
+
+
+*.mp4
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+
+
+
+
+
+

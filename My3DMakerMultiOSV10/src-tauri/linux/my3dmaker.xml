@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-my3dmaker">
+    <comment>My3DMaker Project</comment>
+    <comment xml:lang="ko">My3DMaker 프로젝트</comment>
+    <icon name="application-x-my3dmaker"/>
+    <glob pattern="*.my3d"/>
+  </mime-type>
+</mime-info>

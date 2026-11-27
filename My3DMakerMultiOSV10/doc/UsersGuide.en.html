@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My3DMaker User's Guide</title>
+<style>
+:root { --bg: #f5f7fa; --surface: #ffffff; --text: #1f2328; --muted: #5b6472; --border: #d9dde3; --accent: #2563eb; --accent-soft: #e6eefc; --code-bg: #f0f2f5; --row-alt: #f7f8fa; --shadow: 0 1px 3px rgba(0,0,0,.12); }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif; }
+.topbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.topbar a { color: var(--accent); text-decoration: none; margin-left: auto; }
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; font-size: 0.9em; }
+nav.toc a { display: block; padding: 3px 6px; border-radius: 6px; color: var(--text); text-decoration: none; }
+nav.toc a.l3 { padding-left: 18px; color: var(--muted); }
+nav.toc a:hover { background: var(--accent-soft); color: var(--accent); }
+main { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px 36px 36px; box-shadow: var(--shadow); min-width: 0; }
+h1 { font-size: 1.9em; margin: 22px 0 8px; }
+h2 { margin-top: 34px; padding-bottom: 6px; border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+h3 { margin-top: 22px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.94em; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; }
+li { margin: 3px 0; }
+figure { margin: 14px 0 20px; text-align: center; }
+li > figure { margin: 8px 0 16px; }
+figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); background: #fff; }
+figcaption { margin-top: 6px; color: var(--muted); font-size: 0.88em; }
+blockquote { margin: 14px 0; padding: 8px 14px; border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; background: var(--accent-soft); }
+blockquote p { margin: 0; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } nav.toc { position: static; max-height: none; } main { padding: 8px 18px 24px; } }
+@media print { .topbar, nav.toc { display: none; } .layout { display: block; padding: 0; } main { border: 0; box-shadow: none; } figure { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<header class="topbar"><b>My3DMaker</b><span>My3DMaker User's Guide</span><a href="UsersGuide.html">한국어</a></header>
+<div class="layout">
+<nav class="toc"><a class="l2" href="#1-the-window">1. The window</a><a class="l2" href="#2-the-start-page">2. The start page</a><a class="l2" href="#3-the-project-schematic">3. The project schematic</a><a class="l2" href="#4-geometry">4. Geometry</a><a class="l2" href="#5-engineering-data">5. Engineering Data</a><a class="l2" href="#6-mesh">6. Mesh</a><a class="l2" href="#7-loads-and-supports">7. Loads and supports</a><a class="l2" href="#8-solving">8. Solving</a><a class="l2" href="#9-results">9. Results</a><a class="l2" href="#10-design-exploration">10. Design exploration</a><a class="l2" href="#11-files-export-printing">11. Files, export, printing</a><a class="l2" href="#12-settings">12. Settings</a><a class="l2" href="#13-shortcuts">13. Shortcuts</a><a class="l2" href="#14-accuracy-and-limits">14. Accuracy and limits</a></nav>
+<main>
+<h1>My3DMaker User's Guide</h1>
+<p>My3DMaker analyses parts and assemblies in 3D. One project covers structural analysis (static, modal, buckling, harmonic, transient, response spectrum, random vibration, fatigue, nonlinear, explicit dynamics), heat transfer (steady, transient, thermal stress), fluid flow (CFD with heat transfer), electromagnetics (electrostatics, DC current, magnetostatics), acoustics (modal, harmonic), topology optimisation and design exploration.</p>
+<p>The solvers are written in Rust. The desktop app (Windows, macOS, Linux) runs them natively; the web version runs the same code compiled to WebAssembly. Both give the same results.</p>
+<h2 id="1-the-window">1. The window</h2>
+<figure><img src="images/en/start.png" alt="Start page" loading="lazy" decoding="async" /><figcaption>Start page</figcaption></figure>
+<ul><li><b>Menu bar</b>: Start, File, Edit, View, Insert, Solve, Tools, Help, with the window buttons at the right.</li><li><b>Toolbar</b>: new project, open, save, print, export, undo/redo, generate mesh, solve, stop, view direction, display style, animation, unit system, theme, language, settings, about. When the window is narrow the names go and the icons stay.</li><li><b>Workspace tabs</b>: Project, Model, Engineering Data, Design Exploration.</li><li><b>Left panel</b>: the outline (Model tab) or the toolbox (Project tab).</li><li><b>Right panel (Properties)</b>: the properties and settings of the selection (dimensions, material, load values, analysis settings, result display).</li><li><b>Bottom panel (Output)</b>: messages, graph, table.</li><li>Each panel has an icon, a title and a collapse button in its head; collapsed, only the expand button and a vertical title stay. The three buttons at the right of the menu bar (left of the window buttons) collapse and expand the left, bottom and right panels. Drag the lines between panels to resize them.</li><li><b>Right-click menus</b> fit each panel: outline items (rename, material, hide, show only this body, suppress, duplicate, delete, solve, add linked …), the toolbox, the schematic, the properties, the output (copy messages, save a chart or copy its data, copy tables) and the 3D view (select or hide a body, add a condition on this face, add or remove a face, views, display styles).</li><li><b>Status bar</b>: progress, active system, mesh size, units, solver, theme, language, clock. Drag the bottom-right corner to resize the window.</li></ul>
+<h2 id="2-the-start-page">2. The start page</h2>
+<p>Cards move by their handle and resize from their corner; <b>Arrange</b> restores the first layout.</p>
+<ul><li><b>Actions</b>: new project, open, import STL, continue, user's guide, settings, about, exit</li><li><b>Recent</b>: recently opened projects</li><li><b>New analysis system</b>: the 20 analyses by physics; a click starts a project with that system</li><li><b>Example projects</b>: 31 examples with geometry, materials, loads and supports in place, ready to solve</li><li><b>Background</b>: the moving background and its speed</li></ul>
+<h2 id="3-the-project-schematic">3. The project schematic</h2>
+<figure><img src="images/en/schematic.png" alt="Project schematic" loading="lazy" decoding="async" /><figcaption>Project schematic</figcaption></figure>
+<p>Each analysis system is a block; its cells are the order of work:</p>
+<ol><li><b>Engineering Data</b>: materials</li><li><b>Geometry</b>: bodies</li><li><b>Model (mesh)</b>: element size and order</li><li><b>Setup</b>: analysis settings, loads and supports</li><li><b>Solution</b>: solve</li><li><b>Results</b>: see the results</li></ol>
+<p>The mark at the right of a cell is its state: green tick done, grey question mark to do, amber arrows out of date, red failed.</p>
+<ul><li>Click a system in the <b>toolbox</b> on the left to add it.</li><li>The block's ▾ (or its right-click menu) offers <b>linked</b> follow-ups that take over its loads and supports and appear to its right with an arrow: static → buckling, fatigue, nonlinear; modal → harmonic, transient, spectrum, random; thermal → thermal stress.</li><li>All systems share the geometry and the materials.</li></ul>
+<h2 id="4-geometry">4. Geometry</h2>
+<p>Add bodies from the <b>Geometry</b> ribbon of the <b>Model</b> tab:</p>
+<ul><li>Primitives: box, cylinder, tube, sphere, cone, torus, prism</li><li>Parts: plate with hole, L bracket, I-beam, channel, flange, stepped shaft, heat sink, pipe</li><li>Fluid and electromagnetics: duct, bent channel, wing section, coil, disc magnet, electrode plate</li><li><b>Import STL</b>: a closed triangle mesh (binary or text)</li></ul>
+<p>Choose a body in the outline: the details show its name, material, suppression, local element size, dimensions, position and rotation. Change values with − / + or by typing. The eye hides a body. Touching bodies share nodes and are bonded.</p>
+<p>Z is up; lengths are in mm.</p>
+<h2 id="5-engineering-data">5. Engineering Data</h2>
+<figure><img src="images/en/data.png" alt="Engineering Data" loading="lazy" decoding="async" /><figcaption>Engineering Data</figcaption></figure>
+<p>Pick a project material on the left and edit its properties on the right. The library holds 21 materials (metals, polymers, electronics, magnetic materials, fluids). Values apply to this project only.</p>
+<table><thead><tr><th>Analysis</th><th>Properties used</th></tr></thead><tbody><tr><td>Structural</td><td>density, Young's modulus, Poisson's ratio, yield and ultimate strength, tangent modulus</td></tr><tr><td>Fatigue</td><td>fatigue strength coefficient σf′, exponent b, endurance limit</td></tr><tr><td>Thermal</td><td>conductivity, specific heat, thermal expansion, emissivity</td></tr><tr><td>Electric</td><td>resistivity, relative permittivity</td></tr><tr><td>Magnetic</td><td>relative permeability</td></tr><tr><td>Fluid and acoustics</td><td>density, viscosity, speed of sound, volumetric expansion</td></tr></tbody></table>
+<h2 id="6-mesh">6. Mesh</h2>
+<p>Choose <b>Mesh</b> in the outline to set the element size, element order and maximum nodes. Size 0 is automatic (a 25th of the model). <b>Generate mesh</b> builds it and shows the node and element counts, element quality, aspect ratio and the quality histogram.</p>
+<ul><li><b>Linear (TET4)</b>: fast. Explicit dynamics and magnetostatics use linear elements.</li><li><b>Quadratic (TET10)</b>: better stresses and frequencies; mid-side nodes follow curved surfaces.</li></ul>
+<p>The mesher splits a rectilinear grid into tetrahedra and moves the boundary nodes onto the surfaces: faces parallel to the axes are exact, curved faces are approximated to the element size.</p>
+<h2 id="7-loads-and-supports">7. Loads and supports</h2>
+<figure><img src="images/en/setup.png" alt="Setting up a load" loading="lazy" decoding="async" /><figcaption>Setting up a load</figcaption></figure>
+<p>The <b>Setup</b> ribbon shows only the conditions the active system understands. A new condition is selected in the outline; <b>click faces</b> in the 3D view to add them or take them out. Conditions on bodies take their bodies in the details.</p>
+<table><thead><tr><th>Category</th><th>Conditions</th></tr></thead><tbody><tr><td>Supports</td><td>fixed, displacement, frictionless, elastic</td></tr><tr><td>Loads</td><td>force, pressure, moment, bearing load, gravity, acceleration, rotational velocity, thermal condition</td></tr><tr><td>Explicit</td><td>initial velocity, rigid wall</td></tr><tr><td>Thermal</td><td>temperature, convection, heat flux, heat flow, radiation, heat generation, heat power, body temperature</td></tr><tr><td>Electric</td><td>voltage (faces or bodies), current, volume and surface charge</td></tr><tr><td>Magnetic</td><td>coil (loop or straight), permanent magnet</td></tr><tr><td>Acoustic</td><td>normal velocity, acoustic pressure, absorbing</td></tr><tr><td>Fluid</td><td>inlet, outlet (internal flow)</td></tr></tbody></table>
+<p>Colours: supports blue, loads red, thermal orange, electric purple, magnetic teal, acoustic pink, fluid green; the selected condition deep blue.</p>
+<p><b>Contacts</b>: touching bodies are bonded by default. A contact can be bonded, no separation, frictionless, rough or frictional; frictionless and frictional are solved by the nonlinear static analysis. <b>Find contacts</b> finds the touching body pairs in the mesh.</p>
+<h2 id="8-solving">8. Solving</h2>
+<p><b>Solve</b> (F5) solves the active system, <b>Solve all</b> every system. The progress window and the status bar show the stage (meshing, assembling, solving equations, the eigenproblem …); <b>Stop</b> ends it.</p>
+<table><thead><tr><th>System</th><th>Method</th></tr></thead><tbody><tr><td>Static, thermal stress</td><td>4/10-node tetrahedra, preconditioned conjugate gradients (incomplete Cholesky + rigid-body coarse space)</td></tr><tr><td>Modal, buckling, acoustic modes</td><td>LOBPCG eigensolver</td></tr><tr><td>Harmonic, spectrum, random</td><td>mode superposition</td></tr><tr><td>Transient structural</td><td>Newmark average acceleration</td></tr><tr><td>Nonlinear</td><td>Newton–Raphson, J2 plasticity, total Lagrangian large deflection, penalty contact, step bisection</td></tr><tr><td>Explicit</td><td>central differences, corotational tetrahedra, plasticity, erosion</td></tr><tr><td>Thermal</td><td>steady and backward Euler, radiation by iteration</td></tr><tr><td>Fluid</td><td>Cartesian projection method, semi-Lagrangian advection, eddy-viscosity turbulence, buoyancy, conjugate heat</td></tr><tr><td>Electromagnetics</td><td>nodal elements (electrostatic, DC), edge elements (magnetostatic)</td></tr><tr><td>Topology</td><td>SIMP, sensitivity filter, optimality criteria</td></tr></tbody></table>
+<h2 id="9-results">9. Results</h2>
+<figure><img src="images/en/stress.png" alt="Equivalent stress" loading="lazy" decoding="async" /><figcaption>Equivalent stress</figcaption></figure>
+<p>Choose a result under <b>Solution</b>: the 3D view shows the contours, the colour scale and max/min labels. Click a face to read the value there.</p>
+<ul><li><b>Deformation scale</b>: automatic, true scale, undeformed, ×10, ×100, ×1000</li><li><b>Colour map</b>: rainbow, viridis, cool–warm, thermal, grayscale / <b>bands</b>: smooth, 8, 12, 16</li><li><b>Animation</b>: mode shapes, harmonic response, transient and explicit frames, temperatures over time</li><li><b>Planes</b>: flow and field results show on mid-planes of the domain; the flow also draws streamlines.</li></ul>
+<figure><img src="images/en/modal.png" alt="Modal result" loading="lazy" decoding="async" /><figcaption>Modal result</figcaption></figure>
+<p>The <b>Graph</b> tab shows frequency response, phase, displacement and temperature histories, load–displacement, energies, compliance convergence, the flow residual and natural frequencies. The <b>Table</b> tab lists modes (frequency, effective mass, cumulative share), buckling factors, reactions, heat out, drag and lift, magnetic forces, terminal currents and the summary values.</p>
+<figure><img src="images/en/fluid.png" alt="Flow result" loading="lazy" decoding="async" /><figcaption>Flow result</figcaption></figure>
+<h2 id="10-design-exploration">10. Design exploration</h2>
+<figure><img src="images/en/study.png" alt="Design exploration" loading="lazy" decoding="async" /><figcaption>Design exploration</figcaption></figure>
+<ol><li><b>Add a parameter…</b> — a dimension or a load value — and set its lower, upper and levels.</li><li>Choose the method (central composite, full factorial, Latin hypercube), the objective and minimise or maximise.</li><li><b>Run the study</b> solves the active system at every design point and tabulates the outputs.</li><li>Quadratic response surfaces follow: R², sensitivity bars, the optimum candidate and a map over the first two parameters.</li></ol>
+<h2 id="11-files-export-printing">11. Files, export, printing</h2>
+<ul><li>Project file: <code>.my3d</code> (JSON). Results are not stored; a reopened project shows its systems as <b>out of date</b>.</li><li>Export: report (HTML), CSV (result values and chart data), picture (PNG), optimised topology (STL)</li><li><b>Print report</b> (Ctrl+P): an A4 report — the current result picture, its colour scale, the result summary, the model, the conditions and a chart — previewed, printed or saved as PDF.</li></ul>
+<h2 id="12-settings">12. Settings</h2>
+<p>The settings window (Ctrl+,), <b>Simulation</b> tab: unit system (mm·N·MPa or SI), colour map, bands, deformation scale, undeformed outline, max/min labels, animation speed, plane opacity, default element order, 3D display style. The other tabs: general, appearance (40-odd themes and a custom one), fonts, start page.</p>
+<h2 id="13-shortcuts">13. Shortcuts</h2>
+<table><thead><tr><th>Key</th><th>Action</th></tr></thead><tbody><tr><td>Ctrl+N / Ctrl+O / Ctrl+S</td><td>New / open / save</td></tr><tr><td>Ctrl+Shift+S</td><td>Save as</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo</td></tr><tr><td>Delete</td><td>Delete the selection</td></tr><tr><td>Ctrl+D</td><td>Duplicate the body</td></tr><tr><td>F5</td><td>Solve</td></tr><tr><td>F</td><td>Zoom to fit</td></tr><tr><td>Ctrl+P</td><td>Print report</td></tr><tr><td>F1</td><td>User's guide</td></tr><tr><td>Esc</td><td>Stop the animation</td></tr></tbody></table>
+<p>Mouse: left drag rotates, right or middle drag pans, the wheel zooms, a click picks a face.</p>
+<h2 id="14-accuracy-and-limits">14. Accuracy and limits</h2>
+<ul><li>The examples' cantilever deflection, natural frequency and buckling load agree with beam theory within 5 % (checked by the automated tests).</li><li>Flow is computed on a uniform Cartesian grid without resolved boundary layers: use drag coefficients to compare designs.</li><li>Magnetostatics uses linear materials (constant permeability).</li><li>The web version runs single-threaded WebAssembly, two to three times slower than the desktop app; use the desktop app for large models.</li></ul>
+</main>
+</div>
+</body>
+</html>

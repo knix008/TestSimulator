@@ -1,0 +1,106 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "My3DMaker",
+  "mainBinaryName": "My3DMaker",
+  "version": "../package.json",
+  "identifier": "com.shkwon.my3dmaker",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:5584",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPDATA/**",
+          "$APPLOCALDATA/**",
+          "$APPCONFIG/**",
+          "$RESOURCE/doc/video/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Productivity",
+    "shortDescription": "3D engineering simulation",
+    "longDescription": "Simulate parts and assemblies in 3D: linear and nonlinear structural analysis (static, modal, buckling, harmonic, transient, response spectrum, random vibration, fatigue, explicit impact), heat transfer, thermal stress, fluid flow with heat transfer, electrostatics, current conduction with Joule heating, magnetostatics, acoustics, topology optimisation and design exploration — on meshes made from parametric geometry, with result contours, animations, charts and reports.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/project.ico": "project.ico",
+      "icons/project.icns": "project.icns",
+      "icons/project.png": "project.png",
+      "../licenses/": "licenses/",
+      "../doc/": "doc/"
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "my3d"
+        ],
+        "name": "My3DMaker.Project",
+        "description": "My3DMaker Project",
+        "mimeType": "application/x-my3dmaker",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Korean",
+          "English"
+        ],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "My3DMaker"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
+        "files": {
+          "/usr/share/mime/packages/my3dmaker.xml": "linux/my3dmaker.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-my3dmaker.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ],
+        "files": {
+          "/usr/share/mime/packages/my3dmaker.xml": "linux/my3dmaker.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-my3dmaker.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

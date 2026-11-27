@@ -1,0 +1,35 @@
+// Texts of the macros (app-macros.js, popups-cad.js macro editor). { key: [Korean, English] }.
+const T = {
+  'cmd.macroRecord': ['매크로 기록', 'Record macro'],
+  'cmd.macroRun': ['매크로 실행…', 'Run macro…'],
+  'cmd.macroStop': ['매크로 중지', 'Stop macro'],
+  'cmd.macroEditor': ['매크로 편집기', 'Macro editor'],
+  'submenu.macros': ['매크로', 'Macros'],
+  'op.macro': ['매크로', 'Macro'],
+  'macro.recording': ['매크로를 기록합니다. 끝내려면 상태 표시줄의 ● 또는 매크로 중지를 누르세요.', 'Recording a macro — click ● in the status bar or Stop macro to finish.'],
+  'macro.recorded': ['매크로를 기록했습니다 (단계 {count}개).', 'Macro recorded ({count} steps).'],
+  'macro.rec': ['● 기록 중 · {count}', '● REC · {count}'],
+  'macro.playing': ['▶ 매크로 실행 중', '▶ Macro running'],
+  'macro.idle': ['대기', 'Ready'],
+  'macro.stopRecording': ['기록 끝내기', 'Stop recording'],
+  'macro.stopped': ['매크로를 중지했습니다.', 'Macro stopped.'],
+  'macro.started': ['{name} 실행', 'Running {name}'],
+  'macro.finished': ['완료 ({ms} ms)', 'Finished ({ms} ms)'],
+  'macro.syntax': ['문법 오류', 'Syntax error'],
+  'macro.line': ['{line}번째 줄', 'line {line}'],
+  'macro.noSketch': ['편집 중인 스케치가 없습니다.', 'No sketch is being edited.'],
+  'macro.noFeature': ['피처 "{name}"이(가) 없습니다.', 'There is no feature "{name}".'],
+  'macro.noPart': ['열린 부품이 없습니다.', 'No part is open.'],
+  'macro.file': ['매크로', 'Macro'],
+  'macro.run': ['실행', 'Run'],
+  'macro.new': ['새로', 'New'],
+  'macro.load': ['열기…', 'Open…'],
+  'macro.save': ['저장…', 'Save…'],
+  'macro.clearLog': ['기록 지우기', 'Clear log'],
+  'macro.placeholder': ['// 매크로 (JavaScript)\n// await mm.run(\'extrude\');\n// await mm.set(\'end\', \'blind\');\n// for (const p of mm.parts()) mm.log(p.name);', '// Macro (JavaScript)\n// await mm.run(\'extrude\');\n// await mm.set(\'end\', \'blind\');\n// for (const p of mm.parts()) mm.log(p.name);'],
+  'macro.prompt': ['명령 바로 실행 (예: mm.parts())', 'Run at once (e.g. mm.parts())'],
+  'macro.apiHint': ['Ctrl+Enter: 실행 · 오류 줄을 누르면 그 줄로 갑니다', 'Ctrl+Enter: run · click an error to go to its line'],
+};
+
+export const ko = Object.fromEntries(Object.entries(T).map(([k, v]) => [k, v[0]]));
+export const en = Object.fromEntries(Object.entries(T).map(([k, v]) => [k, v[1]]));

@@ -1,0 +1,122 @@
+[
+  {
+    "name": "app: loads with the start page",
+    "eval": "Boolean(window.__my3dmaker) && Boolean(document.querySelector('.start-board .start-card-templates'))",
+    "expect": "true",
+    "wait": 800,
+    "until": "Boolean(window.__my3dmaker)"
+  },
+  {
+    "name": "app: a new analysis system from the start page",
+    "eval": "(async()=>{ window.__my3dmaker.actions.updateSettings({ language: 'ko', showWelcome: false }); document.querySelector('[data-start=\"new-system\"][data-value=\"static\"]').click(); await new Promise(r=>setTimeout(r,400)); const s = window.__my3dmaker.state; return s.project.systems.length + ':' + s.project.systems[0].type + ':' + s.tab })()",
+    "expect": "^1:static:project$",
+    "wait": 400,
+    "shot": "schematic"
+  },
+  {
+    "name": "geometry: a box from the ribbon",
+    "eval": "(async()=>{ const a = window.__my3dmaker.actions; a.setTab('model'); await new Promise(r=>setTimeout(r,300)); document.querySelector('[data-command=\"tpl:box\"]').click(); return window.__my3dmaker.state.project.bodies.length })()",
+    "expect": "^1$",
+    "wait": 300
+  },
+  {
+    "name": "geometry: a dimension through its stepper",
+    "eval": "(async()=>{ const st = document.querySelector('.stepper[data-stepper$=\".params.width\"]'); st.querySelector('[data-step-dir=\"1\"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); window.dispatchEvent(new PointerEvent('pointerup')); await new Promise(r=>setTimeout(r,200)); return window.__my3dmaker.state.project.bodies[0].params.width })()",
+    "expect": "^101$",
+    "wait": 200
+  },
+  {
+    "name": "mesh: the setup mesh is made",
+    "eval": "Boolean(window.__my3dmaker.state.setupMesh?.info?.faces?.length)",
+    "expect": "true",
+    "until": "Boolean(window.__my3dmaker.state.setupMesh?.info)",
+    "wait": 300,
+    "shot": "geometry"
+  },
+  {
+    "name": "setup: fixed support on the −X face",
+    "eval": "(()=>{ const a = window.__my3dmaker.actions; const s = window.__my3dmaker.state; a.addCondition('fixed'); const info = s.setupMesh.info; const i = info.faces.findIndex(f => f.n[0] < -0.9); const m = window.__my3dmaker.model; a.facePicked({ face: i, body: info.faces[i].body, sig: m.sigOf(i, info) }); return s.project.systems[0].bcs[0].faces.length })()",
+    "expect": "^1$",
+    "wait": 200
+  },
+  {
+    "name": "setup: a force on the +X face",
+    "eval": "(()=>{ const a = window.__my3dmaker.actions; const s = window.__my3dmaker.state; a.addCondition('force'); const info = s.setupMesh.info; const i = info.faces.findIndex(f => f.n[0] > 0.9); a.facePicked({ face: i, body: info.faces[i].body, sig: window.__my3dmaker.model.sigOf(i, info) }); return s.project.systems[0].bcs[1].faces.length })()",
+    "expect": "^1$",
+    "wait": 300,
+    "shot": "setup"
+  },
+  {
+    "name": "solve: static solution",
+    "eval": "(async()=>{ const r = await window.__my3dmaker.actions.solve(); return r.result.max.displacement > 0 && window.__my3dmaker.state.project.systems[0].status })()",
+    "expect": "^solved$",
+    "wait": 800,
+    "shot": "result"
+  },
+  {
+    "name": "results: legend and labels show",
+    "eval": "Boolean(document.querySelector('.sv-legend:not([hidden])')) && document.querySelectorAll('.sv-label').length >= 1",
+    "expect": "true"
+  },
+  {
+    "name": "panels: one font size in the left and right panels",
+    "eval": "(()=>{ const sizes = new Set(); for (const el of document.querySelectorAll('#left-panel *, #right-panel *')) { if ([...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) || ['INPUT','SELECT'].includes(el.tagName)) sizes.add(getComputedStyle(el).fontSize + '|' + getComputedStyle(el).fontFamily); } return sizes.size })()",
+    "expect": "^1$"
+  },
+  {
+    "name": "results: reactions in the table",
+    "eval": "(()=>{ window.__my3dmaker.state.bottomTab = 'table'; document.querySelector('[data-bottom-tab=\"table\"]').click(); return document.querySelectorAll('.bottom-tables table').length > 0 })()",
+    "expect": "true",
+    "wait": 200
+  },
+  {
+    "name": "units: SI shows pascals",
+    "eval": "(async()=>{ window.__my3dmaker.actions.updateSettings({ unitSystem: 'si' }); await new Promise(r=>setTimeout(r,200)); const t = document.querySelector('#statusbar').textContent; window.__my3dmaker.actions.updateSettings({ unitSystem: 'mm' }); return t.includes('Pa') && !t.includes('MPa') })()",
+    "expect": "true",
+    "wait": 200
+  },
+  {
+    "name": "edit: undo and redo",
+    "eval": "(()=>{ const a = window.__my3dmaker.actions; const p = () => window.__my3dmaker.state.project; const n = p().systems[0].bcs.length; a.undo(); const after = p().systems[0].bcs[1].faces.length; a.redo(); return n + ':' + after + ':' + p().systems[0].bcs[1].faces.length })()",
+    "expect": "^2:0:1$",
+    "wait": 200
+  },
+  {
+    "name": "tabs: engineering data and design exploration",
+    "eval": "(async()=>{ const a = window.__my3dmaker.actions; a.setTab('data'); await new Promise(r=>setTimeout(r,200)); const d = Boolean(document.querySelector('.data-tab .data-mat')); a.setTab('study'); await new Promise(r=>setTimeout(r,200)); return d && Boolean(document.querySelector('.study-tab')) })()",
+    "expect": "true",
+    "wait": 200,
+    "shot": "study"
+  },
+  {
+    "name": "examples: modal example with animation",
+    "eval": "(async()=>{ const a = window.__my3dmaker.actions; const s = window.__my3dmaker.state; s.dirty = false; await a.openSample('modalBeam'); const r = await a.solve(); a.select({ kind: 'result', id: s.project.systems[0].id + ':mode:0' }); window.__my3dmaker.model.startAnimation(); await new Promise(r=>setTimeout(r,500)); const on = window.__my3dmaker.model.view.animating; window.__my3dmaker.model.stopAnimation(); return r.modes.length + ':' + on })()",
+    "expect": "^8:true$",
+    "wait": 300,
+    "shot": "modal"
+  },
+  {
+    "name": "examples: thermal example",
+    "eval": "(async()=>{ const a = window.__my3dmaker.actions; const s = window.__my3dmaker.state; s.dirty = false; await a.openSample('heatSink'); const r = await a.solve(); return r.result.max.temperature > 25 })()",
+    "expect": "true",
+    "wait": 300,
+    "shot": "thermal"
+  },
+  {
+    "name": "language: English",
+    "eval": "(async()=>{ window.__my3dmaker.actions.updateSettings({ language: 'en' }); await new Promise(r=>setTimeout(r,200)); const t = document.querySelector('#menubar').textContent; window.__my3dmaker.actions.updateSettings({ language: 'ko' }); return t.includes('Solve') && t.includes('Help') })()",
+    "expect": "true",
+    "wait": 200
+  },
+  {
+    "name": "file: save and reopen keeps the model",
+    "eval": "(async()=>{ const s = window.__my3dmaker.state; const before = JSON.stringify(s.project.bodies); const text = JSON.stringify(s.project, (k, v) => (k === 'result' ? undefined : v)); await window.__my3dmaker.actions.openContent('copy.my3d', text); return JSON.stringify(s.project.bodies) === before && s.project.systems[0].status })()",
+    "expect": "^(outdated|setup)$",
+    "wait": 300
+  },
+  {
+    "name": "app: no errors in the log",
+    "eval": "JSON.stringify(window.__my3dmaker.state.log.filter(l => l.kind === 'error').map(l => l.text))",
+    "expect": "^\\[\\]$"
+  }
+]

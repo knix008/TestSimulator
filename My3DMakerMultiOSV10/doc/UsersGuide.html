@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My3DMaker 사용 설명서</title>
+<style>
+:root { --bg: #f5f7fa; --surface: #ffffff; --text: #1f2328; --muted: #5b6472; --border: #d9dde3; --accent: #2563eb; --accent-soft: #e6eefc; --code-bg: #f0f2f5; --row-alt: #f7f8fa; --shadow: 0 1px 3px rgba(0,0,0,.12); }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif; }
+.topbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.topbar a { color: var(--accent); text-decoration: none; margin-left: auto; }
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; font-size: 0.9em; }
+nav.toc a { display: block; padding: 3px 6px; border-radius: 6px; color: var(--text); text-decoration: none; }
+nav.toc a.l3 { padding-left: 18px; color: var(--muted); }
+nav.toc a:hover { background: var(--accent-soft); color: var(--accent); }
+main { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px 36px 36px; box-shadow: var(--shadow); min-width: 0; }
+h1 { font-size: 1.9em; margin: 22px 0 8px; }
+h2 { margin-top: 34px; padding-bottom: 6px; border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+h3 { margin-top: 22px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.94em; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; }
+li { margin: 3px 0; }
+figure { margin: 14px 0 20px; text-align: center; }
+li > figure { margin: 8px 0 16px; }
+figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); background: #fff; }
+figcaption { margin-top: 6px; color: var(--muted); font-size: 0.88em; }
+blockquote { margin: 14px 0; padding: 8px 14px; border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; background: var(--accent-soft); }
+blockquote p { margin: 0; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } nav.toc { position: static; max-height: none; } main { padding: 8px 18px 24px; } }
+@media print { .topbar, nav.toc { display: none; } .layout { display: block; padding: 0; } main { border: 0; box-shadow: none; } figure { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<header class="topbar"><b>My3DMaker</b><span>My3DMaker 사용 설명서</span><a href="UsersGuide.en.html">English</a></header>
+<div class="layout">
+<nav class="toc"><a class="l2" href="#1-화면-구성">1. 화면 구성</a><a class="l2" href="#2-시작-화면">2. 시작 화면</a><a class="l2" href="#3-프로젝트-도식">3. 프로젝트 도식</a><a class="l2" href="#4-형상">4. 형상</a><a class="l2" href="#5-엔지니어링-데이터">5. 엔지니어링 데이터</a><a class="l2" href="#6-메시">6. 메시</a><a class="l2" href="#7-하중과-지지">7. 하중과 지지</a><a class="l2" href="#8-해석">8. 해석</a><a class="l2" href="#9-결과">9. 결과</a><a class="l2" href="#10-설계-탐색">10. 설계 탐색</a><a class="l2" href="#11-파일-내보내기-인쇄">11. 파일, 내보내기, 인쇄</a><a class="l2" href="#12-설정">12. 설정</a><a class="l2" href="#13-단축키">13. 단축키</a><a class="l2" href="#14-정확도와-한계">14. 정확도와 한계</a></nav>
+<main>
+<h1>My3DMaker 사용 설명서</h1>
+<p>My3DMaker는 부품과 조립품을 3D로 해석하는 프로그램입니다. 구조(정적·모달·좌굴·조화·과도·응답 스펙트럼·랜덤 진동·피로·비선형·외연적 동역학), 열(정상·과도·열응력), 유동(CFD, 열전달 포함), 전자기(정전기장·직류 전류·정자기장), 음향(모달·조화), 위상 최적화와 설계 탐색을 한 프로젝트에서 다룹니다.</p>
+<p>해석기는 Rust로 작성되어 있습니다. 데스크톱 앱(Windows·macOS·Linux)에서는 네이티브로, 웹 브라우저에서는 같은 코드를 WebAssembly로 컴파일해 실행합니다. 결과는 두 환경에서 같습니다.</p>
+<h2 id="1-화면-구성">1. 화면 구성</h2>
+<figure><img src="images/ko/start.png" alt="시작 화면" loading="lazy" decoding="async" /><figcaption>시작 화면</figcaption></figure>
+<ul><li><b>메뉴 표시줄</b>: 시작, 파일, 편집, 보기, 삽입, 해석, 도구, 도움말. 오른쪽 끝에 창 단추가 있습니다.</li><li><b>도구 모음</b>: 새 프로젝트, 열기, 저장, 인쇄, 내보내기, 되돌리기, 메시 생성, 해석, 중지, 보기 방향, 표시 방식, 애니메이션, 단위계, 테마, 언어, 설정, 프로그램 정보. 창이 좁으면 이름이 숨고 아이콘만 남습니다.</li><li><b>작업 탭</b>: 프로젝트 도식, 모델, 엔지니어링 데이터, 설계 탐색.</li><li><b>왼쪽 패널</b>: 개요(모델 탭) 또는 도구 상자(프로젝트 탭).</li><li><b>오른쪽 패널(속성)</b>: 선택한 항목의 속성과 설정(치수, 재질, 하중 값, 해석 설정, 결과 표시 방식).</li><li><b>아래 패널(출력)</b>: 메시지, 그래프, 표.</li><li>패널마다 머리에 아이콘·제목·접기 단추가 있고, 접으면 펴기 단추와 세로 제목만 남습니다. 메뉴 표시줄 오른쪽(창 단추 왼쪽)의 세 단추로 왼쪽·아래·오른쪽 패널을 한 번에 접고 펼 수 있습니다. 패널 사이 경계선을 끌어 너비와 높이를 바꿉니다.</li><li><b>오른쪽 클릭 메뉴</b>는 패널마다 다릅니다: 개요 항목(이름 바꾸기, 재질, 숨기기·이 바디만 보이기, 억제, 복제, 삭제, 해석, 연결 추가 …), 도구 상자, 프로젝트 도식, 속성, 출력(메시지 복사, 그래프 저장·자료 복사, 표 복사), 3D 보기(바디 선택·숨기기, 이 면에 조건 추가, 면 넣기·빼기, 보기 방향, 표시 방식).</li><li><b>상태 표시줄</b>: 진행 상황, 활성 해석 시스템, 메시 크기, 단위계, 해석기 종류, 테마, 언어, 시계. 오른쪽 아래 모서리를 끌어 창 크기를 바꿉니다.</li></ul>
+<h2 id="2-시작-화면">2. 시작 화면</h2>
+<p>시작 화면의 카드는 손잡이로 옮기고 모서리로 크기를 바꿀 수 있습니다. <b>자동 정렬</b>은 처음 배치로 되돌립니다.</p>
+<ul><li><b>바로 가기</b>: 새 프로젝트, 열기, STL 가져오기, 이어서 작업, 사용 설명서, 설정, 프로그램 정보, 끝내기</li><li><b>최근 항목</b>: 최근에 연 프로젝트</li><li><b>새 해석 시스템</b>: 물리 분야별 20가지 해석. 누르면 새 프로젝트에 그 시스템이 추가됩니다.</li><li><b>예제 프로젝트</b>: 31개. 각 예제는 형상, 재질, 하중과 지지가 모두 설정되어 있어 바로 해석할 수 있습니다.</li><li><b>배경</b>: 움직이는 배경의 종류와 속도</li></ul>
+<h2 id="3-프로젝트-도식">3. 프로젝트 도식</h2>
+<figure><img src="images/ko/schematic.png" alt="프로젝트 도식" loading="lazy" decoding="async" /><figcaption>프로젝트 도식</figcaption></figure>
+<p>해석 시스템은 블록으로 표시됩니다. 블록의 칸은 작업 순서입니다.</p>
+<ol><li><b>엔지니어링 데이터</b>: 재질</li><li><b>형상</b>: 바디</li><li><b>모델(메시)</b>: 요소 크기와 차수</li><li><b>설정</b>: 해석 설정, 하중과 지지</li><li><b>해</b>: 해석 실행</li><li><b>결과</b>: 결과 보기</li></ol>
+<p>칸 오른쪽의 표시는 상태입니다. 초록 체크는 완료, 회색 물음표는 아직, 노란 화살표는 다시 해석이 필요한 상태, 빨간 표시는 오류입니다.</p>
+<ul><li>왼쪽 <b>도구 상자</b>에서 해석 시스템을 누르면 추가됩니다.</li><li>블록 머리의 ▾ 또는 오른쪽 클릭 메뉴에서 <b>연결 추가</b>를 고르면 그 시스템의 하중과 지지를 이어받는 시스템이 오른쪽에 생기고 화살표로 이어집니다. 예: 정적 → 좌굴·피로·비선형, 모달 → 조화·과도·스펙트럼·랜덤, 열 → 열응력.</li><li>형상과 재질은 모든 시스템이 함께 씁니다.</li></ul>
+<h2 id="4-형상">4. 형상</h2>
+<p><b>모델</b> 탭의 리본 <b>형상</b>에서 바디를 추가합니다.</p>
+<ul><li>기본 도형: 상자, 원기둥, 관, 구, 원뿔, 토러스, 각기둥</li><li>부품: 구멍 판, L 브래킷, I 형강, C 형강, 플랜지, 단붙이 축, 방열판, 파이프</li><li>유체·전자기: 덕트, 굽은 관로, 날개 단면, 코일, 원판 자석, 전극판</li><li><b>STL 가져오기</b>: 닫힌 삼각형 메시(이진·텍스트)</li></ul>
+<p>개요에서 바디를 고르면 세부 정보에 이름, 재질, 억제, 국부 요소 크기, 치수, 위치와 회전이 나옵니다. 값은 − / + 단추나 직접 입력으로 바꿉니다. 눈 단추로 바디를 숨깁니다. 맞닿은 바디는 절점을 공유해 결합됩니다.</p>
+<p>좌표는 Z가 위입니다. 길이는 mm입니다.</p>
+<h2 id="5-엔지니어링-데이터">5. 엔지니어링 데이터</h2>
+<figure><img src="images/ko/data.png" alt="엔지니어링 데이터" loading="lazy" decoding="async" /><figcaption>엔지니어링 데이터</figcaption></figure>
+<p>왼쪽에서 프로젝트 재질을 고르고 오른쪽에서 물성을 고칩니다. 라이브러리에는 금속, 고분자, 전자 재료, 자성 재료, 유체 등 21가지 재질이 있습니다. 값은 이 프로젝트에만 적용됩니다.</p>
+<table><thead><tr><th>해석</th><th>쓰는 물성</th></tr></thead><tbody><tr><td>구조</td><td>밀도, 영률, 푸아송비, 항복 강도, 인장 강도, 소성 접선 계수</td></tr><tr><td>피로</td><td>피로 강도 계수 σf′, 피로 강도 지수 b, 피로 한도</td></tr><tr><td>열</td><td>열전도율, 비열, 열팽창 계수, 방사율</td></tr><tr><td>전기</td><td>비저항, 비유전율</td></tr><tr><td>자기</td><td>비투자율</td></tr><tr><td>유동·음향</td><td>밀도, 점성 계수, 음속, 부피 팽창 계수</td></tr></tbody></table>
+<h2 id="6-메시">6. 메시</h2>
+<p>개요의 <b>메시</b>를 고르면 요소 크기, 요소 차수, 최대 절점 수를 정합니다. 요소 크기 0은 자동(모델 크기의 1/25)입니다. <b>메시 생성</b>을 누르면 메시를 만들고 절점·요소 수, 요소 품질, 종횡비와 품질 분포를 보여 줍니다.</p>
+<ul><li><b>1차 (TET4)</b>: 빠릅니다. 외연적 동역학과 정자기장은 1차 요소를 씁니다.</li><li><b>2차 (TET10)</b>: 응력과 진동수가 더 정확합니다. 곡면에서는 중간 절점이 표면에 맞춰집니다.</li></ul>
+<p>메시는 직교 격자를 사면체로 나누고 경계 절점을 표면으로 옮겨 만듭니다. 축에 나란한 면은 정확히 맞춰지고 곡면은 요소 크기에 따라 근사됩니다.</p>
+<h2 id="7-하중과-지지">7. 하중과 지지</h2>
+<figure><img src="images/ko/setup.png" alt="하중 설정" loading="lazy" decoding="async" /><figcaption>하중 설정</figcaption></figure>
+<p>리본 <b>하중·지지</b>에는 활성 시스템에 맞는 조건만 나옵니다. 조건을 추가하면 개요에서 선택된 상태가 되고, 3D 보기에서 <b>면을 클릭</b>하면 그 면이 조건에 들어가거나 빠집니다. 바디가 대상인 조건은 세부 정보에서 바디를 고릅니다.</p>
+<table><thead><tr><th>분류</th><th>조건</th></tr></thead><tbody><tr><td>지지</td><td>고정, 변위, 마찰 없는 지지, 탄성 지지</td></tr><tr><td>하중</td><td>힘, 압력, 모멘트, 베어링 하중, 중력, 가속도, 회전 속도, 열 조건</td></tr><tr><td>외연적</td><td>초기 속도, 강체 벽</td></tr><tr><td>열</td><td>온도, 대류, 열유속, 열 유량, 복사, 내부 발열, 발열량, 바디 온도</td></tr><tr><td>전기</td><td>전압(면 또는 바디), 전류, 체적·표면 전하</td></tr><tr><td>자기</td><td>코일(원형·직선), 영구 자석</td></tr><tr><td>음향</td><td>진동 속도, 음압, 흡음</td></tr><tr><td>유동</td><td>입구, 출구(내부 유동)</td></tr></tbody></table>
+<p>조건의 색: 지지 파랑, 하중 빨강, 열 주황, 전기 보라, 자기 청록, 음향 분홍, 유동 초록. 선택한 조건은 진한 파랑입니다.</p>
+<p><b>접촉</b>: 맞닿은 바디는 기본으로 결합됩니다. 접촉을 추가하면 결합, 분리 없음, 마찰 없음, 거침, 마찰을 고를 수 있습니다. 마찰 없음과 마찰은 비선형 정적 해석에서 계산됩니다. <b>접촉 자동 찾기</b>는 메시에서 맞닿은 바디 쌍을 찾습니다.</p>
+<h2 id="8-해석">8. 해석</h2>
+<p>도구 모음의 <b>해석</b>(F5)은 활성 시스템을, <b>모두 해석</b>은 프로젝트의 모든 시스템을 풉니다. 진행 창과 상태 표시줄에 단계(메시, 행렬 조립, 방정식 풀이, 고유값 풀이 …)와 진행률이 나오며 <b>중지</b>로 멈출 수 있습니다.</p>
+<p>해석 방법 요약:</p>
+<table><thead><tr><th>시스템</th><th>방법</th></tr></thead><tbody><tr><td>정적·열응력</td><td>4·10절점 사면체, 전처리 켤레 기울기법(불완전 촐레스키 + 강체 운동 조대 공간)</td></tr><tr><td>모달·좌굴·음향 모달</td><td>LOBPCG 고유값 풀이</td></tr><tr><td>조화·스펙트럼·랜덤</td><td>모드 중첩</td></tr><tr><td>과도 구조</td><td>뉴마크 평균 가속도</td></tr><tr><td>비선형</td><td>뉴턴-랩슨, J2 소성, 전체 라그랑지 대변형, 벌칙 접촉, 하중 단계 이분</td></tr><tr><td>외연적</td><td>중앙 차분, 공회전 사면체, 소성, 요소 제거</td></tr><tr><td>열</td><td>정상·후진 오일러, 복사는 반복</td></tr><tr><td>유동</td><td>직교 격자 투영법, 반라그랑지 대류, 와점성 난류, 부력, 공액 열전달</td></tr><tr><td>전자기</td><td>정전기장·직류: 절점 요소, 정자기장: 에지 요소</td></tr><tr><td>위상 최적화</td><td>SIMP, 민감도 필터, 최적성 조건</td></tr></tbody></table>
+<h2 id="9-결과">9. 결과</h2>
+<figure><img src="images/ko/stress.png" alt="등가 응력" loading="lazy" decoding="async" /><figcaption>등가 응력</figcaption></figure>
+<p>개요 <b>해</b> 아래의 결과를 고르면 3D 보기에 등고선, 색 막대, 최대·최소 표시가 나옵니다. 면을 클릭하면 그 점의 값을 보여 줍니다.</p>
+<ul><li><b>변형 배율</b>: 자동, 실제 배율, 변형 없음, ×10, ×100, ×1000</li><li><b>색 지도</b>: 무지개, 비리디스, 냉온, 열화상, 흑백 / <b>색 띠</b>: 연속, 8, 12, 16</li><li><b>애니메이션</b>: 모드 형상, 조화 응답, 과도·외연적 프레임, 과도 온도</li><li><b>단면</b>: 유동과 전자기장은 영역 가운데의 단면에 표시되고, 유동은 유선도 그립니다.</li></ul>
+<figure><img src="images/ko/modal.png" alt="모달 결과" loading="lazy" decoding="async" /><figcaption>모달 결과</figcaption></figure>
+<p>아래 패널의 <b>그래프</b>는 주파수 응답, 위상, 변위·온도 이력, 하중-변위 곡선, 에너지, 컴플라이언스 수렴, 유동 잔차, 고유진동수 막대를 보여 줍니다. <b>표</b>는 모드(진동수, 유효 질량, 누적 비율), 좌굴 배수, 반력, 열 방출, 항력·양력, 전자기력, 단자 전류, 요약 값입니다.</p>
+<figure><img src="images/ko/fluid.png" alt="유동 결과" loading="lazy" decoding="async" /><figcaption>유동 결과</figcaption></figure>
+<h2 id="10-설계-탐색">10. 설계 탐색</h2>
+<figure><img src="images/ko/study.png" alt="설계 탐색" loading="lazy" decoding="async" /><figcaption>설계 탐색</figcaption></figure>
+<ol><li><b>매개변수 추가…</b>에서 치수나 하중 값을 고르고 최소·최대·수준을 정합니다.</li><li>방법(중심 합성 설계, 완전 요인, 라틴 하이퍼큐브)과 목표 출력, 최소화·최대화를 고릅니다.</li><li><b>실험 계획 실행</b>을 누르면 설계점마다 활성 시스템을 풀고 출력을 표로 모읍니다.</li><li>이어서 2차 반응 표면을 맞추고 R², 민감도 막대, 최적 후보와 앞 두 매개변수의 반응 지도를 보여 줍니다.</li></ol>
+<h2 id="11-파일-내보내기-인쇄">11. 파일, 내보내기, 인쇄</h2>
+<ul><li>프로젝트 파일: <code>.my3d</code> (JSON). 결과는 저장되지 않으며, 다시 열면 시스템이 <b>다시 해석 필요</b> 상태가 됩니다.</li><li>내보내기: 보고서(HTML), CSV(결과 값과 그래프 자료), 그림(PNG), 위상 최적 형상(STL)</li><li><b>보고서 인쇄</b>(Ctrl+P): A4 보고서(현재 결과 그림, 색 막대, 결과 요약, 모델, 조건, 그래프)를 미리 보고 인쇄하거나 PDF로 저장합니다.</li></ul>
+<h2 id="12-설정">12. 설정</h2>
+<p>설정 창(Ctrl+,)의 <b>해석</b> 탭: 단위계(mm·N·MPa 또는 SI), 색 지도, 색 띠, 변형 배율, 변형 전 윤곽, 최대·최소 표시, 애니메이션 속도, 단면 불투명도, 기본 요소 차수, 3D 표시 방식. 그 밖에 일반, 모양(테마 40여 종과 사용자 테마), 글꼴, 시작 화면 설정이 있습니다.</p>
+<h2 id="13-단축키">13. 단축키</h2>
+<table><thead><tr><th>키</th><th>동작</th></tr></thead><tbody><tr><td>Ctrl+N / Ctrl+O / Ctrl+S</td><td>새 프로젝트 / 열기 / 저장</td></tr><tr><td>Ctrl+Shift+S</td><td>다른 이름으로 저장</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>되돌리기 / 다시 실행</td></tr><tr><td>Delete</td><td>선택 항목 삭제</td></tr><tr><td>Ctrl+D</td><td>바디 복제</td></tr><tr><td>F5</td><td>해석</td></tr><tr><td>F</td><td>전체 보기</td></tr><tr><td>Ctrl+P</td><td>보고서 인쇄</td></tr><tr><td>F1</td><td>사용 설명서</td></tr><tr><td>Esc</td><td>애니메이션 멈춤</td></tr></tbody></table>
+<p>마우스: 왼쪽 끌기 회전, 오른쪽·가운데 끌기 이동, 휠 확대·축소, 클릭은 면 선택.</p>
+<h2 id="14-정확도와-한계">14. 정확도와 한계</h2>
+<ul><li>예제의 외팔보 처짐, 고유진동수, 좌굴 하중은 보 이론과 5% 이내로 맞습니다(자동 시험으로 확인).</li><li>유동은 균일 직교 격자로 계산합니다. 경계층을 세밀하게 풀지 않으므로 항력 계수는 경향 비교용으로 쓰세요.</li><li>정자기장은 선형 재질(비투자율 일정)입니다.</li><li>웹 판은 한 스레드의 WebAssembly로 실행되어 데스크톱보다 2~3배 느립니다. 큰 모델은 데스크톱 앱을 쓰세요.</li></ul>
+</main>
+</div>
+</body>
+</html>
