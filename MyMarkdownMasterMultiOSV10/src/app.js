@@ -1765,11 +1765,19 @@ async function onStartAction(target) {
 /** Start page › 예제 양식: a new note from a built-in template in the open vault (else the most recent one). */
 async function noteFromLibrary(id) {
   if (!state.vault) {
+    // No vault open: the most recent one, else the "내 메모" vault (kept in the app's data folder / this browser).
     const last = state.recentVaults?.[0];
-    if (!last) return notify('warning', t('templates.noVault'));
-    await openRecent(last.path, last.kind);
+    if (last) await openRecent(last.path, last.kind).catch(() => {});
+    if (!state.vault) {
+      try {
+        await beforeSwitch();
+        const name = t('templates.vaultName');
+        const vault = desktop ? await Vault.openDesktop(await native.invoke('notes_vault_dir', { name })) : (await loadWasm(), await Vault.openWeb(await Vault.browserVaultHandle(name, true), 'browser'));
+        await useVault(vault);
+      } catch (error) { showError('error.openVault', error, id); }
+    }
     if (!state.vault) return notify('warning', t('templates.noVault'));
-    notify('info', t('templates.needVault'));
+    notify('info', t('templates.needVault', { name: state.vault.name }));
   }
   const path = await features.newFromLibrary(id);
   if (path) { showStartPage(false); notify('success', t('templates.created', { name: nameOf(path) })); }

@@ -351,3 +351,19 @@
 /* The bottom panel's fold button: the same 28×28 header button as the side panels' (panelBottomClose / Open). */
 #bottom-panel .bottom-fold { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; flex: none; margin-right: 4px; }
 #bottom-panel .bottom-fold .icon { width: 16px; height: 16px; }
+
+/* Folded panels, slimmer: the side rails are 40px of icon buttons (tooltips name them), the folded
+   bottom panel is a 30px strip of its tabs and the unfold button. */
+#app.no-left #shell { grid-template-columns: 40px 0 minmax(0, 1fr) 5px var(--right-width); }
+#app.no-right #shell { grid-template-columns: var(--left-width) 5px minmax(0, 1fr) 0 40px; }
+#app.no-left.no-right #shell { grid-template-columns: 40px 0 minmax(0, 1fr) 0 40px; }
+#app.on-start #shell, #app.on-start.no-left.no-right #shell { grid-template-columns: minmax(0, 1fr); }
+.panel-rail { gap: 2px; padding: 4px 0; }
+.panel-rail .rail-button, .panel-rail .rail-button.expand, .panel-rail .rail-button[data-left-tab], .panel-rail .rail-button[data-right-tab] { width: 32px; height: 28px; min-height: 28px; padding: 0; border-radius: 6px; }
+.panel-rail .rail-button .icon { width: 16px; height: 16px; }
+.panel-rail .rail-label { display: none; }
+.panel-rail .rail-button.expand { margin-bottom: 4px; }
+.panel-rail .rail-title { width: 32px; }
+#app.no-bottom #bottom-panel .problems-header { padding: 1px 6px 1px 8px; min-height: 0; }
+#app.no-bottom #bottom-panel .problems-header .editor-tab { padding-top: 2px; padding-bottom: 2px; }
+#app.no-bottom #bottom-panel .bottom-fold { width: 26px; height: 24px; }

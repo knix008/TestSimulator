@@ -480,6 +480,10 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
     static CREATING: Mutex<()> = Mutex::new(());
     let _guard = CREATING.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let label = format!("popup-{kind}");
+    // A prewarmed popup (show: false) must not show itself when its page has drawn: on a later start
+    // the page still finds the previous session's request and would pop up at the window's default
+    // spot (top left) before the real request moves it. Only an open request lets it show.
+    set_requested(&kind, show.unwrap_or(true));
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.set_size(tauri::LogicalSize::new(width, height));
         let _ = window.set_position(tauri::LogicalPosition::new(x, y));
@@ -525,6 +529,21 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
         show_later(&app, &kind, delay);
     }
     Ok(())
+}
+
+/// Popup kinds an open request asked to see (until hidden or closed); see open_popup.
+static REQUESTED: Mutex<Option<std::collections::HashSet<String>>> = Mutex::new(None);
+
+fn set_requested(kind: &str, on: bool) {
+    let mut guard = REQUESTED.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let set = guard.get_or_insert_with(Default::default);
+    if on { set.insert(kind.to_string()); } else { set.remove(kind); }
+}
+
+fn requested(window: &WebviewWindow) -> bool {
+    let Some(kind) = window.label().strip_prefix("popup-") else { return true };
+    let guard = REQUESTED.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard.as_ref().is_some_and(|set| set.contains(kind))
 }
 
 /// Per popup kind: a number that changes whenever the popup is shown, hidden or closed — a delayed
@@ -618,6 +637,9 @@ fn window_drag(window: WebviewWindow, edge: Option<String>) -> Result<(), String
 /// Called by a popup page once it has drawn itself.
 #[tauri::command]
 fn popup_ready(window: WebviewWindow) {
+    if !requested(&window) {
+        return;
+    }
     let _ = window.show();
     let _ = window.set_focus();
 }
@@ -670,7 +692,7 @@ fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, f
     }
     window.set_size(PhysicalSize::new(pw.round() as u32, ph.round() as u32)).map_err(|error| error.to_string())?;
     window.set_position(PhysicalPosition::new(px.round() as i32, py.round() as i32)).map_err(|error| error.to_string())?;
-    if show.unwrap_or(true) {
+    if show.unwrap_or(true) && requested(&window) {
         let _ = window.show();
         let _ = window.set_focus();
     }
@@ -681,6 +703,7 @@ fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, f
 #[tauri::command]
 fn hide_popup(app: AppHandle, kind: String) {
     bump_show_seq(&kind);
+    set_requested(&kind, false);
     if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
         let _ = window.hide();
     }
@@ -692,6 +715,7 @@ fn hide_popup(app: AppHandle, kind: String) {
 #[tauri::command]
 fn close_popup(app: AppHandle, kind: String) {
     bump_show_seq(&kind);
+    set_requested(&kind, false);
     if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
         let _ = window.destroy();
     }
@@ -888,6 +912,7 @@ pub fn run() {
             vault::vault_export,
             vault::vault_flatten,
             vault::sample_vault_dir,
+            vault::notes_vault_dir,
             ai::ai_request,
             ai::ai_cancel,
             open_render_window,

@@ -20,6 +20,41 @@ export const desktopCases = [
   },
   {
     group: 'Desktop',
+    name: 'Start page clicks: a sample vault tile opens the vault; a template tile with no vault open makes the note in "My notes"',
+    async run(app) {
+      const r = await app.run(`await T.reset({ fresh: true });
+        if (A.app.state.vault) { await A.app.closeVault?.(); }
+        A.app.showStartPage(true); await T.sleep(300);
+        document.querySelector('[data-start="sample"][data-value="guide"]').click();
+        await T.until(() => A.app.state.vault && !A.app.state.showStart && A.app.activePath(), 15000, 'sample vault open');
+        const sample = { vault: A.app.state.vault.name, path: A.app.activePath(), notes: A.index.notePaths().length };
+        // The same sample again while it is open (its folder is made fresh under the open vault's watcher), then another one.
+        const again = [];
+        for (const id of ['guide', 'zettelkasten', 'guide']) {
+          A.app.showStartPage(true); await T.sleep(300);
+          const before = A.app.state.log.length;
+          document.querySelector('[data-start="sample"][data-value="' + id + '"]').click();
+          await T.until(() => !A.app.state.showStart && A.app.activePath(), 15000, 'sample ' + id);
+          await T.sleep(400);
+          again.push({ id, vault: A.app.state.vault?.name, notes: A.index.notePaths().length, log: A.app.state.log.slice(before).map((e) => e.kind + ':' + e.text) });
+        }
+        sample.again = again;
+        await A.app.closeVault?.();
+        const recent = A.app.state.recentVaults; A.app.state.recentVaults = [];
+        A.app.showStartPage(true); await T.sleep(300);
+        document.querySelector('[data-start="template"][data-value="daily-note"]').click();
+        await T.until(() => A.app.state.vault && !A.app.state.showStart && A.app.activePath(), 15000, 'template note');
+        const tpl = { vault: A.app.state.vault.name, path: A.app.activePath(), text: (A.docs.get(A.app.activePath())?.text ?? '').slice(0, 80) };
+        A.app.state.recentVaults = recent;
+        return { sample, tpl };`);
+      assert.ok(r.sample.notes > 5, `sample vault opened: ${JSON.stringify(r.sample)}`);
+      for (const x of r.sample.again) { assert.ok(x.notes > 3, `sample ${x.id} again: ${JSON.stringify(x)}`); assert.ok(!x.log.some((l) => l.startsWith('error')), `no error: ${JSON.stringify(x.log)}`); }
+      assert.match(r.tpl.vault, /내 메모|My notes/);
+      assert.ok(r.tpl.text.startsWith('---'), 'template text written');
+    },
+  },
+  {
+    group: 'Desktop',
     name: 'Explorer tab: Favorites, the user home and drives from Rust; a folder expands lazily (read-only)',
     async run(app) {
       const r = await app.run(`await T.reset({ vault: true });

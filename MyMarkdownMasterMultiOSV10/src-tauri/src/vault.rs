@@ -142,6 +142,16 @@ pub fn sample_vault_dir(app: AppHandle, name: String) -> Result<String, String> 
     Ok(dir.to_string_lossy().into_owned())
 }
 
+/// The vault notes made from a template go to when no vault is open: `<data>/notes/<name>`, kept between runs
+/// (unlike the sample vaults, which are made fresh every time).
+#[tauri::command]
+pub fn notes_vault_dir(app: AppHandle, name: String) -> Result<String, String> {
+    let safe: String = name.chars().map(|c| if "\\/:*?\"<>|".contains(c) { '_' } else { c }).collect();
+    let dir = crate::data_dir(&app)?.join("notes").join(safe.trim());
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
 fn start_watcher(app: &AppHandle, state: &VaultState, root: &Path) {
     let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
     let Ok(mut watcher) = notify::recommended_watcher(tx) else { return };
