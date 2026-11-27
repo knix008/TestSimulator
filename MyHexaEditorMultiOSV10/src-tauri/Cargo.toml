@@ -1,0 +1,46 @@
+[package]
+name = "myhexamaster"
+version = "1.0.0"
+description = "Hex editor and binary analysis tool"
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "myhexamaster_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+arboard = { version = "3.6", default-features = false }
+fontdb = "0.23"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2"
+# The core: documents, search, hashes, templates, disassembler … (shared with the web build's WebAssembly).
+hexcore = { path = "../crates/hexcore" }
+
+# Printing straight to a printer (the same versions as Tauri's own WebView2), disks and process memory.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = [
+  "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Printing", "Win32_Security",
+  "Win32_System_IO", "Win32_System_Ioctl", "Win32_System_Threading", "Win32_System_Memory",
+  "Win32_System_Diagnostics_Debug", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus",
+  "Win32_Storage_FileSystem",
+] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+
+# Installed app: smaller and faster (whole-program optimisation, no debug symbols). Debug builds and tests are unaffected.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

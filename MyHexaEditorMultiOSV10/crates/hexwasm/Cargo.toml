@@ -1,0 +1,20 @@
+[package]
+name = "hexwasm"
+version = "1.0.0"
+edition = "2021"
+description = "MyHexaMaster core for the web build: hexcore compiled to WebAssembly (no wasm-bindgen; a JSON ABI plus raw byte transfer)"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+hexcore = { path = "../hexcore" }
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

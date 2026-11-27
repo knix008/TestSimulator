@@ -1,0 +1,52 @@
+{
+  "name": "myhexamaster",
+  "productName": "MyHexaMaster",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hex editor and binary analysis tool: files of any size, disks and process memory, binary templates, disassembler, data inspector, search and replace, compare, checksums, encryption, compression, entropy, strings and file recovery — Windows, macOS, Linux (Tauri) and the web.",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "postinstall": "node scripts/setup.mjs --after-install",
+    "start": "node scripts/start.mjs",
+    "dev": "node scripts/prepare.mjs && vite",
+    "build:web": "node scripts/prepare.mjs --docs && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:docs": "node scripts/build-docs.mjs",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only unit,i18n",
+    "test:web": "node scripts/test.mjs --only web",
+    "test:desktop": "node scripts/test.mjs --only desktop --desktop",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "smoke": "node scripts/smoke-web.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "prepare:files": "node scripts/prepare.mjs --docs",
+    "test:rust": "cargo test --manifest-path crates/hexcore/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml --lib"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.11.2",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/search": "^6.7.3",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.44.2",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "pagedjs": "^0.4.3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "sharp": "^0.35.5",
+    "vite": "^7.3.8"
+  }
+}

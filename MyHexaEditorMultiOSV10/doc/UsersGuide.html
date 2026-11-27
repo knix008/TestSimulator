@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyHexaMaster — 사용 설명서</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><div class="layout">
+<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#1-화면-구성">1. 화면 구성</a></li><li class="h2"><a href="#2-파일-열기와-저장">2. 파일 열기와 저장</a></li><li class="h2"><a href="#3-헥사-보기와-편집">3. 헥사 보기와 편집</a></li><li class="h3"><a href="#보기-설정-보기-메뉴-탭-막대의-칩">보기 설정 (보기 메뉴, 탭 막대의 칩)</a></li><li class="h2"><a href="#4-클립보드">4. 클립보드</a></li><li class="h2"><a href="#5-찾기-바꾸기-이동-책갈피">5. 찾기·바꾸기·이동·책갈피</a></li><li class="h2"><a href="#6-속성-오른쪽-패널">6. 속성 (오른쪽 패널)</a></li><li class="h2"><a href="#7-템플릿">7. 템플릿</a></li><li class="h3"><a href="#템플릿-언어-010-editor-imhex-식">템플릿 언어 (010 Editor / ImHex 식)</a></li><li class="h2"><a href="#8-도구-툴바">8. 도구 (툴바)</a></li><li class="h2"><a href="#9-데이터-메뉴">9. 데이터 메뉴</a></li><li class="h2"><a href="#10-내보내기-가져오기-인쇄">10. 내보내기·가져오기·인쇄</a></li><li class="h2"><a href="#11-설정">11. 설정</a></li><li class="h2"><a href="#12-단축키">12. 단축키</a></li><li class="h2"><a href="#13-설치와-개발">13. 설치와 개발</a></li></ul></nav>
+<main>
+<h1>MyHexaMaster — 사용 설명서</h1>
+<p>MyHexaMaster는 파일·디스크·프로세스 메모리를 바이트 단위로 보고 고치는 헥사 편집기입니다. UltraEdit·HxD·010 Editor·ImHex·WinHex·Hex Fiend·Okteta·Free Hex Editor Neo·MiTeC·Hackman의 기능을 한 프로그램에 모았습니다. Windows·macOS·Linux 데스크톱 프로그램(Tauri)과 웹 브라우저에서 같은 화면으로 동작하며, 바이트를 다루는 모든 일은 Rust 코어가 합니다.</p>
+<h2 id="1-화면-구성">1. 화면 구성</h2>
+<table><thead><tr><th>부분</th><th>내용</th></tr></thead><tbody><tr><td>메뉴 막대</td><td>파일·편집·검색·보기·데이터·도구·도움말. 오른쪽에 패널 단추와 창 단추</td></tr><tr><td>툴바</td><td>파일, 실행 취소, 클립보드, 편집 모드·채우기·바이트 연산·읽기 전용, 찾기·이동·책갈피, <b>도구</b>(문자열·디스어셈블러·계산기·복구·디스크/메모리·비교·템플릿·편집 기록·파일 도구), 체크섬·텍스트 보기</td></tr><tr><td>왼쪽 패널</td><td><b>탐색기</b>: 즐겨찾기, 홈 폴더, 드라이브, 열린 문서</td></tr><tr><td>가운데</td><td>문서 탭. 탭 막대(출처·크기·형식·INS/OVR·문자 집합·한 줄 바이트·진법·바이트 순서) 아래 헥사 보기</td></tr><tr><td>오른쪽 패널</td><td><b>속성</b>: 데이터 검사기, 구조(템플릿), 파일 정보, 체크섬·해시, 통계·엔트로피, 책갈피</td></tr><tr><td>아래 패널</td><td><b>로그</b>와 <b>정보</b></td></tr><tr><td>상태 표시줄</td><td>커서 오프셋(16진·10진), 선택 크기, 커서의 바이트 값, 파일 크기, INS/OVR, 문자 집합, 테마, 언어</td></tr></tbody></table>
+<p>모든 대화 상자와 도구는 따로 움직일 수 있는 창으로 열립니다(웹에서는 페이지 안의 창).</p>
+<h2 id="2-파일-열기와-저장">2. 파일 열기와 저장</h2>
+<ul>
+<li><b>열기</b>(Ctrl+O): 크기 제한이 없습니다. 파일 전체를 읽지 않고 보이는 부분만 읽으므로 수 GB 파일도 바로 열립니다. 탐색기에서 두 번 클릭하거나 창에 끌어 놓아도 됩니다.</li>
+<li><b>새 파일</b>(Ctrl+N), <b>크기를 정해 새 파일</b>: 0·패턴·무작위·증가하는 수로 채운 문서.</li>
+<li><b>읽기 전용으로 열기</b>, <b>디스크 열기</b>, <b>프로세스 메모리 열기</b>(데스크톱).</li>
+<li><b>저장</b>(Ctrl+S): 바이트 위치가 바뀌지 않았으면 바뀐 부분만 그 자리에 씁니다(큰 파일도 빠름). 끼워 넣기·삭제가 있으면 임시 파일에 쓴 뒤 바꿔 끼웁니다.</li>
+<li><b>다른 이름으로 저장</b>(Ctrl+Shift+S), <b>모두 저장</b>, <b>선택 영역을 파일로</b>, <b>디스크에서 다시 읽기</b>.</li>
+<li>웹에서는 Chrome·Edge의 파일 시스템 접근으로 같은 파일에 다시 저장하고, 그 밖의 브라우저는 내려받기로 저장합니다.</li>
+<li>파일마다 마지막 커서 위치, 책갈피, 템플릿을 기억합니다.</li>
+</ul>
+<h2 id="3-헥사-보기와-편집">3. 헥사 보기와 편집</h2>
+<ul>
+<li>왼쪽부터 오프셋, 바이트, 글자 열입니다. 바이트는 종류별 색(00, 인쇄 문자, 제어 문자, 80–FF, FF)으로 나뉘고, 바뀐 바이트는 빨갛게 보입니다.</li>
+<li>커서가 있는 줄과 열이 밝게 표시되고, 열 머리글에도 커서 열이 나옵니다.</li>
+<li><b>입력</b>: 헥사 칸에서 16진수를 치면 위 니블, 아래 니블 순서로 바뀝니다. <b>Tab</b>으로 글자 칸으로 옮겨 글자를 치면 현재 문자 집합으로 바이트가 됩니다(한글 입력기도 됨).</li>
+<li><b>Insert</b> 키로 <b>끼워 넣기 / 덮어쓰기</b>를 바꿉니다. 디스크와 프로세스 메모리는 크기가 고정되어 덮어쓰기만 됩니다.</li>
+<li><b>Backspace / Delete</b>: 선택 영역이나 바이트를 지웁니다.</li>
+<li><b>선택</b>: 끌기, Shift+화살표, <b>블록 선택</b>(Ctrl+B: 시작과 길이/끝), <b>모두 선택</b>(Ctrl+A). 헥사 칸에서 두 번 클릭은 한 묶음, 글자 칸에서는 낱말을 선택합니다.</li>
+<li><b>채우기</b>(Ctrl+E), <b>바이트 끼워 넣기</b>(Ctrl+I): 패턴(16진수)·0·무작위·증가하는 수(시작·증가량·단위 크기).</li>
+<li><b>실행 취소 / 다시 실행</b>(Ctrl+Z / Ctrl+Y)은 단계 제한이 없고, 연속해서 친 바이트는 한 단계로 묶입니다. <b>편집 기록</b> 창에서 원하는 단계로 바로 돌아갈 수 있습니다.</li>
+<li><b>읽기 전용</b>(Ctrl+R) 문서는 고칠 수 없습니다.</li>
+<li><b>텍스트로 보기·편집</b>(Ctrl+M): 문서를 현재 문자 집합의 텍스트로 열어 고치고 &quot;바이트로 적용&quot;하면 한 단계 편집이 됩니다(32 MB까지).</li>
+</ul>
+<h3 id="보기-설정-보기-메뉴-탭-막대의-칩">보기 설정 (보기 메뉴, 탭 막대의 칩)</h3>
+<ul>
+<li>한 줄 바이트 수: 4·8·12·16·20·24·32·48·64 또는 창 폭에 맞춤</li>
+<li>묶음: 1·2·4·8·16바이트</li>
+<li>오프셋 진법: 16·10·8진수, 값 표시: 16·10·8·2진수, 대문자, 오프셋 앞 0x, 표시용 시작 주소</li>
+<li>문자 집합: ASCII, Latin-1, Windows-1252, CP437, EBCDIC, UTF-8, UTF-16 LE/BE, EUC-KR, Shift_JIS</li>
+<li>글자 열·오프셋 열·열 머리글, 바이트 색, 바뀐 바이트 강조, 커서 줄·열 강조, 헥사 글꼴과 크기(Ctrl+= / Ctrl+-)</li>
+</ul>
+<h2 id="4-클립보드">4. 클립보드</h2>
+<ul>
+<li><b>복사</b>(Ctrl+C)는 설정의 형식(기본: 16진수)으로 복사합니다. <b>다른 형식으로 복사</b>: 16진수, 띄어 쓴 16진수, 텍스트, C 배열, Python bytes, Base64, 이스케이프(\x4D).</li>
+<li><b>붙여넣기</b>(Ctrl+V): 자동 모드에서는 16진수 글자면 바이트로, 아니면 텍스트로 붙입니다. <b>16진수로 / 텍스트로 붙여넣기</b>(Ctrl+Shift+V)도 있습니다. 끼워 넣기 모드면 끼워 넣고, 덮어쓰기 모드면 덮어씁니다.</li>
+<li><b>잘라내기</b>(Ctrl+X).</li>
+</ul>
+<h2 id="5-찾기-바꾸기-이동-책갈피">5. 찾기·바꾸기·이동·책갈피</h2>
+<ul>
+<li><b>찾기·바꾸기</b>(Ctrl+F, Ctrl+H) 창:</li>
+<li>16진수: <code>4D 5A ?? 00</code>처럼 <code>??</code>(한 바이트)와 <code>4?</code>·<code>?F</code>(한 니블) 와일드카드</li>
+<li>텍스트: 14가지 인코딩, 대소문자 구분 선택</li>
+<li>정규식: 바이트 정규식(<code>\x50\x4B\x03\x04</code>, <code>[\x00-\x1F]+</code>)</li>
+<li>정수(1·2·3·4·8바이트, 부호, 바이트 순서), 실수(4·8바이트)</li>
+<li>범위(파일 전체 / 선택 영역만), 끝에서 처음으로</li>
+<li>다음·이전·<b>모두 찾기</b>(결과 목록과 헥사 보기 표시)·개수·바꾸기·<b>모두 바꾸기</b>(한 번에 실행 취소)</li>
+<li><b>다음/이전 찾기</b>: F3 / Shift+F3.</li>
+<li><b>이동</b>(Ctrl+G): 처음·앞으로·뒤로·끝에서, 16/10진수, 커서부터 선택. <code>0x</code>나 <code>h</code>가 붙으면 16진수입니다.</li>
+<li><b>책갈피</b>: Ctrl+D로 커서나 선택 영역에 넣고, F2 / Shift+F2로 오갑니다. 오른쪽 패널 책갈피 탭에서 색·이름을 바꾸거나 지웁니다.</li>
+</ul>
+<h2 id="6-속성-오른쪽-패널">6. 속성 (오른쪽 패널)</h2>
+<ul>
+<li><b>데이터 검사기</b>: 커서 위치의 바이트를 int8~int64(부호 있음/없음), int24, float16/32/64, 2진·8진, 문자(Latin-1·UTF-8·UTF-16), ULEB128·SLEB128, DOS 날짜·시각, FILETIME, time_t(32·64), OLE 날짜, GUID, IPv4·IPv6, RGB565·RGB·RGBA, 참/거짓으로 읽습니다. LE/BE로 바이트 순서를 바꾸고, 값을 <b>두 번 클릭</b>하면 새 값을 입력해 그 자리에 씁니다.</li>
+<li><b>구조(템플릿)</b>: 템플릿이 찾은 구조를 나무로 보여 줍니다. 항목을 누르면 그 바이트를 선택하고, 색이 있는 항목은 헥사 보기에도 칠해집니다.</li>
+<li><b>파일 정보</b>: 이름, 경로, 출처, 크기, 파일 형식과 세부 정보(그림 크기, 실행 파일 종류 …), MIME, 바뀜, 읽기 전용, 실행 취소 단계, 커서와 선택.</li>
+<li><b>체크섬·해시</b>: 선택 영역(없으면 전체)에 대해 고른 알고리즘을 한 번에 계산합니다. 값을 누르면 복사합니다.</li>
+<li>체크섬: Checksum-8/16/32/64, XOR-8</li>
+<li>CRC 등: CRC-8, CRC-16(ARC·CCITT-FALSE·XMODEM·MODBUS), CRC-32, CRC-32C, CRC-32 BZIP2, CRC-64(ECMA·XZ), Adler-32, Fletcher-16/32</li>
+<li>해시: MD2, MD4, MD5, SHA-1, SHA-224/256/384/512, SHA-512/256, SHA3-224/256/384/512, Keccak-256, RIPEMD-160, BLAKE2b-512, BLAKE2s-256, BLAKE3</li>
+<li><b>통계·엔트로피</b>: 바이트 분포(제곱근 눈금), 블록별 엔트로피 그래프(누르면 그 블록으로 이동), 엔트로피, 서로 다른 값, 00·인쇄 문자·제어 문자·80–FF 비율, 평균, 중앙값, 카이제곱, 몬테카를로 π, 연속 상관, 많은 값. 압축되거나 암호화된 부분은 엔트로피가 8에 가깝습니다.</li>
+<li><b>책갈피</b>: 목록, 색, 이름, 이동, 삭제.</li>
+</ul>
+<h2 id="7-템플릿">7. 템플릿</h2>
+<p>파일을 열 때 형식을 알아보고 맞는 템플릿을 자동으로 실행합니다(설정에서 끌 수 있음). 내장 템플릿: PNG, BMP, GIF, JPEG, ZIP(DOCX·XLSX·JAR·APK 포함), GZIP, WAVE, ELF, PE(EXE·DLL), MBR/GPT, ICO, TAR, Java class, SQLite, Mach-O, MP3(ID3), WebAssembly, 원시 데이터.</p>
+<p><b>템플릿 편집기</b>(Ctrl+T)에서 직접 쓰고 실행하며, &quot;내 템플릿으로 저장&quot;하거나 파일(.hexpat)로 저장·불러옵니다.</p>
+<h3 id="템플릿-언어-010-editor-imhex-식">템플릿 언어 (010 Editor / ImHex 식)</h3>
+<ul>
+<li>주석 <code>// …</code>, <code>/* … */</code>. 바이트 순서: <code>#pragma endian big</code>, <code>endian little;</code>, 필드마다 <code>be u32</code> / <code>le u16</code> (기본 little)</li>
+<li>자료형: <code>u8 u16 u24 u32 u48 u64</code>, <code>s8…s64</code>(<code>i8…</code>), <code>float</code>(f32) <code>double</code>(f64) <code>f16</code> <code>bool</code> <code>char</code> <code>wchar</code> <code>uleb128</code> <code>sleb128</code>. C·010 이름도 됩니다: <code>uchar byte ushort short uint int ulong long uint64 int64 DWORD WORD BYTE unsigned char …</code></li>
+<li><code>struct 이름 { 필드; … } [[color(&quot;blue&quot;)]];</code>, <code>union</code>(모든 필드가 같은 위치), <code>enum 이름 : u8 { A = 1, B };</code>, <code>bitfield F { a : 1; b : 3; };</code>, <code>using Word = u16;</code>, <code>typedef u32 DWORD;</code></li>
+<li>필드: <code>형 이름;</code>, 배열 <code>형 이름[식];</code>, <code>형 이름[while(조건)];</code>, <code>char s[];</code>(0까지 글자), <code>형 이름 @ 오프셋;</code>(커서는 그대로). char/wchar 배열은 글자, u8 배열은 노드 하나</li>
+<li>문장: <code>if/else</code>, <code>while</code>, <code>for (let i = 0; i &lt; n; i++)</code>, <code>let x = 식;</code>, <code>x += 1;</code>, <code>break</code>, <code>continue</code>, <code>return</code></li>
+<li>식: <code>12 0x1F 0b101 0o17 1.5 'A' &quot;글자&quot;</code>, <code>+ - * / % &amp; | ^ ~ &lt;&lt; &gt;&gt; &amp;&amp; || ! == != &lt; &lt;= &gt; &gt;= ?:</code>, <code>a.b</code>, <code>a[i]</code>, <code>$</code>(현재 오프셋), <code>Enum::값</code></li>
+<li>함수: <code>sizeof addressof endof size() eof() pos() seek(o) skip(n)</code>, <code>ReadU8…ReadU64 / ReadS8…S64 / ReadFloat / ReadDouble(o)</code>, <code>ReadU32BE/LE</code>, <code>ReadString(o, n)</code>, <code>find(o, &quot;FF D9&quot;)</code>, <code>ParseInt(글자, 진법)</code>, <code>strlen min max abs str hex</code>, <code>Warning()</code>, <code>Error()</code></li>
+<li>속성: <code>[[color(&quot;#rrggbb&quot;|&quot;red&quot;|0xRRGGBB), comment(&quot;…&quot;), name(식), hidden]]</code> 또는 <code>&lt;bgcolor=0xRRGGBB, comment=&quot;…&quot;&gt;</code></li>
+<li>오류는 줄·칸과 함께 표시되고, 그때까지 만든 노드는 남습니다.</li>
+</ul>
+<p>예:</p>
+<p>struct Header { char magic[4] [[color(&quot;#e5484d&quot;)]]; be u32 length; u8 data[length] [[comment(&quot;payload&quot;)]]; }; Header header;</p>
+<h2 id="8-도구-툴바">8. 도구 (툴바)</h2>
+<table><thead><tr><th>도구</th><th>하는 일</th></tr></thead><tbody><tr><td>찾기·바꾸기</td><td>5장</td></tr><tr><td>이동</td><td>5장</td></tr><tr><td>문자열 추출 (Ctrl+Shift+T)</td><td>ASCII·UTF-8·UTF-16 LE/BE 문자열, 최소 길이, 걸러 보기, 모두 복사. 줄을 누르면 이동</td></tr><tr><td>디스어셈블러 (Ctrl+Shift+D)</td><td>x86 16·32·64비트(Intel·NASM·MASM·AT&amp;T 문법), ARM 32·Thumb·ARM64. 커서 또는 선택 영역부터, 주소 지정, 커서 따라가기, 더 보기, 복사</td></tr><tr><td>계산기·진법 변환</td><td>식(사칙 연산·<code>%</code>·<code>**</code>, 비트 AND·OR·XOR·NOT, <code>&lt;&lt;</code>·<code>&gt;&gt;</code>, <code>0x 0b 0o 'A'</code>, abs·min·max)을 8·16·32·64비트로 계산해 16·10·8·2진수, 부호, float32/64, 글자로 보여 줍니다. 커서 값 가져오기·커서에 쓰기</td></tr><tr><td>파일 복구 (카빙, Ctrl+Shift+F)</td><td>디스크 이미지·메모리 덤프 안의 파일을 머리글로 찾습니다(PNG, JPEG, GIF, BMP, TIFF, WebP, PSD, PDF, ZIP, GZIP, BZIP2, XZ, 7z, RAR, CAB, ELF, PE, Java class, SQLite, MP3, WAV, AVI, MP4, MKV, OGG, FLAC). 길이는 형식 구조나 끝 표지로 정합니다. 이동·새 탭으로 열기·파일로 저장·모두 저장</td></tr><tr><td>디스크·메모리 (데스크톱)</td><td>드라이브·볼륨·물리 디스크(읽기 전용, 관리자 권한이 필요할 수 있음), 실행 중인 프로세스의 메모리(읽을 수 없는 곳은 <code>??</code>, 저장하면 바꾼 바이트를 프로세스에 씀). macOS는 다른 프로세스의 메모리를 열 수 없습니다</td></tr><tr><td>파일 비교 (Ctrl+K)</td><td>두 문서를 나란히 놓고 다른 바이트를 칠합니다. &quot;같은 위치끼리&quot; 또는 &quot;끼워 넣기·삭제 찾기&quot;(4 MB까지). F8 / Shift+F8로 다음·이전 차이, 스크롤이 함께 움직입니다</td></tr><tr><td>템플릿 편집기 (Ctrl+T)</td><td>7장</td></tr><tr><td>편집 기록</td><td>실행 취소 단계 목록. 누르면 그 단계로 돌아갑니다</td></tr><tr><td>파일 도구</td><td>나누기(같은 크기 조각 .001 …), 합치기(여러 파일을 순서대로), 완전 삭제(0·무작위·DoD 방식으로 1·3·7번 덮어쓴 뒤 지움, 데스크톱)</td></tr></tbody></table>
+<h2 id="9-데이터-메뉴">9. 데이터 메뉴</h2>
+<ul>
+<li><b>바이트 연산</b>(선택 영역 또는 전체): XOR·AND·OR·NOT, 더하기·빼기·곱하기·나누기·나머지·부호 바꾸기, 시프트·회전, 값으로 채우기, 순서 뒤집기, 비트 순서 뒤집기, 니블 바꾸기. 단위 크기(8·16·32·64비트)와 바이트 순서를 고릅니다. 피연산자는 10진수, <code>0x</code>16진수, 글자가 섞인 16진수(<code>FF</code>), 또는 <code>DE AD</code> 같은 반복 패턴입니다.</li>
+<li><b>바이트 순서 바꾸기</b>: 16·32·64비트.</li>
+<li><b>암호화·복호화</b>: 반복 키 XOR, ROT13, AES(128·192·256, ECB·CBC·CTR, PKCS#7), DES, 3DES(ECB·CBC), RC4. 키·IV는 16진수 또는 글자.</li>
+<li><b>압축·풀기</b>: zlib, Deflate, gzip (수준 0–10).</li>
+<li><b>인코딩</b>: Base64, 16진수 글자, URL.</li>
+<li>결과는 그 자리에 넣거나 새 탭으로 엽니다. 모두 한 단계로 실행 취소됩니다.</li>
+<li><b>체크섬·해시 계산</b>(Ctrl+Shift+K), <b>통계·엔트로피</b>, <b>선택 영역을 새 탭으로</b>.</li>
+</ul>
+<h2 id="10-내보내기-가져오기-인쇄">10. 내보내기·가져오기·인쇄</h2>
+<ul>
+<li><b>내보내기</b>: 헥스 덤프, 16진수 글자, C, C++, C#, Java, JavaScript, Python, Rust, Go, Pascal, Visual Basic, 어셈블리(db), Base64, Base32, Ascii85, UUencode, Intel HEX, Motorola S-record, HTML, RTF, Markdown 표, JSON, 이스케이프 문자열, 바이너리. 선택 영역이 있으면 선택 영역만. 클립보드로 바로 보낼 수도 있습니다.</li>
+<li><b>가져오기</b>: 16진수 글자, 헥스 덤프, Base64·Base32·Ascii85·UUencode, Intel HEX, S-record(체크섬 확인, 시작 주소 표시), 소스 코드 배열, JSON, 이스케이프 문자열 — 클립보드·파일·직접 입력에서, 새 탭 또는 커서 위치로.</li>
+<li><b>인쇄</b>(Ctrl+P): 선택 영역(없으면 전체)의 헥스 덤프를 인쇄 창에서 프린터·용지·방향·여백·범위를 고르고 미리 본 뒤 인쇄합니다. PDF 프린터는 PDF 파일로 저장합니다.</li>
+</ul>
+<h2 id="11-설정">11. 설정</h2>
+<table><thead><tr><th>탭</th><th>내용</th></tr></thead><tbody><tr><td>일반</td><td>언어, 세션 복원, 읽기 전용으로 열기, 커서 기억, 시계</td></tr><tr><td>헥사 보기</td><td>한 줄 바이트, 묶음, 진법, 문자 집합, 글꼴·크기·줄 높이, 시작 주소, 열과 색</td></tr><tr><td>편집</td><td>입력 모드, 바이트 순서, 복사 형식, 붙여넣기, 실행 취소 단계, 열 때 템플릿 실행</td></tr><tr><td>도구</td><td>찾기 결과 수, 문자열 최소 길이, 디스어셈블러 아키텍처·문법, 엔트로피 그래프 칸 수, 비교 방식</td></tr><tr><td>테마·글꼴·시작 화면·배경·최근 파일·단축키</td><td>프로그램 모양과 시작 화면</td></tr></tbody></table>
+<h2 id="12-단축키">12. 단축키</h2>
+<table><thead><tr><th>키</th><th>동작</th></tr></thead><tbody><tr><td>Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S / Ctrl+W</td><td>새 파일 / 열기 / 저장 / 다른 이름으로 / 닫기</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>실행 취소 / 다시 실행</td></tr><tr><td>Ctrl+X / C / V, Ctrl+Shift+C / V</td><td>잘라내기 / 복사 / 붙여넣기, 텍스트로</td></tr><tr><td>Ctrl+A / Ctrl+B</td><td>모두 선택 / 블록 선택</td></tr><tr><td>Ctrl+F / Ctrl+H / F3 / Shift+F3</td><td>찾기 / 바꾸기 / 다음 / 이전</td></tr><tr><td>Ctrl+G / Ctrl+D / F2 / Shift+F2</td><td>이동 / 책갈피 / 다음 / 이전 책갈피</td></tr><tr><td>Insert / Tab</td><td>끼워 넣기·덮어쓰기 / 헥사 칸 ↔ 글자 칸</td></tr><tr><td>Ctrl+E / Ctrl+I / Ctrl+R / Ctrl+M</td><td>채우기 / 끼워 넣기 / 읽기 전용 / 텍스트 보기</td></tr><tr><td>Ctrl+K / F8 / Shift+F8</td><td>비교 / 다음 / 이전 차이</td></tr><tr><td>Ctrl+T / Ctrl+Shift+D / Ctrl+Shift+T / Ctrl+Shift+F / Ctrl+Shift+K</td><td>템플릿 / 디스어셈블러 / 문자열 / 복구 / 체크섬</td></tr><tr><td>Ctrl+P / Ctrl+Shift+P</td><td>인쇄 / 명령 팔레트</td></tr><tr><td>Ctrl+= / Ctrl+- / Ctrl+0</td><td>헥사 글자 크게 / 작게 / 기본</td></tr><tr><td>Ctrl+Shift+1 / 2, Ctrl+J</td><td>왼쪽 / 오른쪽 / 아래 패널</td></tr><tr><td>F1 / Shift+F1 / F11</td><td>정보 / 튜토리얼 / 전체 화면</td></tr></tbody></table>
+<h2 id="13-설치와-개발">13. 설치와 개발</h2>
+<p>npm run setup     # 또는 npm install — 필요한 것을 설치하고 준비(git에는 들어가지 않음) npm start         # 데스크톱 개발 실행 npm run dev       # 웹 개발 서버 npm test          # 시험 npm run build:win # 설치 프로그램 (build:mac, build:linux, build:all)</p>
+<p>필요: Node 22+, Rust(rustup). Linux는 WebKitGTK 개발 패키지가 필요합니다(<code>npm run setup</code>이 명령을 알려 줍니다).</p>
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
+</html>

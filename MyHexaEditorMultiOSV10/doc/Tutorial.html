@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyHexaMaster — 따라하기</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><div class="layout">
+<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#start">시작 화면</a></li><li class="h3"><a href="#step-welcome">1. MyHexaMaster</a></li><li class="h3"><a href="#step-actions">2. 무엇을 할까요</a></li><li class="h3"><a href="#step-samples">3. 예제 파일</a></li><li class="h3"><a href="#step-toolsCard">4. 도구</a></li><li class="h2"><a href="#view">헥사 보기</a></li><li class="h3"><a href="#step-hexview">5. 헥사 보기</a></li><li class="h3"><a href="#step-textcol">6. 글자 열과 문자 집합</a></li><li class="h3"><a href="#step-editing">7. 편집</a></li><li class="h3"><a href="#step-inspector">8. 데이터 검사기</a></li><li class="h3"><a href="#step-explorer">9. 탐색기</a></li><li class="h2"><a href="#structure">구조</a></li><li class="h3"><a href="#step-template">10. 구조 (템플릿)</a></li><li class="h3"><a href="#step-templateEditor">11. 템플릿 편집기</a></li><li class="h3"><a href="#step-info">12. 파일 정보</a></li><li class="h3"><a href="#step-bookmarks">13. 책갈피</a></li><li class="h2"><a href="#tools">도구</a></li><li class="h3"><a href="#step-find">14. 찾기·바꾸기</a></li><li class="h3"><a href="#step-goto">15. 이동</a></li><li class="h3"><a href="#step-strings">16. 문자열 추출</a></li><li class="h3"><a href="#step-disasm">17. 디스어셈블러</a></li><li class="h3"><a href="#step-carve">18. 파일 복구</a></li><li class="h3"><a href="#step-compare">19. 비교</a></li><li class="h3"><a href="#step-calc">20. 계산기</a></li><li class="h2"><a href="#data">데이터</a></li><li class="h3"><a href="#step-operations">21. 바이트 연산·변환</a></li><li class="h3"><a href="#step-checksums">22. 체크섬·해시</a></li><li class="h3"><a href="#step-stats">23. 통계·엔트로피</a></li><li class="h3"><a href="#step-export">24. 내보내기</a></li><li class="h2"><a href="#finish">마무리</a></li><li class="h3"><a href="#step-status">25. 상태 표시줄</a></li><li class="h3"><a href="#step-theme">26. 테마</a></li><li class="h3"><a href="#step-settings">27. 설정</a></li><li class="h3"><a href="#step-finish">28. 끝</a></li></ul></nav>
+<main>
+<h1>MyHexaMaster — 따라하기</h1>
+<p class="muted">프로그램 안의 따라하기(도움말 › 튜토리얼, Shift+F1)와 같은 단계입니다.</p>
+<h2 id="start">시작 화면</h2>
+<div class="step"><h3 id="step-welcome">1. MyHexaMaster</h3><p>어떤 크기의 파일이든, 디스크와 프로세스 메모리까지 바이트 단위로 보고 고치는 헥사 편집기입니다. 템플릿·디스어셈블러·검색·비교·체크섬·복구 도구를 함께 씁니다.</p></div>
+<div class="step"><h3 id="step-actions">2. 무엇을 할까요</h3><p>파일 열기, 새 파일, 디스크·프로세스 메모리 열기, 비교, 가져오기를 여기서 시작합니다. 파일을 창에 끌어 놓아도 열립니다.</p></div>
+<div class="step"><h3 id="step-samples">3. 예제 파일</h3><p>PNG·ZIP·ELF·PE·디스크 이미지·펌웨어 같은 예제로 템플릿과 도구를 바로 시험해 볼 수 있습니다.</p></div>
+<div class="step"><h3 id="step-toolsCard">4. 도구</h3><p>문자열·디스어셈블러·계산기·복구·디스크·비교·템플릿·파일 도구는 툴바에도 있고, 각자 창으로 열립니다.</p></div>
+<h2 id="view">헥사 보기</h2>
+<div class="step"><h3 id="step-hexview">5. 헥사 보기</h3><p>왼쪽은 오프셋, 가운데는 바이트, 오른쪽은 글자입니다. 00은 흐리게, 제어 문자·높은 값·FF는 색으로 나뉩니다. 휠과 스크롤 막대로 아무리 큰 파일도 바로 이동합니다.</p></div>
+<div class="step"><h3 id="step-textcol">6. 글자 열과 문자 집합</h3><p>글자 열은 ASCII·Windows-1252·UTF-8·UTF-16·EUC-KR·Shift_JIS·EBCDIC 등으로 읽을 수 있습니다. 한글 한 글자는 UTF-8에서 3바이트입니다.</p></div>
+<div class="step"><h3 id="step-editing">7. 편집</h3><p>16진수를 치면 바로 바뀌고 바뀐 바이트는 빨갛게 보입니다. Insert 키로 끼워 넣기/덮어쓰기, Tab으로 글자 칸 입력. 실행 취소는 무제한입니다.</p></div>
+<div class="step"><h3 id="step-inspector">8. 데이터 검사기</h3><p>커서 위치의 바이트를 정수·실수·날짜·GUID·IP·색 등으로 읽습니다. 값을 두 번 클릭하면 고쳐 씁니다. LE/BE로 바이트 순서를 바꿉니다.</p></div>
+<div class="step"><h3 id="step-explorer">9. 탐색기</h3><p>왼쪽 패널은 컴퓨터의 폴더와 열린 문서를 보여 줍니다. 파일을 두 번 클릭하면 헥사 편집기로 열립니다.</p></div>
+<h2 id="structure">구조</h2>
+<div class="step"><h3 id="step-template">10. 구조 (템플릿)</h3><p>파일 형식을 알아보면 템플릿이 구조를 풀어 오른쪽에 나무로 보여 주고 헥사 보기에 색을 칠합니다. 항목을 누르면 그 바이트를 선택합니다.</p></div>
+<div class="step"><h3 id="step-templateEditor">11. 템플릿 편집기</h3><p>C 비슷한 언어로 구조를 직접 적어 실행하고, 내 템플릿으로 저장합니다(010 Editor·ImHex 방식).</p></div>
+<div class="step"><h3 id="step-info">12. 파일 정보</h3><p>크기·형식·MIME·출처·바뀜 여부·커서와 선택 영역을 한눈에 봅니다.</p></div>
+<div class="step"><h3 id="step-bookmarks">13. 책갈피</h3><p>Ctrl+D로 커서나 선택 영역에 색 책갈피를 넣고 F2로 오갑니다. 파일마다 기억됩니다.</p></div>
+<h2 id="tools">도구</h2>
+<div class="step"><h3 id="step-find">14. 찾기·바꾸기</h3><p>16진수(?? 와일드카드), 여러 인코딩의 텍스트, 정규식, 정수·실수를 찾습니다. 모두 찾기는 결과를 목록과 표시로 보여 줍니다.</p></div>
+<div class="step"><h3 id="step-goto">15. 이동</h3><p>오프셋으로 이동합니다: 처음·앞·뒤·끝 기준, 16진/10진, 커서부터 선택.</p></div>
+<div class="step"><h3 id="step-strings">16. 문자열 추출</h3><p>ASCII·UTF-8·UTF-16 문자열을 모두 찾습니다. 줄을 누르면 그 위치로 갑니다.</p></div>
+<div class="step"><h3 id="step-disasm">17. 디스어셈블러</h3><p>x86(16/32/64)과 ARM(32·Thumb·64) 코드를 Intel·NASM·MASM·GAS 문법으로 풉니다.</p></div>
+<div class="step"><h3 id="step-carve">18. 파일 복구</h3><p>디스크 이미지나 덤프 안에서 머리글로 파일을 찾아 새 탭으로 열거나 저장합니다.</p></div>
+<div class="step"><h3 id="step-compare">19. 비교</h3><p>두 문서를 나란히 놓고 다른 바이트를 칠합니다. F8로 다음 차이로 갑니다. 끼워 넣기·삭제도 찾을 수 있습니다.</p></div>
+<div class="step"><h3 id="step-calc">20. 계산기</h3><p>식을 계산하고 16·10·8·2진수, 부호, 실수, 글자로 바꿔 봅니다. 커서의 값을 가져오거나 커서에 씁니다.</p></div>
+<h2 id="data">데이터</h2>
+<div class="step"><h3 id="step-operations">21. 바이트 연산·변환</h3><p>선택 영역에 XOR·더하기·시프트·바이트 순서 바꾸기, AES·DES·RC4 암호화, zlib·gzip 압축, Base64 등을 적용합니다.</p></div>
+<div class="step"><h3 id="step-checksums">22. 체크섬·해시</h3><p>CRC·Adler·MD5·SHA-1·SHA-2·SHA-3·BLAKE 등 36가지를 한 번에 계산합니다.</p></div>
+<div class="step"><h3 id="step-stats">23. 통계·엔트로피</h3><p>바이트 분포와 블록별 엔트로피 그래프로 압축·암호화된 부분을 찾습니다. 그래프를 누르면 그 블록으로 갑니다.</p></div>
+<div class="step"><h3 id="step-export">24. 내보내기</h3><p>헥스 덤프, C·Python 등 소스 배열, Base64, Intel HEX, S-record, HTML로 내보내고 같은 형식에서 가져옵니다.</p></div>
+<h2 id="finish">마무리</h2>
+<div class="step"><h3 id="step-status">25. 상태 표시줄</h3><p>커서 오프셋, 선택 크기, 바이트 값, 파일 크기, INS/OVR, 문자 집합이 나옵니다. 항목을 누르면 관련 창이 열립니다.</p></div>
+<div class="step"><h3 id="step-theme">26. 테마</h3><p>여러 밝은·어두운 테마와 직접 만든 테마를 고를 수 있습니다.</p></div>
+<div class="step"><h3 id="step-settings">27. 설정</h3><p>한 줄 바이트 수, 묶음, 진법, 글꼴, 색, 복사 형식, 도구 기본값을 정합니다.</p></div>
+<div class="step"><h3 id="step-finish">28. 끝</h3><p>튜토리얼은 언제든 여기서 다시 볼 수 있습니다. 즐겁게 쓰세요!</p></div>
+
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
+</html>

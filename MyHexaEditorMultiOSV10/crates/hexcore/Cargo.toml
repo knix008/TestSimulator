@@ -1,0 +1,42 @@
+[package]
+name = "hexcore"
+version = "1.0.0"
+edition = "2021"
+description = "MyHexaMaster core: documents (piece table, undo), search, hashes, data inspector, operations, statistics, strings, compare, file types, binary templates, disassembler, export — shared by the desktop backend and the web build (WebAssembly)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+regex = { version = "1", default-features = false, features = ["std", "unicode-case", "unicode-perl"] }
+encoding_rs = "0.8"
+# hashes and checksums
+md-5 = "0.10"
+md4 = "0.10"
+sha1 = "0.10"
+sha2 = "0.10"
+sha3 = "0.10"
+ripemd = "0.1"
+blake2 = "0.10"
+blake3 = { version = "1", default-features = false, features = ["std"] }
+crc = "3"
+# encryption and compression
+aes = "0.8"
+des = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+ctr = "0.9"
+ecb = { version = "0.1", features = ["alloc"] }
+cipher = { version = "0.4", features = ["alloc", "block-padding"] }
+miniz_oxide = "0.8"
+blowfish = "0.9"
+twofish = "0.7"
+cast5 = "0.11"
+camellia = "0.1"
+chacha20 = "0.9"
+salsa20 = "0.10"
+# disassemblers
+iced-x86 = { version = "1", default-features = false, features = ["std", "decoder", "intel", "nasm", "gas", "masm"] }
+yaxpeax-arch = "0.3"
+yaxpeax-arm = "0.3"
+
+[dev-dependencies]

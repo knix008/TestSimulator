@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- MyHexaMaster: a hex dump card (offsets, byte columns), one byte lit and a magnifying glass over it -->
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b4b7a"/>
+      <stop offset="0.55" stop-color="#26315a"/>
+      <stop offset="1" stop-color="#151b38"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f1530"/>
+      <stop offset="1" stop-color="#0a0e22"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9ff3ff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#3ec6e0" stop-opacity="0.18"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd36b"/>
+      <stop offset="1" stop-color="#f08a24"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="96" y="96" width="832" height="832" rx="190" fill="url(#body)" filter="url(#shadow)"/>
+  <rect x="96" y="96" width="832" height="420" rx="190" fill="url(#shine)"/>
+  <rect x="176" y="196" width="672" height="632" rx="56" fill="url(#screen)" stroke="#5a6ab0" stroke-width="6"/>
+  <g font-family="Consolas, 'Cascadia Mono', monospace" font-weight="700" font-size="64">
+    <g fill="#6f7fb8">
+      <text x="206" y="300">00</text><text x="206" y="400">10</text><text x="206" y="500">20</text><text x="206" y="600">30</text><text x="206" y="700">40</text><text x="206" y="800">50</text>
+    </g>
+    <g fill="#e6ecff">
+      <text x="330" y="300">4D</text><text x="450" y="300">5A</text><text x="570" y="300">90</text><text x="690" y="300">00</text>
+      <text x="330" y="400">03</text><text x="450" y="400" fill="#ff7a90">FF</text><text x="570" y="400">B8</text><text x="690" y="400">00</text>
+      <text x="330" y="500">7F</text><text x="570" y="500">4C</text><text x="690" y="500">46</text>
+      <text x="330" y="600">89</text><text x="450" y="600">50</text><text x="570" y="600">4E</text><text x="690" y="600" fill="#ff7a90">47</text>
+      <text x="330" y="700">50</text><text x="450" y="700">4B</text><text x="570" y="700">03</text><text x="690" y="700">04</text>
+      <text x="330" y="800" fill="#7d8ac0">00</text><text x="450" y="800" fill="#7d8ac0">00</text>
+    </g>
+  </g>
+  <rect x="436" y="444" width="98" height="78" rx="14" fill="#3ec6e0"/>
+  <text x="450" y="500" font-family="Consolas, monospace" font-weight="800" font-size="64" fill="#0a0e22">45</text>
+  <g transform="translate(486 482)">
+    <circle r="150" fill="url(#glass)" stroke="url(#rim)" stroke-width="34"/>
+    <path d="M -70 -95 A 120 120 0 0 1 60 -110" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="16" stroke-linecap="round"/>
+    <path d="M 112 112 L 250 250" stroke="url(#rim)" stroke-width="62" stroke-linecap="round"/>
+    <path d="M 112 112 L 250 250" stroke="#7a3a08" stroke-opacity="0.25" stroke-width="20" stroke-linecap="round"/>
+  </g>
+</svg>

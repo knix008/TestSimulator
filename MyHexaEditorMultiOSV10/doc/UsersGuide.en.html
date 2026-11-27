@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyHexaMaster — User’s Guide</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#1-screen-layout">1. Screen layout</a></li><li class="h2"><a href="#2-opening-and-saving-files">2. Opening and saving files</a></li><li class="h2"><a href="#3-hex-view-and-editing">3. Hex view and editing</a></li><li class="h3"><a href="#view-settings-view-menu-chips-on-the-tab-bar">View settings (View menu, chips on the tab bar)</a></li><li class="h2"><a href="#4-clipboard">4. Clipboard</a></li><li class="h2"><a href="#5-find-replace-go-to-bookmarks">5. Find, replace, go to, bookmarks</a></li><li class="h2"><a href="#6-properties-right-panel">6. Properties (right panel)</a></li><li class="h2"><a href="#7-templates">7. Templates</a></li><li class="h3"><a href="#template-language-010-editor-imhex-style">Template language (010 Editor / ImHex style)</a></li><li class="h2"><a href="#8-tools-toolbar">8. Tools (toolbar)</a></li><li class="h2"><a href="#9-data-menu">9. Data menu</a></li><li class="h2"><a href="#10-export-import-print">10. Export, import, print</a></li><li class="h2"><a href="#11-settings">11. Settings</a></li><li class="h2"><a href="#12-keyboard-shortcuts">12. Keyboard shortcuts</a></li><li class="h2"><a href="#13-installing-and-development">13. Installing and development</a></li></ul></nav>
+<main>
+<h1>MyHexaMaster — User’s Guide</h1>
+<p>MyHexaMaster is a hex editor for viewing and editing files, disks and process memory byte by byte. It brings together the features of UltraEdit, HxD, 010 Editor, ImHex, WinHex, Hex Fiend, Okteta, Free Hex Editor Neo, MiTeC and Hackman in one program. It runs with the same screen as a desktop program (Tauri) on Windows, macOS and Linux and in a web browser, and all byte handling is done by a Rust core.</p>
+<h2 id="1-screen-layout">1. Screen layout</h2>
+<table><thead><tr><th>Part</th><th>Contents</th></tr></thead><tbody><tr><td>Menu bar</td><td>File, Edit, Search, View, Data, Tools, Help. Panel buttons and window buttons on the right</td></tr><tr><td>Toolbar</td><td>File, undo, clipboard, edit mode, fill, byte operations, read-only, find, go to, bookmarks, <b>Tools</b> (Strings, Disassembler, Calculator, Recovery, Disks and memory, Compare, Template, Edit history, File tools), checksums, text view</td></tr><tr><td>Left panel</td><td><b>Explorer</b>: favorites, home folder, drives, open documents</td></tr><tr><td>Center</td><td>Document tabs. Hex view below the tab bar (source, size, format, INS/OVR, character set, bytes per row, number base, byte order)</td></tr><tr><td>Right panel</td><td><b>Properties</b>: Data inspector, Structure (template), File information, Checksums and hashes, Statistics and entropy, Bookmarks</td></tr><tr><td>Bottom panel</td><td><b>Log</b> and <b>Information</b></td></tr><tr><td>Status bar</td><td>Cursor offset (hex and decimal), selection size, byte value at the cursor, file size, INS/OVR, character set, theme, language</td></tr></tbody></table>
+<p>Every dialog and tool opens in its own movable window (on the web, a window inside the page).</p>
+<h2 id="2-opening-and-saving-files">2. Opening and saving files</h2>
+<ul>
+<li><b>Open</b> (Ctrl+O): there is no size limit. Only the visible part is read, not the whole file, so even multi-GB files open instantly. You can also double-click a file in the Explorer or drag it onto the window.</li>
+<li><b>New file</b> (Ctrl+N), <b>New file with size</b>: a document filled with zeros, a pattern, random bytes or an increasing sequence.</li>
+<li><b>Open read-only</b>, <b>Open disk</b>, <b>Open process memory</b> (desktop).</li>
+<li><b>Save</b> (Ctrl+S): if no byte positions have moved, only the changed parts are written in place (fast even for large files). If there are insertions or deletions, the file is written to a temporary file and then swapped in.</li>
+<li><b>Save as</b> (Ctrl+Shift+S), <b>Save all</b>, <b>Save selection as…</b>, <b>Reload from disk</b>.</li>
+<li>On the web, Chrome and Edge save back to the same file through the File System Access API; other browsers save by downloading.</li>
+<li>For each file, the last cursor position, bookmarks and template are remembered.</li>
+</ul>
+<h2 id="3-hex-view-and-editing">3. Hex view and editing</h2>
+<ul>
+<li>From left to right: the offset, byte and text columns. Bytes are colored by kind (00, printable characters, control characters, 80–FF, FF), and changed bytes are shown in red.</li>
+<li>The row and column with the cursor are highlighted, and the column header also marks the cursor column.</li>
+<li><b>Typing</b>: in the hex column, typing hex digits changes the high nibble, then the low nibble. Press <b>Tab</b> to move to the text column; characters you type there become bytes in the current character set (input method editors work too).</li>
+<li>The <b>Insert</b> key switches between <b>Insert mode / Overwrite</b>. Disks and process memory have a fixed size, so only Overwrite is available.</li>
+<li><b>Backspace / Delete</b>: delete the selection or a byte.</li>
+<li><b>Selecting</b>: drag, Shift+arrow keys, <b>Select block</b> (Ctrl+B: start and length/end), <b>Select all</b> (Ctrl+A). Double-clicking in the hex column selects one group; in the text column it selects a word.</li>
+<li><b>Fill</b> (Ctrl+E), <b>Insert bytes</b> (Ctrl+I): pattern (hex), zeros, random, or an increasing sequence (start, step, unit size).</li>
+<li><b>Undo / Redo</b> (Ctrl+Z / Ctrl+Y) have no step limit, and bytes typed in a row are grouped into one step. In the <b>Edit history</b> window you can jump straight to any step.</li>
+<li>A <b>Read-only</b> (Ctrl+R) document cannot be changed.</li>
+<li><b>View and edit as text</b> (Ctrl+M): opens the document as text in the current character set; edit it and choose &quot;Apply as bytes&quot; to make it a single edit step (up to 32 MB).</li>
+</ul>
+<h3 id="view-settings-view-menu-chips-on-the-tab-bar">View settings (View menu, chips on the tab bar)</h3>
+<ul>
+<li>Bytes per row: 4, 8, 12, 16, 20, 24, 32, 48, 64, or fit to window width</li>
+<li>Grouping: 1, 2, 4, 8 or 16 bytes</li>
+<li>Offset base: hex, decimal, octal; value display: hex, decimal, octal, binary; uppercase, 0x before offsets, display start address</li>
+<li>Character set: ASCII, Latin-1, Windows-1252, CP437, EBCDIC, UTF-8, UTF-16 LE/BE, EUC-KR, Shift_JIS</li>
+<li>Text column, offset column, column header, byte colors, changed-byte highlight, cursor row/column highlight, hex font and size (Ctrl+= / Ctrl+-)</li>
+</ul>
+<h2 id="4-clipboard">4. Clipboard</h2>
+<ul>
+<li><b>Copy</b> (Ctrl+C) copies in the format set in the settings (default: hex). <b>Copy as</b>: hex, spaced hex, text, C array, Python bytes, Base64, escaped (\x4D).</li>
+<li><b>Paste</b> (Ctrl+V): in automatic mode, hex text is pasted as bytes and anything else as text. There are also <b>Paste as hex / Paste as text</b> (Ctrl+Shift+V). In Insert mode the data is inserted; in Overwrite mode it overwrites.</li>
+<li><b>Cut</b> (Ctrl+X).</li>
+</ul>
+<h2 id="5-find-replace-go-to-bookmarks">5. Find, replace, go to, bookmarks</h2>
+<ul>
+<li><b>Find and replace</b> (Ctrl+F, Ctrl+H) window:</li>
+<li>Hex: wildcards such as <code>??</code> (one byte) and <code>4?</code> or <code>?F</code> (one nibble), as in <code>4D 5A ?? 00</code></li>
+<li>Text: 14 encodings, optional case sensitivity</li>
+<li>Regular expression: byte regular expressions (<code>\x50\x4B\x03\x04</code>, <code>[\x00-\x1F]+</code>)</li>
+<li>Integer (1, 2, 3, 4 or 8 bytes, signed, byte order), floating point (4 or 8 bytes)</li>
+<li>Scope (whole file / selection only), search backward from the end</li>
+<li>Next, previous, <b>Find all</b> (results list and marks in the hex view), count, replace, <b>Replace all</b> (undone in one step)</li>
+<li><b>Find next / previous</b>: F3 / Shift+F3.</li>
+<li><b>Go to offset</b> (Ctrl+G): from the start, forward, backward, from the end; hex or decimal; select from the cursor. A value with <code>0x</code> or <code>h</code> is read as hex.</li>
+<li><b>Bookmarks</b>: Ctrl+D adds one at the cursor or selection, and F2 / Shift+F2 move between them. In the Bookmarks tab of the right panel you can change their color and name or delete them.</li>
+</ul>
+<h2 id="6-properties-right-panel">6. Properties (right panel)</h2>
+<ul>
+<li><b>Data inspector</b>: reads the bytes at the cursor as int8 to int64 (signed/unsigned), int24, float16/32/64, binary, octal, characters (Latin-1, UTF-8, UTF-16), ULEB128, SLEB128, DOS date and time, FILETIME, time_t (32 and 64), OLE date, GUID, IPv4, IPv6, RGB565, RGB, RGBA, and true/false. Switch the byte order with LE/BE, and <b>double-click</b> a value to type a new value and write it in place.</li>
+<li><b>Structure (template)</b>: shows the structure found by the template as a tree. Clicking an item selects its bytes, and items with a color are also painted in the hex view.</li>
+<li><b>File information</b>: name, path, source, size, file type and details (image size, executable type …), MIME type, modified, read-only, undo steps, cursor and selection.</li>
+<li><b>Checksums and hashes</b>: computes the chosen algorithms at once for the selection (or the whole file if nothing is selected). Click a value to copy it.</li>
+<li>Checksums: Checksum-8/16/32/64, XOR-8</li>
+<li>CRC and similar: CRC-8, CRC-16 (ARC, CCITT-FALSE, XMODEM, MODBUS), CRC-32, CRC-32C, CRC-32 BZIP2, CRC-64 (ECMA, XZ), Adler-32, Fletcher-16/32</li>
+<li>Hashes: MD2, MD4, MD5, SHA-1, SHA-224/256/384/512, SHA-512/256, SHA3-224/256/384/512, Keccak-256, RIPEMD-160, BLAKE2b-512, BLAKE2s-256, BLAKE3</li>
+<li><b>Statistics and entropy</b>: byte distribution (square-root scale), per-block entropy graph (click to go to that block), entropy, distinct values, ratios of 00, printable, control and 80–FF bytes, mean, median, chi-square, Monte Carlo π, serial correlation, most common values. Compressed or encrypted areas have an entropy close to 8.</li>
+<li><b>Bookmarks</b>: list, color, name, go to, delete.</li>
+</ul>
+<h2 id="7-templates">7. Templates</h2>
+<p>When a file is opened, its format is detected and the matching template runs automatically (you can turn this off in the settings). Built-in templates: PNG, BMP, GIF, JPEG, ZIP (including DOCX, XLSX, JAR, APK), GZIP, WAVE, ELF, PE (EXE, DLL), MBR/GPT, ICO, TAR, Java class, SQLite, Mach-O, MP3 (ID3), WebAssembly, raw data.</p>
+<p>In the <b>Template editor</b> (Ctrl+T) you can write and run templates yourself, &quot;Save as my template&quot;, or save and load them as files (.hexpat).</p>
+<h3 id="template-language-010-editor-imhex-style">Template language (010 Editor / ImHex style)</h3>
+<ul>
+<li>Comments <code>// …</code>, <code>/* … */</code>. Byte order: <code>#pragma endian big</code>, <code>endian little;</code>, or per field <code>be u32</code> / <code>le u16</code> (default little)</li>
+<li>Types: <code>u8 u16 u24 u32 u48 u64</code>, <code>s8…s64</code> (<code>i8…</code>), <code>float</code> (f32) <code>double</code> (f64) <code>f16</code> <code>bool</code> <code>char</code> <code>wchar</code> <code>uleb128</code> <code>sleb128</code>. C and 010 names work too: <code>uchar byte ushort short uint int ulong long uint64 int64 DWORD WORD BYTE unsigned char …</code></li>
+<li><code>struct 이름 { 필드; … } [[color(&quot;blue&quot;)]];</code>, <code>union</code> (all fields at the same position), <code>enum 이름 : u8 { A = 1, B };</code>, <code>bitfield F { a : 1; b : 3; };</code>, <code>using Word = u16;</code>, <code>typedef u32 DWORD;</code></li>
+<li>Fields (type, name, expression, condition, offset): <code>형 이름;</code>, arrays <code>형 이름[식];</code>, <code>형 이름[while(조건)];</code>, <code>char s[];</code> (characters up to a 0), <code>형 이름 @ 오프셋;</code> (the cursor does not move). char/wchar arrays are shown as text; a u8 array is a single node</li>
+<li>Statements: <code>if/else</code>, <code>while</code>, <code>for (let i = 0; i &lt; n; i++)</code>, <code>let x = 식;</code>, <code>x += 1;</code>, <code>break</code>, <code>continue</code>, <code>return</code></li>
+<li>Expressions: <code>12 0x1F 0b101 0o17 1.5 'A' &quot;글자&quot;</code>, <code>+ - * / % &amp; | ^ ~ &lt;&lt; &gt;&gt; &amp;&amp; || ! == != &lt; &lt;= &gt; &gt;= ?:</code>, <code>a.b</code>, <code>a[i]</code>, <code>$</code> (current offset), <code>Enum::값</code> (enum value)</li>
+<li>Functions: <code>sizeof addressof endof size() eof() pos() seek(o) skip(n)</code>, <code>ReadU8…ReadU64 / ReadS8…S64 / ReadFloat / ReadDouble(o)</code>, <code>ReadU32BE/LE</code>, <code>ReadString(o, n)</code>, <code>find(o, &quot;FF D9&quot;)</code>, <code>ParseInt(글자, 진법)</code> (text, base), <code>strlen min max abs str hex</code>, <code>Warning()</code>, <code>Error()</code></li>
+<li>Attributes: <code>[[color(&quot;#rrggbb&quot;|&quot;red&quot;|0xRRGGBB), comment(&quot;…&quot;), name(식), hidden]]</code> or <code>&lt;bgcolor=0xRRGGBB, comment=&quot;…&quot;&gt;</code></li>
+<li>Errors are shown with the line and column, and the nodes built up to that point are kept.</li>
+</ul>
+<p>Example:</p>
+<p>struct Header { char magic[4] [[color(&quot;#e5484d&quot;)]]; be u32 length; u8 data[length] [[comment(&quot;payload&quot;)]]; }; Header header;</p>
+<h2 id="8-tools-toolbar">8. Tools (toolbar)</h2>
+<table><thead><tr><th>Tool</th><th>What it does</th></tr></thead><tbody><tr><td>Find and replace</td><td>Section 5</td></tr><tr><td>Go to offset</td><td>Section 5</td></tr><tr><td>Strings (Ctrl+Shift+T)</td><td>ASCII, UTF-8, UTF-16 LE/BE strings, minimum length, filter, copy all. Click a row to go there</td></tr><tr><td>Disassembler (Ctrl+Shift+D)</td><td>x86 16, 32 and 64-bit (Intel, NASM, MASM, AT&amp;T syntax), ARM 32, Thumb, ARM64. Starts at the cursor or selection, set address, follow cursor, load more, copy</td></tr><tr><td>Calculator and converter</td><td>Evaluates expressions (arithmetic, <code>%</code>, <code>**</code>, bitwise AND, OR, XOR, NOT, <code>&lt;&lt;</code>, <code>&gt;&gt;</code>, <code>0x 0b 0o 'A'</code>, abs, min, max) at 8, 16, 32 or 64 bits and shows hex, decimal, octal, binary, signed, float32/64 and text. Get the value at the cursor, write to the cursor</td></tr><tr><td>File recovery (carving) (Ctrl+Shift+F)</td><td>Finds files inside disk images and memory dumps by their headers (PNG, JPEG, GIF, BMP, TIFF, WebP, PSD, PDF, ZIP, GZIP, BZIP2, XZ, 7z, RAR, CAB, ELF, PE, Java class, SQLite, MP3, WAV, AVI, MP4, MKV, OGG, FLAC). The length comes from the format structure or an end marker. Go to, open in a new tab, save to file, save all</td></tr><tr><td>Disks and memory (desktop)</td><td>Drives, volumes and physical disks (read-only, administrator rights may be needed), and the memory of running processes (unreadable areas show <code>??</code>; saving writes the changed bytes into the process). On macOS, other processes' memory cannot be opened</td></tr><tr><td>Compare files (Ctrl+K)</td><td>Places two documents side by side and paints the bytes that differ. &quot;Same positions&quot; or &quot;Find insertions and deletions&quot; (up to 4 MB). F8 / Shift+F8 go to the next and previous difference, and scrolling is synchronized</td></tr><tr><td>Template editor (Ctrl+T)</td><td>Section 7</td></tr><tr><td>Edit history</td><td>List of undo steps. Click one to go back to that step</td></tr><tr><td>File tools (split, join, wipe)</td><td>Split (equal-size pieces .001 …), join (several files in order), wipe (overwrite 1, 3 or 7 times with zeros, random data or the DoD method, then delete; desktop)</td></tr></tbody></table>
+<h2 id="9-data-menu">9. Data menu</h2>
+<ul>
+<li><b>Byte operations</b> (selection or whole file): XOR, AND, OR, NOT, add, subtract, multiply, divide, remainder, negate, shift, rotate, fill with value, reverse order, reverse bit order, swap nibbles. Choose the unit size (8, 16, 32 or 64 bits) and byte order. The operand can be decimal, hex with <code>0x</code>, hex containing letters (<code>FF</code>), or a repeating pattern such as <code>DE AD</code>.</li>
+<li><b>Swap byte order</b>: 16, 32 or 64 bits.</li>
+<li><b>Encrypt and decrypt</b>: repeating-key XOR, ROT13, AES (128, 192, 256; ECB, CBC, CTR; PKCS#7), DES, 3DES (ECB, CBC), RC4. Key and IV as hex or text.</li>
+<li><b>Compress and decompress</b>: zlib, Deflate, gzip (level 0–10).</li>
+<li><b>Encoding</b>: Base64, hex text, URL.</li>
+<li>The result is put in place or opened in a new tab. Every operation is undone in one step.</li>
+<li><b>Compute checksums and hashes</b> (Ctrl+Shift+K), <b>Statistics and entropy</b>, <b>Selection to new tab</b>.</li>
+</ul>
+<h2 id="10-export-import-print">10. Export, import, print</h2>
+<ul>
+<li><b>Export</b>: hex dump, hex text, C, C++, C#, Java, JavaScript, Python, Rust, Go, Pascal, Visual Basic, assembly (db), Base64, Base32, Ascii85, UUencode, Intel HEX, Motorola S-record, HTML, RTF, Markdown table, JSON, escaped string, binary. If there is a selection, only the selection is exported. You can also send the output straight to the clipboard.</li>
+<li><b>Import</b>: hex text, hex dump, Base64, Base32, Ascii85, UUencode, Intel HEX, S-record (checksums verified, start address shown), source code arrays, JSON, escaped strings — from the clipboard, a file or typed input, into a new tab or at the cursor.</li>
+<li><b>Print</b> (Ctrl+P): prints a hex dump of the selection (or the whole file if nothing is selected). In the print window you choose the printer, paper, orientation, margins and range, preview, then print. A PDF printer saves a PDF file.</li>
+</ul>
+<h2 id="11-settings">11. Settings</h2>
+<table><thead><tr><th>Tab</th><th>Contents</th></tr></thead><tbody><tr><td>General</td><td>Language, restore session, open read-only, remember cursor, clock</td></tr><tr><td>Hex view</td><td>Bytes per row, grouping, number base, character set, font, size and line height, start address, columns and colors</td></tr><tr><td>Editing</td><td>Input mode, byte order, copy format, paste, undo steps, run template on open</td></tr><tr><td>Tools</td><td>Number of find results, minimum string length, disassembler architecture and syntax, entropy graph blocks, compare method</td></tr><tr><td>Theme, fonts, start screen, background, recent files, shortcuts</td><td>Program appearance and start screen</td></tr></tbody></table>
+<h2 id="12-keyboard-shortcuts">12. Keyboard shortcuts</h2>
+<table><thead><tr><th>Key</th><th>Action</th></tr></thead><tbody><tr><td>Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S / Ctrl+W</td><td>New file / Open / Save / Save as / Close</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / Redo</td></tr><tr><td>Ctrl+X / C / V, Ctrl+Shift+C / V</td><td>Cut / Copy / Paste, as text</td></tr><tr><td>Ctrl+A / Ctrl+B</td><td>Select all / Select block</td></tr><tr><td>Ctrl+F / Ctrl+H / F3 / Shift+F3</td><td>Find / Replace / Next / Previous</td></tr><tr><td>Ctrl+G / Ctrl+D / F2 / Shift+F2</td><td>Go to offset / Bookmark / Next / Previous bookmark</td></tr><tr><td>Insert / Tab</td><td>Insert mode or Overwrite / Hex column ↔ text column</td></tr><tr><td>Ctrl+E / Ctrl+I / Ctrl+R / Ctrl+M</td><td>Fill / Insert / Read-only / Text view</td></tr><tr><td>Ctrl+K / F8 / Shift+F8</td><td>Compare / Next / Previous difference</td></tr><tr><td>Ctrl+T / Ctrl+Shift+D / Ctrl+Shift+T / Ctrl+Shift+F / Ctrl+Shift+K</td><td>Template / Disassembler / Strings / Recovery / Checksums</td></tr><tr><td>Ctrl+P / Ctrl+Shift+P</td><td>Print / Command palette</td></tr><tr><td>Ctrl+= / Ctrl+- / Ctrl+0</td><td>Hex text larger / smaller / default</td></tr><tr><td>Ctrl+Shift+1 / 2, Ctrl+J</td><td>Left / right / bottom panel</td></tr><tr><td>F1 / Shift+F1 / F11</td><td>Information / Tutorial / Full screen</td></tr></tbody></table>
+<h2 id="13-installing-and-development">13. Installing and development</h2>
+<p>npm run setup     # 또는 npm install — 필요한 것을 설치하고 준비(git에는 들어가지 않음) npm start         # 데스크톱 개발 실행 npm run dev       # 웹 개발 서버 npm test          # 시험 npm run build:win # 설치 프로그램 (build:mac, build:linux, build:all)</p>
+<p>Requirements: Node 22+, Rust (rustup). Linux needs the WebKitGTK development packages (<code>npm run setup</code> shows the command).</p>
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
+</html>
