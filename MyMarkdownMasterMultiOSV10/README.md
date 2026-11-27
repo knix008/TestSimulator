@@ -35,6 +35,8 @@ npm test                # unit · i18n · rust · web · tutorial  (--desktop �
 npm run build:web       # dist/ (Rust 코어를 WebAssembly로 포함)
 npm run build:win       # Windows 설치 프로그램 (build:mac, build:linux, build:all)
 npm run build:docs      # 사용 설명서·튜토리얼 HTML
+npm run clean           # 빌드 결과·설치 파일·시험 결과·캐시 삭제 (--dry-run 으로 목록만)
+npm run clean:all       # 위 + node_modules 삭제 (node_modules에서 실행 중인 Vite·esbuild·tauri dev 는 먼저 종료). 다시 npm install
 ```
 
 필요: Node 22+, Rust(stable) + `rustup target add wasm32-unknown-unknown`, 각 OS의 Tauri 2 준비물.
