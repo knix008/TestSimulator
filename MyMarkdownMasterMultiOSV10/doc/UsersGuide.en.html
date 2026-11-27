@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyMarkdownMaster — User’s Guide</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#1-the-window">1. The window</a></li><li class="h3"><a href="#explorer-and-favorites">Explorer and Favorites</a></li><li class="h2"><a href="#2-vaults">2. Vaults</a></li><li class="h2"><a href="#3-viewing-a-note-live-source-reading-split">3. Viewing a note — Live · Source · Reading · Split</a></li><li class="h3"><a href="#panes-and-tabs">Panes and tabs</a></li><li class="h2"><a href="#4-writing">4. Writing</a></li><li class="h3"><a href="#properties-yaml">Properties (YAML)</a></li><li class="h3"><a href="#templates-40">Templates (40)</a></li><li class="h2"><a href="#5-finding-and-connecting">5. Finding and connecting</a></li><li class="h2"><a href="#6-note-features">6. Note features</a></li><li class="h2"><a href="#7-writing-tools">7. Writing tools</a></li><li class="h2"><a href="#8-ai-assistant">8. AI assistant</a></li><li class="h2"><a href="#9-export-and-print">9. Export and print</a></li><li class="h3"><a href="#the-print-window">The print window</a></li><li class="h2"><a href="#10-settings">10. Settings</a></li><li class="h2"><a href="#11-keyboard-shortcuts">11. Keyboard shortcuts</a></li><li class="h2"><a href="#12-installing">12. Installing</a></li></ul></nav>
+<main>
+<h1>MyMarkdownMaster — User’s Guide</h1>
+<p>MyMarkdownMaster 1.0.0 treats a folder as a <b>vault</b>: it joins the Markdown notes inside with <code>[[links]]</code>, lets you explore them with backlinks, the graph, canvases and search, and write with split editing and preview. The Windows, macOS and Linux desktop apps and the web app have the same features. The core (parsing notes, links, search, rendering, export) is Rust: native on the desktop, WebAssembly on the web.</p>
+<p><img alt="Start page" src="images/en/01-start.png" loading="lazy"></p>
+<h2 id="1-the-window">1. The window</h2>
+<table><thead><tr><th>Part</th><th>What it does</th></tr></thead><tbody><tr><td>Menu bar</td><td>Home · File · Edit · Format · View · Notes · Tools · Help; panel switches and window buttons at the right</td></tr><tr><td>Toolbar</td><td>Frequent commands. In a narrow window the groups that do not fit go into the » menu</td></tr><tr><td>Left panel</td><td>Files · Search · Bookmarks · Tags · Notes. Fold it with ‹ to a strip of icons</td></tr><tr><td>Centre</td><td>The workspace: panes split side by side or one above the other, with tabs</td></tr><tr><td>Right panel</td><td>Outline · Backlinks · Outgoing links · Properties · Local graph · AI assistant · Statistics &amp; writing</td></tr><tr><td>Bottom panel</td><td>Problems (links to missing notes, property errors, style check) · Messages · Information (Ctrl+J)</td></tr><tr><td>Status bar</td><td>Backlinks, words and characters, reading time, goal progress, line and column, save state, problems, theme, language, clock</td></tr></tbody></table>
+<p>Every panel folds away and back; drag its edge to resize it.</p>
+<h3 id="explorer-and-favorites">Explorer and Favorites</h3>
+<p>The left panel's <b>Explorer</b> tab shows the computer's folders (desktop app).</p>
+<ul>
+<li><b>Favorites</b>: right-click a folder or note › <b>Add to Favorites</b> (in the file list and in the Explorer).</li>
+<li><b>Home</b>: the home folder with Desktop, Documents, Downloads and Pictures. <b>Drives</b>: C:, D: … on Windows; / and mounted volumes on macOS and Linux.</li>
+<li>Click a folder to expand it; double-click it or right-click › <b>Open as vault</b> to make it the vault. Click a note to open it (a note elsewhere opens its folder as the vault).</li>
+<li>Buttons on top: refresh, show all files (off: notes, pictures and folders only), show hidden files, collapse all. On the web only the open vault's favorites are shown.</li>
+</ul>
+<p>The menu bar's <b>Start</b> button toggles between the start page and the main window. With nothing open the middle shows the program's icon and name above the common actions. The bottom panel folds to its header with its fold button (Ctrl+J); the View menu turns each panel on or off and picks its tab. Every left- and right-panel button is the same size, lined up in columns. The window's minimum width is the whole toolbar's, so no toolbar button is ever hidden.</p>
+<h2 id="2-vaults">2. Vaults</h2>
+<ul>
+<li><b>Open folder as vault</b> (Ctrl+Shift+O): open a folder of notes. Obsidian vaults open as they are.</li>
+<li><b>New vault</b>: name it and pick a place; a new folder with a first note is made.</li>
+<li><b>Sample vaults</b>: the samples on the start page (Guide, Zettelkasten, Project, Journal, Research, Novel) are made as fresh vaults — change anything.</li>
+<li><b>On the web</b>: Chrome and Edge open real folders; every modern browser can keep a *browser vault* in its own storage.</li>
+<li>When another program changes files (a sync tool …), the desktop app notices and updates.</li>
+<li>Folders starting with a dot (.git, .obsidian, .trash) are hidden.</li>
+</ul>
+<h2 id="3-viewing-a-note-live-source-reading-split">3. Viewing a note — Live · Source · Reading · Split</h2>
+<p>Use the buttons above the note or Ctrl+1 / 2 / 3 / 4 (Ctrl+E toggles editing and reading).</p>
+<table><thead><tr><th>View</th><th></th></tr></thead><tbody><tr><td>Live</td><td>Write with the formatting shown; only the line with the cursor shows its Markdown marks</td></tr><tr><td>Source</td><td>The Markdown as it is</td></tr><tr><td>Reading</td><td>The finished note: math, diagrams, charts, callouts and checkboxes work</td></tr><tr><td>Split</td><td>Source on the left, preview on the right, scrolling together</td></tr></tbody></table>
+<p>In the <b>split view</b> drag the divider (double-click for half and half) and fold either side away with ‹ › above it; click the strip to bring it back.</p>
+<p><img alt="Split view" src="images/en/03-split.png" loading="lazy"></p>
+<h3 id="panes-and-tabs">Panes and tabs</h3>
+<ul>
+<li><b>Split right</b> (Ctrl+\\), <b>split down</b> (Ctrl+Shift+\\).</li>
+<li>Drag a tab onto another pane's tab strip, or onto a pane's edge (left, right, top, bottom) for a new split.</li>
+<li>‹ › at the right of the tab bar move to the previous / next tab (Ctrl+Tab / Ctrl+Shift+Tab).</li>
+<li>Pin tabs, close other tabs, go back and forward (Alt+←/→).</li>
+<li><b>Workspaces</b>: save the arrangement under a name and load it again. The last one is kept per vault.</li>
+</ul>
+<p><img alt="Panes" src="images/en/09-panes.png" loading="lazy"></p>
+<h2 id="4-writing">4. Writing</h2>
+<ul>
+<li>Type <code>[[</code> to complete note names. <code>[[Note#Heading]]</code>, <code>[[Note#^block]]</code>, <code>[[Note|shown text]]</code>.</li>
+<li><code>![[Note]]</code> embeds another note (or one heading of it); <code>![[picture.png|300]]</code> shows a picture 300 wide.</li>
+<li><code>#tags</code>, nested <code>#parent/child</code>.</li>
+<li>Callouts: <code>&gt; [!note] Title</code>, <code>&gt; [!warning]- folded callout</code>.</li>
+<li><code>==highlight==</code>, <code>%%hidden comment%%</code>, footnotes <code>[^1]</code>, math <code>$…$</code> · <code>$$…$$</code>, Mermaid and chart (``<code>chart) blocks, </code>[TOC]<code>, </code>:smile:` emoji.</li>
+<li>Type <code>/</code> at a line start for the insert menu (headings, tasks, tables, callouts, math, diagrams, templates …).</li>
+<li>Pasted or dropped pictures are saved in the attachment folder and linked <b>where you drop them</b>. A picture dragged from a web page becomes <code><img alt="" src="url" loading="lazy"></code> (web build).</li>
+<li><b>Picture size and position</b> (live view): hover a picture for its toolbar (25% · 50% · 100% · original, left · center · right) and the corner handle. Drag the handle to resize, drag the picture to move it elsewhere in the note. The text reads <code>![[picture.png|center|300]]</code>; reading view and exports use the same alignment (left and right let the text flow around). Ctrl+Z undoes each step.</li>
+<li>Folding: headings, lists, code blocks and callouts fold from the margin; Fold all / Unfold all (Edit › Folding).</li>
+<li>Autosave (Settings › General) and file recovery (Notes › File recovery): snapshots at intervals you can restore.</li>
+</ul>
+<h3 id="properties-yaml">Properties (YAML)</h3>
+<p>The properties between the <code>---</code> lines at the top are shown and edited in the <b>right panel's Properties tab</b> (View › Properties), never above the document. In live view they fold into one line, <code>3 properties · right panel</code>; move the cursor onto it for the YAML. The tab also lists every property in the vault.</p>
+<h3 id="templates-40">Templates (40)</h3>
+<p>The start page's <b>Templates</b> card has 40 templates in 8 groups (daily &amp; journal, meetings, projects &amp; work, study &amp; research, writing, life, planning &amp; reviews, knowledge). Click one to make a new note from it in the open vault, with the date and title filled in. Notes › <b>Insert template</b> / <b>New note from template</b> offer them next to the vault's own templates.</p>
+<h2 id="5-finding-and-connecting">5. Finding and connecting</h2>
+<ul>
+<li><b>Quick switcher</b> (Ctrl+O): open a note by name; Ctrl+Enter for a new tab.</li>
+<li><b>Command palette</b> (Ctrl+P): every command by name.</li>
+<li><b>Search</b> (Ctrl+Shift+F): <code>tag:#todo</code>, <code>path:folder</code>, <code>file:name</code>, <code>content:</code>, <code>line:( a b )</code>, <code>section:( )</code>, <code>block:( )</code>, <code>task:</code>, <code>task-todo:</code>, <code>task-done:</code>, <code>[property:value]</code>, <code>&quot;phrase&quot;</code>, <code>-exclude</code>, <code>a OR b</code>, <code>/regex/</code>, <code>match-case:</code>.</li>
+<li><b>Backlinks</b>: the notes linking here and *unlinked mentions*; one click turns a mention into a link.</li>
+<li><b>Graph</b> (Ctrl+G): drag, zoom, filters, group colours, forces; the local graph in the right panel.</li>
+<li><b>Rename and move</b>: every link follows automatically (Settings › Files &amp; links).</li>
+<li><b>Note composer</b>: merge into another note; extract a selection into a new note (leaving a link or an embed).</li>
+</ul>
+<p><img alt="Graph" src="images/en/06-graph.png" loading="lazy"></p>
+<h2 id="6-note-features">6. Note features</h2>
+<ul>
+<li><b>Today's note</b> (Alt+D), previous and next daily note. Folder, date format and template in Settings › Notes &amp; templates.</li>
+<li><b>Templates</b> (Alt+T): <code>{{title}}</code>, <code>{{date}}</code>, <code>{{time}}</code>, <code>{{date:dddd, MMMM Do YYYY}}</code>, <code>{{yesterday}}</code>, <code>{{tomorrow}}</code>.</li>
+<li><b>Unique notes</b> (Zettelkasten), <b>random note</b>, <b>bookmarks</b>, <b>pin</b>, <b>archive</b>.</li>
+<li><b>Notes list</b> (left): newest first with excerpts; filters All · Pinned · To-do · Today · Untagged · Orphans · Archive.</li>
+<li><b>Canvas</b>: an endless board of cards, notes, pictures and links joined by lines (JSON Canvas). Double-click empty space for a card.</li>
+<li><b>Audio recorder</b>: records into an attachment and links it.</li>
+</ul>
+<p><img alt="Canvas" src="images/en/07-canvas.png" loading="lazy"></p>
+<h2 id="7-writing-tools">7. Writing tools</h2>
+<ul>
+<li><b>Focus mode</b> (F8): only the current line, sentence or paragraph stays sharp.</li>
+<li><b>Typewriter scrolling</b> (F9): the line you write stays in the middle.</li>
+<li><b>Style check</b> (F7): fillers, redundancies, clichés, hedges, passive voice (English), long sentences, doubled words, double spaces — Korean and English.</li>
+<li><b>Syntax highlight</b> (English): adverbs and conjunctions coloured.</li>
+<li><b>Smart punctuation</b>: straight → curly quotes, <code>--</code> → —, <code>...</code> → ….</li>
+<li><b>Writing goal</b>: a word-count goal with progress (status bar, Statistics tab); a <code>goal: 1000</code> property is a goal too.</li>
+<li><b>Statistics</b>: words, characters, sentences, paragraphs, reading and speaking time, words per sentence.</li>
+<li><b>Presentation</b>: slides (F5, split at <code>---</code>) · reading presentation (Shift+F5: text size, spacing, width, contrast).</li>
+<li><b>Reading themes</b>: follow the app · original · dark · creamy · solarized · high contrast; fonts and padding.</li>
+</ul>
+<p><img alt="Writing tools" src="images/en/10-writing.png" loading="lazy"></p>
+<h2 id="8-ai-assistant">8. AI assistant</h2>
+<p>In Settings › <b>AI</b> pick a provider and enter its API key: OpenAI, Anthropic (Claude), Google Gemini, Azure OpenAI, Mistral, Groq, DeepSeek, xAI, OpenRouter, Perplexity, Together, Ollama, LM Studio or a custom OpenAI-compatible one. *Test connection* and *Load models* help.</p>
+<ul>
+<li>Chat in the <b>AI</b> tab on the right (Ctrl+Shift+A). Add the current note, the selection, linked notes or a vault search as context.</li>
+<li>Insert an answer at the cursor, replace the selection, append it to the note or make a new note.</li>
+<li>The AI ▾ toolbar menu and the editor's right-click menu: summarize, continue, improve, fix spelling, shorter or longer, tone, translate (Korean ↔ English), explain, generate tags, suggest a title, outline, make a table, brainstorm, extract action items …</li>
+<li>Keys stay on this computer (in this browser). The desktop app sends requests through its Rust backend: no browser CORS limits.</li>
+</ul>
+<p><img alt="AI assistant" src="images/en/11-dark-ai.png" loading="lazy"></p>
+<h2 id="9-export-and-print">9. Export and print</h2>
+<p>File › Export (the toolbar's export button) and pick a format. The Rust core writes it.</p>
+<p>PDF · HTML (styled or plain) · Word (.docx) · OpenDocument (.odt) · EPUB · RTF · LaTeX · Markdown (links and embeds resolved) · plain text · Djot · reStructuredText · AsciiDoc · MediaWiki · Textile · OPML · Org · JSON.</p>
+<ul>
+<li>Settings › Export: contents, numbered headings, embedded pictures, paper.</li>
+<li><b>Export again</b> (Ctrl+Alt+E), <b>Copy as Markdown</b>.</li>
+<li>On the web files are downloaded; for PDF choose &quot;Save as PDF&quot; in the print dialog.</li>
+</ul>
+<h3 id="the-print-window">The print window</h3>
+<p><b>Print</b> (Ctrl+Shift+P, the printer button on the toolbar, the File menu, and the right-click menus of the file list, tabs and empty space) opens a separate print window: choose on the left, see the note laid out in pages on the right.</p>
+<ul>
+<li><b>Printer</b>: the installed printers (the default first), copies, colour or black &amp; white.</li>
+<li><b>Page setup</b>: paper (A4, A3, A5, B5, Letter, Legal …), orientation (portrait/landscape), margins (normal/narrow/wide), pages (all, or a range such as <code>1-3, 5</code>).</li>
+<li>Turn pages with ‹ › above the preview; the page and sheet count is at the bottom.</li>
+<li><b>Print</b> sends the note straight to the chosen printer with no system dialog (Windows desktop). On other systems and on the web the system print dialog opens; <b>System dialog…</b> is always there.</li>
+</ul>
+<p><img alt="The print window" src="images/en/13-print.png" loading="lazy"></p>
+<h2 id="10-settings">10. Settings</h2>
+<p>Settings (Ctrl+,) is a window with its tabs in a column at the left (everything fits without scrolling). Tabs: General · Editor · Reading · Files &amp; links · Notes &amp; templates · Writing · Export · AI · Theme · Font · Start page · Background · Recent · Shortcuts.</p>
+<h2 id="11-keyboard-shortcuts">11. Keyboard shortcuts</h2>
+<table><thead><tr><th>Keys</th><th>Action</th></tr></thead><tbody><tr><td>Ctrl+N</td><td>New note</td></tr><tr><td>Ctrl+O</td><td>Quick switcher</td></tr><tr><td>Ctrl+P</td><td>Command palette</td></tr><tr><td>Ctrl+Shift+O</td><td>Open folder as vault</td></tr><tr><td>Ctrl+S / Ctrl+Alt+S</td><td>Save / Save all</td></tr><tr><td>Ctrl+Shift+F</td><td>Search the vault</td></tr><tr><td>Ctrl+F / Ctrl+H</td><td>Find / Find and replace</td></tr><tr><td>Ctrl+G</td><td>Graph view</td></tr><tr><td>Ctrl+1 / 2 / 3 / 4</td><td>Live / Source / Reading / Split</td></tr><tr><td>Ctrl+E</td><td>Toggle editing / reading</td></tr><tr><td>Ctrl+\\ / Ctrl+Shift+\\</td><td>Split right / down</td></tr><tr><td>Ctrl+W</td><td>Close tab</td></tr><tr><td>Alt+D / Alt+T</td><td>Today's note / Insert template</td></tr><tr><td>Ctrl+B / Ctrl+I / Ctrl+K</td><td>Bold / Italic / Link</td></tr><tr><td>Ctrl+L</td><td>Task</td></tr><tr><td>F2</td><td>Rename</td></tr><tr><td>F5 / Shift+F5</td><td>Slides / Reading presentation</td></tr><tr><td>F7 / F8 / F9</td><td>Style check / Focus mode / Typewriter scrolling</td></tr><tr><td>F11</td><td>Full screen</td></tr><tr><td>Ctrl+Shift+A</td><td>AI assistant</td></tr><tr><td>Ctrl+J</td><td>Bottom panel</td></tr><tr><td>Ctrl+Shift+1 / 2</td><td>Left / right panel</td></tr><tr><td>Shift+F1 / F1</td><td>Tutorial / About</td></tr></tbody></table>
+<h2 id="12-installing">12. Installing</h2>
+<ul>
+<li>Windows: the installer (NSIS). An installed MyMarkdownMaster is removed first, then installed fresh.</li>
+<li>macOS: DMG; Linux: deb · rpm · AppImage.</li>
+<li>Web: put <code>dist/</code> from <code>npm run build:web</code> on any static web server.</li>
+<li>Build it yourself: <code>npm run build:win</code>, <code>build:mac</code>, <code>build:linux</code> (needs Rust and Node).</li>
+</ul>
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
+</html>

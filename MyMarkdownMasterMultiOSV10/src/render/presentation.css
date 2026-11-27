@@ -1,0 +1,84 @@
+/* Presentation modes (presentation.js): slides and the reading presentation. Full-window overlays over the app,
+   theme-aware through the app variables; the note inside is styled by reading.css (.markdown-rendered). */
+
+.pres-slides, .pres-reading {
+  position: fixed; inset: 0; z-index: 6000; outline: none;
+  background: var(--bg, #111); color: var(--text, #eee);
+  font-family: var(--font-family, system-ui, sans-serif);
+  user-select: none;
+}
+.pres-slides:fullscreen, .pres-reading:fullscreen { width: 100vw; height: 100vh; }
+.pres-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 32px; height: 32px; padding: 0 6px;
+  border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text); cursor: pointer; font: inherit; font-size: 12px;
+}
+.pres-btn:hover:not(:disabled) { background: var(--hover, color-mix(in srgb, var(--text) 10%, transparent)); border-color: var(--border); }
+.pres-btn:disabled { opacity: 0.35; cursor: default; }
+.pres-btn.is-on { background: var(--soft-accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.pres-btn .icon { width: 17px; height: 17px; }
+.pres-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+/* ───────── slides */
+.pres-slides { background: color-mix(in srgb, var(--bg) 70%, #000); }
+.pres-stage { position: absolute; inset: 0 0 3px 0; overflow: hidden; }
+.pres-frame { position: absolute; left: 50%; top: 50%; width: 1280px; height: 720px; transform-origin: center; }
+.pres-slide {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-start; padding: 56px 80px; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin;
+  background: var(--surface, #fff); color: var(--text); border-radius: 6px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  user-select: text;
+}
+.pres-slide[hidden] { display: none; }
+.pres-slide.is-short { justify-content: center; }
+.pres-slides[data-reading-theme="original"] .pres-slide { background: #fff; }
+.pres-slides[data-reading-theme="dark"] .pres-slide { background: #1e1e1e; }
+.pres-slides[data-reading-theme="creamy"] .pres-slide { background: #f8f1e3; }
+.pres-slides[data-reading-theme="solarized"] .pres-slide { background: #fdf6e3; }
+.pres-slides[data-reading-theme="contrast"] .pres-slide { background: #000; }
+.pres-slide-inner { flex: none; --rd-size: 28px; --rd-line: 1.5; }
+.pres-slide-inner :is(h1) { font-size: 2.1em; border-bottom: 0; text-align: left; }
+.pres-slide-inner :is(h2) { font-size: 1.6em; border-bottom: 0; }
+.pres-slide.is-short .pres-slide-inner > :is(h1, h2):first-child:last-child { text-align: center; font-size: 2.6em; }
+.pres-slide-inner .heading-copy { display: none; }
+.pres-slide-inner .markdown-embed { --embed-max-height: 360px; }
+.pres-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: color-mix(in srgb, var(--text) 10%, transparent); }
+.pres-progress-bar { height: 100%; width: 0; background: var(--accent); transition: width 0.2s ease-out; }
+.pres-controls {
+  position: absolute; right: 16px; bottom: 14px; display: flex; align-items: center; gap: 2px; padding: 4px 6px;
+  background: color-mix(in srgb, var(--panel, var(--surface)) 92%, transparent); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); transition: opacity 0.3s;
+}
+.pres-counter { min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.pres-slides.is-idle { cursor: none; }
+.pres-slides.is-idle .pres-controls { opacity: 0; }
+.pres-slides.is-idle .pres-controls:hover { opacity: 1; }
+
+/* ───────── reading presentation */
+.pres-reading { --pres-font-size: 26px; --pres-line-height: 1.7; --pres-width: 900px; background: var(--surface, #fff); }
+.pres-reading[data-reading-theme="original"] { background: #fff; }
+.pres-reading[data-reading-theme="dark"] { background: #1e1e1e; }
+.pres-reading[data-reading-theme="creamy"] { background: #f8f1e3; }
+.pres-reading[data-reading-theme="solarized"] { background: #fdf6e3; }
+.pres-reading[data-reading-theme="contrast"] { background: #000; }
+.pres-reading-scroll { position: absolute; inset: 0; overflow-y: auto; scrollbar-width: thin; user-select: text; }
+.pres-reading-doc {
+  --rd-size: var(--pres-font-size); --rd-line: var(--pres-line-height);
+  max-width: var(--pres-width); margin: 0 auto; padding: 12vh 48px 60vh;
+}
+.pres-reading-doc .heading-copy { display: none; }
+.pres-reading[data-contrast="high"] .pres-reading-doc { --rd-muted: var(--rd-text); font-weight: 500; filter: contrast(1.35); }
+.pres-toolbar {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 4px;
+  max-width: calc(100vw - 24px); padding: 4px 8px; color: var(--text);
+  background: color-mix(in srgb, var(--panel, var(--surface)) 94%, transparent); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22); transition: opacity 0.35s, transform 0.35s; z-index: 1;
+}
+.pres-reading.is-idle { cursor: none; }
+.pres-reading.is-idle .pres-toolbar { opacity: 0; transform: translate(-50%, -10px); pointer-events: none; }
+.pres-group { display: inline-flex; align-items: center; gap: 2px; padding: 0 4px; border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+.pres-group > .icon { width: 16px; height: 16px; margin: 0 2px; }
+.pres-value { min-width: 34px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.pres-select { height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; padding: 0 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pres-progress-bar, .pres-toolbar, .pres-controls { transition: none; }
+}

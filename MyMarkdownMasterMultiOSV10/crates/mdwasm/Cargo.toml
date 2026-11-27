@@ -1,0 +1,20 @@
+[package]
+name = "mdwasm"
+version = "1.0.0"
+edition = "2021"
+description = "MyMarkdownMaster core for the web build: mdcore compiled to WebAssembly (no wasm-bindgen; a tiny JSON ABI)"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+mdcore = { path = "../mdcore" }
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
