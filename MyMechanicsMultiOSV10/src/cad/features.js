@@ -303,7 +303,7 @@ export function regenerate(input, { upTo = null, project = null, flat = undefine
   const part = { ...input, features: feats };
   const results = new Map();
   const planes = new Map();
-  const ctx = { body: null, planes, part, results, project, surfaces: new Map(), curves: new Map(), flat: flat ?? Boolean(input.flat), stack: [...stack, input.id], sheet: null };
+  const ctx = { body: null, planes, part, results, project, surfaces: new Map(), absorbed: new Set(), curves: new Map(), flat: flat ?? Boolean(input.flat), stack: [...stack, input.id], sheet: null };
   const end = upTo == null ? part.features.length : Math.max(0, Math.min(part.features.length, upTo));
   let lastError = null;
   for (let i = 0; i < end; i++) {
@@ -323,6 +323,9 @@ export function regenerate(input, { upTo = null, project = null, flat = undefine
       if (out.body !== undefined) ctx.body = out.body;
       if (out.frame && (f.type === 'plane')) planes.set(f.id, out.frame);
       if (out.surface) ctx.surfaces.set(f.id, out.surface);
+      // A surface knitted, thickened, trimmed, extended, untrimmed or with its holes filled lives on in the new
+      // feature: it stays in the map (later features may still name it) but is no longer shown.
+      for (const id of ABSORBS[f.type]?.(f) ?? []) if (id && id !== f.id) ctx.absorbed.add(id);
       if (out.curve) ctx.curves.set(f.id, out.curve);
       results.set(f.id, { ok: true, ...out, body: ctx.body });
     } catch (error) {
@@ -331,8 +334,18 @@ export function regenerate(input, { upTo = null, project = null, flat = undefine
     }
   }
   for (let i = end; i < part.features.length; i++) results.set(part.features[i].id, { ok: true, rolledBack: true });
-  return { body: ctx.body, results, planes, surfaces: ctx.surfaces, curves: ctx.curves, sheet: ctx.sheet, features: part.features, error: lastError };
+  return { body: ctx.body, results, planes, surfaces: ctx.surfaces, absorbed: ctx.absorbed, curves: ctx.curves, sheet: ctx.sheet, features: part.features, error: lastError };
 }
+
+/** The surfaces a successful feature takes in (they are drawn no longer). */
+const ABSORBS = {
+  knit: (f) => f.surfaces ?? [],
+  thicken: (f) => [f.surface],
+  trimSurface: (f) => [f.surface],
+  extendSurface: (f) => [f.surface],
+  untrimSurface: (f) => [f.surface],
+  deleteHole: (f) => [f.surface],
+};
 
 function build(f, ctx) {
   switch (f.type) {

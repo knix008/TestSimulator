@@ -2338,6 +2338,7 @@ function tessellateExtras(result, size) {
   const out = { surfaces: [], curves: [] };
   const tol = { tolerance: Math.max(0.002, meshTolerance(size)), angularTolerance: angularTolerance() };
   for (const [id, shape] of result.surfaces ?? []) {
+    if (result.absorbed?.has(id)) continue;
     try { out.surfaces.push({ id, mesh: shape.mesh(tol), edges: shape.meshEdges(tol) }); } catch (error) { console.warn('surface mesh', error); }
   }
   const polylineSegments = (edges) => {

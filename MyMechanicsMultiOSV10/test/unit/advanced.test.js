@@ -126,11 +126,13 @@ test('surface extrude, planar surface, thicken and offset surface', () => {
   part.features.push(createFeature(part, 'thicken', { surface: plane.id, thickness: 3 }));
   let r = ok(part);
   near(V(r.body), 600);
+  // The thickened surface is taken in by the solid: kept for later references, no longer drawn.
+  assert.ok(r.surfaces.has(plane.id) && r.absorbed.has(plane.id));
   const wall = sketchOn(part, front, (k) => addArc(k, 0, 0, 30, 0, Math.PI / 2));
   const sx = createFeature(part, 'surfaceExtrude', { sketch: wall.id, depth: 10 });
   part.features.push(sx);
   r = ok(part);
-  assert.ok(r.surfaces.get(sx.id));
+  assert.ok(r.surfaces.get(sx.id) && !r.absorbed.has(sx.id));
   near(R.measureArea(r.surfaces.get(sx.id)), (Math.PI / 2) * 30 * 10, 0.01);
 });
 

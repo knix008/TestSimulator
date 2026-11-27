@@ -31,7 +31,7 @@ New to the program? Follow the **tutorial document** first (Help › Tutorial do
 
 ## 2. Start page
 
-Cards can be dragged and resized from their lower-right corner (**Arrange** puts them back). They hold **Quick actions** (open, import STEP, continue the last work, settings …), **Recent items**, **New project** (part in mm or inches, assembly, drawing), 92 **samples** (five groups of 15, and the tutorial's 17 lesson results) and the **moving background**. Whether the page shows at start is set by the check box at the top left or in Settings › Start page.
+Cards can be dragged and resized from their lower-right corner (**Arrange** puts them back). They hold **Quick actions** (open, import STEP, continue the last work, settings …), **Recent items**, **New project** (part in mm or inches, assembly, drawing), 92 **samples** (five groups of 15, and the tutorial's 17 lesson results — each card shows a picture of its model) and the **moving background**. Whether the page shows at start is set by the check box at the top left or in Settings › Start page.
 
 ![The start page: program information (guide and tutorial buttons), shortcuts, recent items, new project and sample cards](images/en/start-page.png)
 

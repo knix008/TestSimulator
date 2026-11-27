@@ -66,12 +66,23 @@ function recentBody(app, settings) {
   return `${recentBlock}${foldersBlock}`;
 }
 
+// The samples' pictures (scripts/make-sample-thumbs.mjs → src/assets/samples/<id>.webp); a sample without one shows its icon only.
+const THUMBS = import.meta.glob('../assets/samples/*.webp', { eager: true, query: '?url', import: 'default' });
+export const sampleThumb = (id) => THUMBS[`../assets/samples/${id}.webp`] ?? null;
+
+/** A sample tile: its picture above the icon, name and description. */
+function sampleTile(sample, L) {
+  const src = sampleThumb(sample.id);
+  const [name, tip] = sample[L];
+  return `<button type="button" class="start-tile sample-tile ${src ? 'has-thumb' : ''}" data-start="sample" data-value="${escapeHtml(sample.id)}" title="${escapeHtml(`${name} — ${tip}`)}">${src ? `<img class="sample-thumb" src="${src}" alt="" loading="lazy" decoding="async" draggable="false" />` : ''}${icon(sample.icon)}<b>${escapeHtml(name)}</b><small>${escapeHtml(tip)}</small></button>`;
+}
+
 function samplesBody(L) {
   return `<div class="sample-groups">${SAMPLE_GROUPS.map((group) => {
     const items = SAMPLES.filter((sample) => sample.group === group.id);
     return `<section class="sample-group" data-sample-group="${group.id}">
       <h3>${icon(group.icon)}<span>${escapeHtml(group[L])}</span><span class="sample-count">${items.length}</span></h3>
-      <div class="sample-tiles">${items.map((sample) => tile('sample', sample.icon, sample[L][0], sample[L][1], { value: sample.id })).join('')}</div>
+      <div class="sample-tiles">${items.map((sample) => sampleTile(sample, L)).join('')}</div>
     </section>`;
   }).join('')}</div>`;
 }

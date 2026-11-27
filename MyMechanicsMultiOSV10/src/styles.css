@@ -1671,6 +1671,10 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .sample-group > h3 .icon { width: 15px; height: 15px; }
 .sample-count { margin-left: 2px; color: var(--muted); font-weight: normal; }
 .sample-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+/* A sample with a picture: the picture across the top, then the icon beside the name and description. */
+.sample-tile.has-thumb { grid-template-rows: auto auto auto; align-items: center; padding: 6px; overflow: hidden; }
+.sample-tile .sample-thumb { grid-column: 1 / -1; display: block; width: 100%; height: auto; aspect-ratio: 400 / 236; object-fit: contain; margin-bottom: 5px; border-radius: 7px; border: 1px solid var(--hairline, var(--border)); background: #f4f6f9; user-select: none; -webkit-user-drag: none; transition: transform 0.15s ease; }
+.sample-tile.has-thumb:hover .sample-thumb { transform: scale(1.02); }
 
 .bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 5px; }
 .bg-tile, .anim-chip { display: flex; align-items: center; justify-content: flex-start; gap: 7px; min-width: 0; height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font-size: 0.92em; text-align: left; white-space: nowrap; cursor: pointer; }
