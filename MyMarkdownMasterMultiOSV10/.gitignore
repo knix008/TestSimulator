@@ -1,0 +1,15 @@
+node_modules/
+dist/
+release/
+test-results/
+src-tauri/target/
+src-tauri/gen/
+/MyMarkdownMaster-*.exe
+/MyMarkdownMaster-*.msi
+/MyMarkdownMaster-*.dmg
+/MyMarkdownMaster-*.deb
+/MyMarkdownMaster-*.rpm
+/MyMarkdownMaster-*.AppImage
+*.log
+.vite/
+crates/*/target/
